@@ -1,0 +1,60 @@
+name: Deploy Production Frontend to Hostinger VPS
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - 'front/**'
+      - '.github/workflows/deploy-frontend.yml'
+
+env:
+  PROJECT_PATH: /home/deployer/proyectos/distop-ia/prod/front
+  DOCKER_IMAGE: lebateleur/distop-ia-front
+  COMPOSE_PROJECT_NAME: distop_ia_prod
+  VITE_API_URL: https://api-distop-ia.guillermotorresdev.com/api
+
+jobs:
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to Hostinger VPS
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          password: ${{ secrets.VPS_PASSWORD }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          envs: PROJECT_PATH,DOCKER_IMAGE,COMPOSE_PROJECT_NAME
+          script: |
+            set -e
+            echo "=========================================="
+            echo "Starting production frontend deployment..."
+            echo "=========================================="
+            mkdir -p $PROJECT_PATH
+            cd $PROJECT_PATH
+
+            # Pull latest frontend image
+            docker pull ${{ env.DOCKER_IMAGE }}:latest
+
+            # Update container if running
+            CONTAINER_ID=$(docker ps -q -f "name=distop_ia_prod_front" || true)
+            if [ ! -z "$CONTAINER_ID" ]; then
+              echo "Stopping existing frontend container..."
+              docker stop $CONTAINER_ID
+              docker rm $CONTAINER_ID
+            fi
+
+            echo "Starting new frontend container..."
+            docker run -d \
+              --name distop_ia_prod_front \
+              --restart always \
+              -p 3001:3000 \
+              --network distop_ia_prod_network \
+              ${{ env.DOCKER_IMAGE }}:latest
+
+            echo "=========================================="
+            echo "Frontend deployment completed successfully!"
+            echo "=========================================="
