@@ -5,12 +5,6 @@ on:
   push:
     branches:
       - QA
-    paths:
-      - 'app/**'
-      - 'package.json'
-      - 'package-lock.json'
-      - 'Dockerfile'
-      - '.github/workflows/qa.yml'
 
 env:
   PROJECT_PATH: /home/deployer/proyectos/distop-ia/qa/front
@@ -30,8 +24,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: 'front/package-lock.json'
 
       - name: Install dependencies
         working-directory: front
