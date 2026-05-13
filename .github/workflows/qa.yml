@@ -5,13 +5,18 @@ on:
   push:
     branches:
       - QA
-   
+    paths:
+      - 'app/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'Dockerfile'
+      - '.github/workflows/qa.yml'
 
 env:
   PROJECT_PATH: /home/deployer/proyectos/distop-ia/qa/front
   DOCKER_IMAGE: lebateleur/distop-ia-front
   COMPOSE_PROJECT_NAME: distop_ia_qa
-  VITE_API_URL: https://api-distop-ia.guillermotorresdev.com/api
+  VITE_API_URL: https://api-qa-distop-ia.guillermotorresdev.com/api
 
 jobs:
   build-and-push:
@@ -50,9 +55,11 @@ jobs:
             --build-arg VITE_API_URL=${{ env.VITE_API_URL }} \
             -t ${{ env.DOCKER_IMAGE }}:qa-$COMMIT_TAG \
             -t ${{ env.DOCKER_IMAGE }}:qa \
+            -t ${{ env.DOCKER_IMAGE }}:latest \
             .
           docker push ${{ env.DOCKER_IMAGE }}:qa-$COMMIT_TAG
           docker push ${{ env.DOCKER_IMAGE }}:qa
+          docker push ${{ env.DOCKER_IMAGE }}:latest
 
       - name: Deploy to Hostinger VPS
         uses: appleboy/ssh-action@v1.0.3
