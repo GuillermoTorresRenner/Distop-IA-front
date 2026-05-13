@@ -14,10 +14,33 @@ npm run typecheck   # react-router typegen && tsc
 
 ## Variables de entorno
 
-| Variable          | Default                     | Notas                                                       |
-| ----------------- | --------------------------- | ----------------------------------------------------------- |
-| `VITE_API_URL`    | `http://localhost:3000/api` | URL base de la API. Usada por el cliente browser.           |
-| `API_URL`         | (igual a `VITE_API_URL`)    | Override server-side para SSR (sobrescribe a `VITE_API_URL`). |
+| Variable       | Default                     | Scope | Notas                                                                                                     |
+| -------------- | --------------------------- | ----- | --------------------------------------------------------------------------------------------------------- |
+| `VITE_API_URL` | `http://localhost:3000/api` | Build | URL base de la API. **Se embebe en el build de Vite** (compile-time). Usada por el cliente browser y SSR. |
+| `API_URL`      | (igual a `VITE_API_URL`)    | SSR   | Override server-side (sobrescribe a `VITE_API_URL` en servidor).                                          |
+
+### Setup local
+
+```bash
+cd front
+npm install
+# .env ya contiene VITE_API_URL=http://localhost:3000/api
+npm run dev  # vite dev :5173
+```
+
+### Build para producción (Docker)
+
+El `Dockerfile` acepta `VITE_API_URL` como argumento build:
+
+```bash
+docker build --build-arg VITE_API_URL=https://api.distop-ia.com/api -t vampiros-front .
+```
+
+El **workflow de CI/CD** (`.github/workflows/deploy-frontend.yml`) automáticamente:
+
+1. Construye la imagen con `VITE_API_URL=https://api.distop-ia.com/api`
+2. Pushea a Docker Hub (`lebateleur/distop-ia-front`)
+3. SSH a la VPS y redeploy del contenedor
 
 ## Estructura
 
@@ -117,9 +140,9 @@ Cada layout (`public.tsx`, `private.tsx`) llama `getAuthSession(request)` en su 
 interface UserState {
   user: User | null;
   status: "idle" | "authenticated" | "unauthenticated";
-  setUser(user: User): void;   // tras login exitoso en el cliente
+  setUser(user: User): void; // tras login exitoso en el cliente
   hydrate(user: User | null): void; // desde el layout privado con el user del loader
-  clear(): void;               // tras logout o refresh fallido
+  clear(): void; // tras logout o refresh fallido
 }
 ```
 
@@ -182,7 +205,7 @@ Flujo de invitación a usuarios existentes:
 - ✅ Auth completo (login, register, forgot, recovery) con `?next=` y `?invite=` deep-link.
 - ✅ Layouts public/private con guard SSR + refresh transparente.
 - ✅ Store zustand de usuario.
-- ✅ Navbar estilo *nivel20* con dropdown de usuario, badge de invitaciones y tabs.
+- ✅ Navbar estilo _nivel20_ con dropdown de usuario, badge de invitaciones y tabs.
 - ✅ Crónicas: CRUD + invitar usuarios (existentes y no registrados) + aceptar / cancelar / expulsar.
 - ✅ Templates hbs Distop-IA VtM (welcome, password-recovery, chronicle-invite-existing, chronicle-invite-new).
 - ⏳ Toggle dark/light (paleta lista, falta UI).
