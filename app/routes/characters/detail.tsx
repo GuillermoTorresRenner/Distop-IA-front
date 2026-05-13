@@ -1,25 +1,36 @@
-import { Link2, Link2Off, Loader2, Save, Trash2 } from "lucide-react";
+import { Loader2, Save, Trash2 } from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
-import { useNavigate, useParams } from "react-router";
+import { Link, useNavigate, useParams } from "react-router";
 import { CharacterSheetForm } from "~/components/character/character-sheet-form";
+import { CustomArmorDialog } from "~/components/character/custom-armor-dialog";
+import { CustomWeaponDialog } from "~/components/character/custom-weapon-dialog";
+import { QuickGuideButton } from "~/components/character/quick-guide-button";
+import { ReferenceTablesButton } from "~/components/character/reference-tables-button";
 import { extractAuthError } from "~/components/common/auth-error";
 import { FormAlert } from "~/components/common/form-alert";
 import { PageHeader } from "~/components/common/page-header";
 import { Button } from "~/components/ui/button";
+import { useConfirm } from "~/hooks/use-confirm";
 import {
   listArchetypes,
+  listArmors,
+  listClans,
   listDisciplines,
   listMeritsFlaws,
+  listWeaponCategories,
+  listWeapons,
 } from "~/lib/api/catalog/catalog.api";
 import type {
   Archetype,
+  Armor,
+  Clan,
   Discipline,
   MeritFlaw,
+  Weapon,
+  WeaponCategory,
 } from "~/lib/api/catalog/catalog.types";
 import {
-  associateChronicle,
   deleteCharacter,
-  dissociateChronicle,
   getCharacter,
   updateCharacter,
 } from "~/lib/api/characters/characters.api";
@@ -27,8 +38,6 @@ import type {
   Character,
   CharacterInput,
 } from "~/lib/api/characters/characters.types";
-import { listMyChronicles } from "~/lib/api/chronicles/chronicles.api";
-import type { ChronicleListItem } from "~/lib/api/chronicles/chronicles.types";
 
 export function meta() {
   return [{ title: "Vástago · Distop-IA VTT" }];
@@ -36,12 +45,13 @@ export function meta() {
 
 function toInput(c: Character): CharacterInput {
   return {
+    kind: c.kind,
     name: c.name,
     concept: c.concept ?? undefined,
     chronicleName: c.chronicleName ?? undefined,
     generation: c.generation ?? undefined,
     haven: c.haven ?? undefined,
-    clan: c.clan ?? undefined,
+    clanId: c.clanId ?? undefined,
     natureId: c.natureId ?? undefined,
     demeanorId: c.demeanorId ?? undefined,
     strength: c.strength,
@@ -88,17 +98,32 @@ function toInput(c: Character): CharacterInput {
       meritFlawId: m.meritFlawId,
       notes: m.notes,
     })),
+    weapons: c.weapons.map((w) => ({
+      weaponId: w.weaponId,
+      notes: w.notes,
+      order: w.order,
+    })),
+    armors: c.armors.map((a) => ({
+      armorId: a.armorId,
+      notes: a.notes,
+      order: a.order,
+    })),
+    notes: c.notes ?? undefined,
   };
 }
 
 export default function CharacterDetailRoute() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { confirm, dialog } = useConfirm();
 
   const [archetypes, setArchetypes] = useState<Archetype[]>([]);
+  const [clans, setClans] = useState<Clan[]>([]);
   const [disciplines, setDisciplines] = useState<Discipline[]>([]);
   const [meritsFlaws, setMeritsFlaws] = useState<MeritFlaw[]>([]);
-  const [chronicles, setChronicles] = useState<ChronicleListItem[]>([]);
+  const [weapons, setWeapons] = useState<Weapon[]>([]);
+  const [weaponCategories, setWeaponCategories] = useState<WeaponCategory[]>([]);
+  const [armors, setArmors] = useState<Armor[]>([]);
 
   const [character, setCharacter] = useState<Character | null>(null);
   const [value, setValue] = useState<CharacterInput | null>(null);
@@ -106,25 +131,31 @@ export default function CharacterDetailRoute() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-
-  const [linkTargetId, setLinkTargetId] = useState<string>("");
+  const [weaponDialogOpen, setWeaponDialogOpen] = useState(false);
+  const [armorDialogOpen, setArmorDialogOpen] = useState(false);
 
   useEffect(() => {
     if (!id) return;
     Promise.all([
       getCharacter(id),
       listArchetypes(),
+      listClans(),
       listDisciplines(),
       listMeritsFlaws(),
-      listMyChronicles(),
+      listWeapons(),
+      listWeaponCategories(),
+      listArmors(),
     ])
-      .then(([c, a, d, m, ch]) => {
+      .then(([c, a, cl, d, m, w, wc, ar]) => {
         setCharacter(c);
         setValue(toInput(c));
         setArchetypes(a);
+        setClans(cl);
         setDisciplines(d);
         setMeritsFlaws(m);
-        setChronicles(ch);
+        setWeapons(w);
+        setWeaponCategories(wc);
+        setArmors(ar);
       })
       .catch((err) => setError(extractAuthError(err, "No se pudo cargar el personaje")))
       .finally(() => setLoading(false));
@@ -154,35 +185,25 @@ export default function CharacterDetailRoute() {
 
   async function handleDelete() {
     if (!id || !character) return;
-    if (!confirm(`¿Eliminar a ${character.name}?`)) return;
+    const ok = await confirm({
+      title: "Eliminar vástago",
+      description: (
+        <>
+          ¿Seguro que quieres eliminar a{" "}
+          <strong className="text-foreground">{character.name}</strong>? Esta
+          acción no se puede deshacer y también eliminará sus vínculos a
+          crónicas.
+        </>
+      ),
+      confirmLabel: "Eliminar",
+      tone: "danger",
+    });
+    if (!ok) return;
     try {
       await deleteCharacter(id);
       navigate("/characters", { replace: true });
     } catch (err) {
       setError(extractAuthError(err, "No se pudo eliminar"));
-    }
-  }
-
-  async function handleAssociate() {
-    if (!id || !linkTargetId) return;
-    setError(null);
-    try {
-      const updated = await associateChronicle(id, linkTargetId);
-      setCharacter(updated);
-      setLinkTargetId("");
-    } catch (err) {
-      setError(extractAuthError(err, "No se pudo asociar a la crónica"));
-    }
-  }
-
-  async function handleDissociate(chronicleId: string) {
-    if (!id) return;
-    if (!confirm("¿Quitar al personaje de esta crónica?")) return;
-    try {
-      const updated = await dissociateChronicle(id, chronicleId);
-      setCharacter(updated);
-    } catch (err) {
-      setError(extractAuthError(err, "No se pudo desasociar"));
     }
   }
 
@@ -194,91 +215,73 @@ export default function CharacterDetailRoute() {
     );
   }
 
-  const linkedIds = new Set(character.chronicles.map((c) => c.chronicleId));
-  const availableChronicles = chronicles.filter((c) => !linkedIds.has(c.id));
-
   return (
     <section className="space-y-6">
       <PageHeader
-        eyebrow={character.clan ?? "Vástago"}
+        eyebrow={
+          character.kind === "ANTAGONIST"
+            ? `Antagonista${character.clan?.name ? ` · ${character.clan.name}` : ""}`
+            : character.kind === "NPC"
+              ? `PNJ${character.clan?.name ? ` · ${character.clan.name}` : ""}`
+              : (character.clan?.name ?? "Vástago")
+        }
         title={character.name}
         description={character.concept ?? undefined}
         actions={
-          <Button
-            variant="ghost"
-            onClick={handleDelete}
-            className="text-destructive hover:bg-destructive/10"
-          >
-            <Trash2 className="size-4" /> Eliminar
-          </Button>
+          <div className="flex items-center gap-2">
+            <ReferenceTablesButton />
+            <QuickGuideButton />
+            <Button
+              variant="ghost"
+              onClick={handleDelete}
+              className="text-destructive hover:bg-destructive/10"
+            >
+              <Trash2 className="size-4" /> Eliminar
+            </Button>
+          </div>
         }
       />
 
       {error ? <FormAlert message={error} /> : null}
       {success ? <FormAlert kind="success" message={success} /> : null}
 
-      <article className="rounded-lg border border-border/60 bg-card/70 p-4">
-        <h2 className="mb-3 font-heading text-sm uppercase tracking-[0.3em] text-blood">
-          Crónicas vinculadas
-        </h2>
-        {character.chronicles.length === 0 ? (
-          <p className="font-serif text-sm italic text-muted-foreground">
-            Aún no participa en ninguna crónica.
+      {character.chronicles.length > 0 ? (
+        <article className="rounded-lg border border-border/60 bg-card/70 p-4">
+          <h2 className="mb-2 font-heading text-sm uppercase tracking-[0.3em] text-blood">
+            Crónicas en las que participa
+          </h2>
+          <p className="mb-3 font-serif text-xs italic text-muted-foreground">
+            Para vincular o quitar al vástago de una mesa, ve al detalle de la
+            crónica correspondiente.
           </p>
-        ) : (
-          <ul className="mb-3 space-y-1">
+          <ul className="flex flex-wrap gap-2">
             {character.chronicles.map((link) => (
-              <li
-                key={link.id}
-                className="flex items-center justify-between gap-2 rounded-md border border-border/40 bg-background/30 px-3 py-1.5"
-              >
-                <span className="font-serif text-sm">{link.chronicle.name}</span>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => handleDissociate(link.chronicleId)}
-                  className="text-destructive hover:bg-destructive/10"
+              <li key={link.id}>
+                <Link
+                  to={`/chronicles/${link.chronicleId}`}
+                  className="inline-flex items-center rounded-full border border-blood/40 bg-blood/10 px-3 py-1 font-serif text-xs text-foreground hover:bg-blood/20"
                 >
-                  <Link2Off className="size-4" /> Quitar
-                </Button>
+                  {link.chronicle.name}
+                </Link>
               </li>
             ))}
           </ul>
-        )}
-        {availableChronicles.length > 0 ? (
-          <div className="flex items-center gap-2">
-            <select
-              value={linkTargetId}
-              onChange={(e) => setLinkTargetId(e.target.value)}
-              className="h-9 flex-1 rounded-md border border-input bg-transparent px-2 text-sm"
-            >
-              <option value="">Selecciona una crónica donde participas...</option>
-              {availableChronicles.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-            <Button
-              type="button"
-              onClick={handleAssociate}
-              disabled={!linkTargetId}
-              className="bg-blood text-blood-foreground hover:bg-blood/90"
-            >
-              <Link2 className="size-4" /> Asociar
-            </Button>
-          </div>
-        ) : null}
-      </article>
+        </article>
+      ) : null}
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <CharacterSheetForm
           value={value}
           onChange={setValue}
           archetypes={archetypes}
+          clans={clans}
           disciplines={disciplines}
           meritsFlaws={meritsFlaws}
+          weapons={weapons}
+          weaponCategories={weaponCategories}
+          armors={armors}
+          onCreateWeapon={() => setWeaponDialogOpen(true)}
+          onCreateArmor={() => setArmorDialogOpen(true)}
         />
         <div className="flex items-center gap-3 border-t border-border/60 pt-4">
           <Button
@@ -291,6 +294,36 @@ export default function CharacterDetailRoute() {
           </Button>
         </div>
       </form>
+
+      <CustomWeaponDialog
+        open={weaponDialogOpen}
+        categories={weaponCategories}
+        onClose={() => setWeaponDialogOpen(false)}
+        onCreated={(w) => {
+          setWeapons((prev) => [...prev, w]);
+          setValue((prev) =>
+            prev
+              ? { ...prev, weapons: [...(prev.weapons ?? []), { weaponId: w.id }] }
+              : prev,
+          );
+          setWeaponDialogOpen(false);
+        }}
+      />
+      <CustomArmorDialog
+        open={armorDialogOpen}
+        onClose={() => setArmorDialogOpen(false)}
+        onCreated={(a) => {
+          setArmors((prev) => [...prev, a]);
+          setValue((prev) =>
+            prev
+              ? { ...prev, armors: [...(prev.armors ?? []), { armorId: a.id }] }
+              : prev,
+          );
+          setArmorDialogOpen(false);
+        }}
+      />
+
+      {dialog}
     </section>
   );
 }

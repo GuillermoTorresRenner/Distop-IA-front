@@ -2,9 +2,13 @@ import {
   BookOpen,
   Crown,
   Image as ImageIcon,
+  Link2,
+  Link2Off,
   Loader2,
   Mail,
+  Plus,
   Send,
+  Skull,
   Trash2,
   UserMinus,
   Users,
@@ -15,8 +19,19 @@ import { extractAuthError } from "~/components/common/auth-error";
 import { FormAlert } from "~/components/common/form-alert";
 import { FormField } from "~/components/common/form-field";
 import { ImageUploader } from "~/components/common/image-uploader";
+import { CreateNpcDialog } from "~/components/character/create-npc-dialog";
 import { PageHeader } from "~/components/common/page-header";
 import { Button } from "~/components/ui/button";
+import { useConfirm } from "~/hooks/use-confirm";
+import { SELECT_DARK_CLASS } from "~/lib/select-styles";
+import {
+  linkCharacterToChronicle,
+  listAssociableCharacters,
+  listChronicleCharacters,
+  unlinkCharacterFromChronicle,
+  type AssociableCharacter,
+  type ChronicleCharacterEntry,
+} from "~/lib/api/characters/characters.api";
 import {
   cancelInvitation,
   deleteChronicle,
@@ -48,6 +63,7 @@ export default function ChronicleDetailRoute() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const user = useUserStore((s) => s.user);
+  const { confirm, dialog } = useConfirm();
 
   const [chronicle, setChronicle] = useState<Chronicle | null>(null);
   const [loading, setLoading] = useState(true);
@@ -58,11 +74,24 @@ export default function ChronicleDetailRoute() {
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [inviteSuccess, setInviteSuccess] = useState<string | null>(null);
 
+  const [characters, setCharacters] = useState<ChronicleCharacterEntry[]>([]);
+  const [associable, setAssociable] = useState<AssociableCharacter[]>([]);
+  const [linkTargetId, setLinkTargetId] = useState("");
+  const [charsError, setCharsError] = useState<string | null>(null);
+  const [linking, setLinking] = useState(false);
+  const [npcDialogOpen, setNpcDialogOpen] = useState(false);
+
   async function reload() {
     if (!id) return;
     try {
-      const data = await getChronicle(id);
+      const [data, chars, options] = await Promise.all([
+        getChronicle(id),
+        listChronicleCharacters(id),
+        listAssociableCharacters(id),
+      ]);
       setChronicle(data);
+      setCharacters(chars);
+      setAssociable(options);
     } catch (err) {
       setError(extractAuthError(err, "No se pudo cargar la crónica"));
     }
@@ -71,8 +100,16 @@ export default function ChronicleDetailRoute() {
   useEffect(() => {
     if (!id) return;
     setLoading(true);
-    getChronicle(id)
-      .then(setChronicle)
+    Promise.all([
+      getChronicle(id),
+      listChronicleCharacters(id),
+      listAssociableCharacters(id),
+    ])
+      .then(([data, chars, options]) => {
+        setChronicle(data);
+        setCharacters(chars);
+        setAssociable(options);
+      })
       .catch((err) => setError(extractAuthError(err, "No se pudo cargar la crónica")))
       .finally(() => setLoading(false));
   }, [id]);
@@ -111,9 +148,22 @@ export default function ChronicleDetailRoute() {
     }
   }
 
-  async function handleCancel(invitationId: string) {
+  async function handleCancel(invitationId: string, email: string) {
     if (!id) return;
-    if (!confirm("¿Cancelar esta invitación?")) return;
+    const ok = await confirm({
+      title: "Cancelar invitación",
+      description: (
+        <>
+          ¿Cancelar la invitación enviada a{" "}
+          <strong className="text-foreground">{email}</strong>? El enlace dejará
+          de funcionar.
+        </>
+      ),
+      confirmLabel: "Cancelar invitación",
+      cancelLabel: "Volver",
+      tone: "danger",
+    });
+    if (!ok) return;
     try {
       await cancelInvitation(id, invitationId);
       await reload();
@@ -122,9 +172,21 @@ export default function ChronicleDetailRoute() {
     }
   }
 
-  async function handleRemoveMember(userId: string) {
+  async function handleRemoveMember(userId: string, nickname: string) {
     if (!id) return;
-    if (!confirm("¿Expulsar a este miembro de la crónica?")) return;
+    const ok = await confirm({
+      title: "Expulsar miembro",
+      description: (
+        <>
+          ¿Expulsar a{" "}
+          <strong className="text-foreground">{nickname}</strong> de la crónica?
+          Sus personajes asociados se mantendrán pero perderá acceso a la mesa.
+        </>
+      ),
+      confirmLabel: "Expulsar",
+      tone: "danger",
+    });
+    if (!ok) return;
     try {
       await removeMember(id, userId);
       await reload();
@@ -135,7 +197,14 @@ export default function ChronicleDetailRoute() {
 
   async function handleDelete() {
     if (!id) return;
-    if (!confirm("¿Eliminar la crónica permanentemente? Esta acción no se puede deshacer.")) return;
+    const ok = await confirm({
+      title: "Disolver crónica",
+      description:
+        "¿Eliminar la crónica permanentemente? Esta acción no se puede deshacer y se perderán todos los miembros, invitaciones y vínculos a personajes.",
+      confirmLabel: "Disolver",
+      tone: "danger",
+    });
+    if (!ok) return;
     try {
       await deleteChronicle(id);
       navigate("/chronicles", { replace: true });
@@ -154,6 +223,46 @@ export default function ChronicleDetailRoute() {
     if (!id) return;
     const updated = await deleteChronicleImage(id);
     setChronicle((prev) => (prev ? { ...prev, image: updated.image } : prev));
+  }
+
+  async function handleLink() {
+    if (!id || !linkTargetId) return;
+    setCharsError(null);
+    setLinking(true);
+    try {
+      await linkCharacterToChronicle(id, linkTargetId);
+      setLinkTargetId("");
+      await reload();
+    } catch (err) {
+      setCharsError(extractAuthError(err, "No se pudo asociar el personaje"));
+    } finally {
+      setLinking(false);
+    }
+  }
+
+  async function handleDissociate(characterId: string, name: string, ownerId: string) {
+    if (!id) return;
+    const canRemove = isNarrator || ownerId === user?.id;
+    if (!canRemove) return;
+    const ok = await confirm({
+      title: "Quitar de la mesa",
+      description: (
+        <>
+          ¿Quitar a <strong className="text-foreground">{name}</strong> de esta
+          crónica? El personaje seguirá existiendo en su perfil.
+        </>
+      ),
+      confirmLabel: "Quitar",
+      tone: "danger",
+    });
+    if (!ok) return;
+    setCharsError(null);
+    try {
+      await unlinkCharacterFromChronicle(id, characterId);
+      await reload();
+    } catch (err) {
+      setCharsError(extractAuthError(err, "No se pudo desasociar"));
+    }
   }
 
   return (
@@ -239,7 +348,12 @@ export default function ChronicleDetailRoute() {
                       <Button
                         size="icon-sm"
                         variant="ghost"
-                        onClick={() => handleRemoveMember(member.user.id)}
+                        onClick={() =>
+                          handleRemoveMember(
+                            member.user.id,
+                            member.user.nickname ?? member.user.email,
+                          )
+                        }
                         aria-label="Expulsar miembro"
                         className="text-destructive hover:bg-destructive/10"
                       >
@@ -250,6 +364,222 @@ export default function ChronicleDetailRoute() {
                 </li>
               ))}
             </ul>
+          </article>
+
+          <article className="rounded-lg border border-border/60 bg-card/70 p-5">
+            <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <h2 className="flex items-center gap-2 font-heading text-sm uppercase tracking-[0.3em] text-blood">
+                <Skull className="size-4" /> Personajes de la mesa ({characters.length})
+              </h2>
+              <div className="flex flex-wrap items-center gap-2">
+                <Link
+                  to={`/characters/new?chronicleId=${chronicle.id}`}
+                  title="Crear y asociar un personaje propio a esta crónica"
+                >
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="border border-blood/40 text-blood hover:bg-blood/10"
+                  >
+                    <Plus className="size-4" /> Crear el mío
+                  </Button>
+                </Link>
+                {isNarrator ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => setNpcDialogOpen(true)}
+                    className="bg-blood text-blood-foreground hover:bg-blood/90"
+                    title="Crear PNJ o antagonista desde plantilla"
+                  >
+                    <Skull className="size-4" /> Crear PNJ / Antagonista
+                  </Button>
+                ) : null}
+              </div>
+            </header>
+
+            {charsError ? <FormAlert message={charsError} /> : null}
+
+            {associable.length > 0 ? (
+              <div className="mb-4 flex flex-wrap items-end gap-2 rounded-md border border-border/40 bg-background/40 p-3">
+                <div className="flex-1 min-w-50 space-y-1">
+                  <label className="font-heading text-[0.65rem] uppercase tracking-widest text-muted-foreground">
+                    {isNarrator
+                      ? "Asociar personaje de la mesa"
+                      : "Asociar uno de mis personajes"}
+                  </label>
+                  <select
+                    value={linkTargetId}
+                    onChange={(e) => setLinkTargetId(e.target.value)}
+                    className={SELECT_DARK_CLASS}
+                  >
+                    <option value="">Selecciona un personaje...</option>
+                    {isNarrator
+                      ? Object.entries(
+                          associable.reduce<Record<string, AssociableCharacter[]>>(
+                            (acc, c) => {
+                              const key = c.user.nickname ?? c.user.email;
+                              (acc[key] ??= []).push(c);
+                              return acc;
+                            },
+                            {},
+                          ),
+                        )
+                          .sort(([a], [b]) => a.localeCompare(b))
+                          .map(([owner, list]) => (
+                            <optgroup key={owner} label={owner}>
+                              {list.map((c) => (
+                                <option key={c.id} value={c.id}>
+                                  {c.name}
+                                  {c.clan?.name ? ` · ${c.clan.name}` : ""}
+                                </option>
+                              ))}
+                            </optgroup>
+                          ))
+                      : associable.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.name}
+                            {c.clan?.name ? ` · ${c.clan.name}` : ""}
+                          </option>
+                        ))}
+                  </select>
+                </div>
+                <Button
+                  type="button"
+                  onClick={handleLink}
+                  disabled={!linkTargetId || linking}
+                  className="bg-blood text-blood-foreground hover:bg-blood/90"
+                >
+                  {linking ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <Link2 className="size-4" />
+                  )}
+                  Asociar
+                </Button>
+              </div>
+            ) : null}
+
+            {characters.length === 0 ? (
+              <p className="font-serif italic text-muted-foreground">
+                Aún no hay personajes en esta mesa.
+              </p>
+            ) : (
+              (() => {
+                const pcs = characters.filter((c) => c.character.kind === "PC");
+                const npcs = characters.filter(
+                  (c) => c.character.kind === "NPC",
+                );
+                const antags = characters.filter(
+                  (c) => c.character.kind === "ANTAGONIST",
+                );
+
+                function renderRow(entry: ChronicleCharacterEntry) {
+                  const c = entry.character;
+                  const isMine = c.userId === user?.id;
+                  const canUnlink = isNarrator || isMine;
+                  const kindBadge =
+                    c.kind === "ANTAGONIST"
+                      ? {
+                          label: "Antagonista",
+                          cls: "border-destructive/60 bg-destructive/10 text-destructive",
+                        }
+                      : c.kind === "NPC"
+                        ? {
+                            label: "PNJ",
+                            cls: "border-amber-500/50 bg-amber-500/10 text-amber-300",
+                          }
+                        : null;
+                  return (
+                    <li
+                      key={c.id}
+                      className="flex items-center justify-between gap-3 rounded-md border border-border/40 bg-background/40 px-3 py-2"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <Link
+                            to={isMine ? `/characters/${c.id}` : "#"}
+                            className={`font-heading text-sm uppercase tracking-wide ${
+                              isMine
+                                ? "text-foreground hover:text-blood"
+                                : "pointer-events-none text-foreground/80"
+                            }`}
+                          >
+                            {c.name}
+                          </Link>
+                          {kindBadge ? (
+                            <span
+                              className={`rounded-full border px-2 py-0.5 font-heading text-[0.55rem] uppercase tracking-widest ${kindBadge.cls}`}
+                            >
+                              {kindBadge.label}
+                            </span>
+                          ) : null}
+                        </div>
+                        <p className="font-serif text-xs italic text-muted-foreground">
+                          {c.clan?.name ?? "Sin clan"} ·{" "}
+                          {c.concept ?? "Concepto sin definir"}
+                        </p>
+                        <p className="mt-0.5 text-[0.65rem] uppercase tracking-widest text-muted-foreground">
+                          {c.kind === "PC" ? "Jugador: " : "Controlado por: "}
+                          {c.user.nickname ?? c.user.email}
+                          {isMine ? " · (tú)" : ""}
+                        </p>
+                      </div>
+                      {canUnlink ? (
+                        <Button
+                          type="button"
+                          size="icon-sm"
+                          variant="ghost"
+                          onClick={() => handleDissociate(c.id, c.name, c.userId)}
+                          aria-label={`Quitar ${c.name} de la mesa`}
+                          className="text-destructive hover:bg-destructive/10"
+                        >
+                          <Link2Off className="size-4" />
+                        </Button>
+                      ) : null}
+                    </li>
+                  );
+                }
+
+                function GroupHeading({
+                  label,
+                  count,
+                }: {
+                  label: string;
+                  count: number;
+                }) {
+                  return (
+                    <h3 className="mt-2 mb-1 font-heading text-[0.65rem] uppercase tracking-[0.3em] text-muted-foreground">
+                      {label} ({count})
+                    </h3>
+                  );
+                }
+
+                return (
+                  <div className="space-y-4">
+                    {pcs.length > 0 ? (
+                      <div>
+                        <GroupHeading label="Personajes jugadores" count={pcs.length} />
+                        <ul className="space-y-2">{pcs.map(renderRow)}</ul>
+                      </div>
+                    ) : null}
+                    {npcs.length > 0 ? (
+                      <div>
+                        <GroupHeading label="PNJs" count={npcs.length} />
+                        <ul className="space-y-2">{npcs.map(renderRow)}</ul>
+                      </div>
+                    ) : null}
+                    {antags.length > 0 ? (
+                      <div>
+                        <GroupHeading label="Antagonistas" count={antags.length} />
+                        <ul className="space-y-2">{antags.map(renderRow)}</ul>
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })()
+            )}
           </article>
 
           <article className="rounded-lg border border-border/60 bg-card/70 p-5">
@@ -281,7 +611,7 @@ export default function ChronicleDetailRoute() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleCancel(inv.id)}
+                        onClick={() => handleCancel(inv.id, inv.email)}
                         className="text-destructive hover:bg-destructive/10"
                       >
                         Cancelar
@@ -371,6 +701,14 @@ export default function ChronicleDetailRoute() {
           </article>
         </aside>
       </div>
+
+      <CreateNpcDialog
+        open={npcDialogOpen}
+        chronicleId={chronicle.id}
+        onClose={() => setNpcDialogOpen(false)}
+      />
+
+      {dialog}
     </section>
   );
 }

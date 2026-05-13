@@ -1,12 +1,15 @@
 import type {
   Archetype,
+  Armor,
   Clan,
   Discipline,
   MeritFlaw,
+  Weapon,
 } from "~/lib/api/catalog/catalog.types";
 
 export type AbilityCategory = "TALENT" | "SKILL" | "KNOWLEDGE";
 export type VirtueScheme = "HUMANITY" | "PATH";
+export type CharacterKind = "PC" | "NPC" | "ANTAGONIST";
 
 export interface CharacterAbility {
   id?: string;
@@ -37,6 +40,22 @@ export interface CharacterMeritFlaw {
   meritFlaw?: MeritFlaw;
 }
 
+export interface CharacterWeapon {
+  id?: string;
+  weaponId: string;
+  notes?: string | null;
+  order?: number;
+  weapon?: Weapon;
+}
+
+export interface CharacterArmor {
+  id?: string;
+  armorId: string;
+  notes?: string | null;
+  order?: number;
+  armor?: Armor;
+}
+
 export interface ChronicleSummary {
   id: string;
   name: string;
@@ -53,6 +72,7 @@ export interface ChronicleCharacterLink {
 export interface Character {
   id: string;
   userId: string;
+  kind: CharacterKind;
   name: string;
   concept: string | null;
   chronicleName: string | null;
@@ -95,10 +115,14 @@ export interface Character {
 
   experience: number;
 
+  notes: string | null;
+
   abilities: CharacterAbility[];
   backgrounds: CharacterBackground[];
   disciplines: CharacterDiscipline[];
   meritsFlaws: CharacterMeritFlaw[];
+  weapons: CharacterWeapon[];
+  armors: CharacterArmor[];
   chronicles: ChronicleCharacterLink[];
 
   createdAt: string;
@@ -106,6 +130,7 @@ export interface Character {
 }
 
 export interface CharacterInput {
+  kind?: CharacterKind;
   name: string;
   concept?: string;
   chronicleName?: string;
@@ -145,8 +170,12 @@ export interface CharacterInput {
 
   experience?: number;
 
+  notes?: string;
+
   abilities?: CharacterAbility[];
   backgrounds?: CharacterBackground[];
   disciplines?: CharacterDiscipline[];
   meritsFlaws?: CharacterMeritFlaw[];
+  weapons?: CharacterWeapon[];
+  armors?: CharacterArmor[];
 }

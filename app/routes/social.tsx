@@ -14,6 +14,7 @@ import { FormAlert } from "~/components/common/form-alert";
 import { PageHeader } from "~/components/common/page-header";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
+import { useConfirm } from "~/hooks/use-confirm";
 import {
   acceptFriendship,
   declineFriendship,
@@ -65,6 +66,7 @@ function UserCell({
 
 export default function SocialRoute() {
   const currentUser = useUserStore((s) => s.user);
+  const { confirm, dialog } = useConfirm();
   const [tab, setTab] = useState<"discover" | "friends" | "requests">(
     "discover",
   );
@@ -156,7 +158,14 @@ export default function SocialRoute() {
   }
 
   async function handleRemove(id: string) {
-    if (!confirm("¿Eliminar este lazo de sangre?")) return;
+    const ok = await confirm({
+      title: "Romper lazo",
+      description:
+        "¿Eliminar este lazo de sangre? Podrás volver a enviar una solicitud más adelante.",
+      confirmLabel: "Romper",
+      tone: "danger",
+    });
+    if (!ok) return;
     setError(null);
     try {
       await removeFriendship(id);
@@ -349,6 +358,7 @@ export default function SocialRoute() {
           </article>
         </div>
       ) : null}
+      {dialog}
     </section>
   );
 }

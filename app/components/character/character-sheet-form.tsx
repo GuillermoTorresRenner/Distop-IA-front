@@ -6,18 +6,25 @@ import { FormField } from "~/components/common/form-field";
 import { Tooltip } from "~/components/common/tooltip";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
+import { Tabs } from "~/components/common/tabs";
+import { Textarea } from "~/components/ui/textarea";
 import type {
   Archetype,
+  Armor,
   Clan,
   Discipline,
   MeritFlaw,
+  Weapon,
+  WeaponCategory,
 } from "~/lib/api/catalog/catalog.types";
 import type {
   CharacterAbility,
+  CharacterArmor,
   CharacterBackground,
   CharacterDiscipline,
   CharacterInput,
   CharacterMeritFlaw,
+  CharacterWeapon,
 } from "~/lib/api/characters/characters.types";
 import {
   ATTRIBUTES,
@@ -35,6 +42,7 @@ import {
   STATE_TOOLTIPS,
   VIRTUE_TOOLTIPS,
 } from "~/lib/sheet-tooltips";
+import { SELECT_DARK_CLASS } from "~/lib/select-styles";
 import { cn } from "~/lib/utils";
 
 interface Props {
@@ -44,11 +52,13 @@ interface Props {
   clans: Clan[];
   disciplines: Discipline[];
   meritsFlaws: MeritFlaw[];
+  weapons: Weapon[];
+  weaponCategories: WeaponCategory[];
+  armors: Armor[];
+  onCreateWeapon?: () => void;
+  onCreateArmor?: () => void;
   readOnly?: boolean;
 }
-
-const SELECT_DARK_CLASS =
-  "h-9 w-full rounded-md border border-input bg-input/30 px-2.5 text-sm text-foreground dark:bg-input/50 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 outline-none [&>option]:bg-popover [&>option]:text-popover-foreground";
 
 export function CharacterSheetForm({
   value,
@@ -57,6 +67,11 @@ export function CharacterSheetForm({
   clans,
   disciplines,
   meritsFlaws,
+  weapons,
+  weaponCategories,
+  armors,
+  onCreateWeapon,
+  onCreateArmor,
   readOnly,
 }: Props) {
   function patch(p: Partial<CharacterInput>) {
@@ -126,6 +141,44 @@ export function CharacterSheetForm({
     const list = [...(value.meritsFlaws ?? [])];
     list.splice(i, 1);
     patch({ meritsFlaws: list });
+  }
+
+  function addWeapon(weaponId: string) {
+    if (!weaponId) return;
+    const list = [
+      ...(value.weapons ?? []),
+      { weaponId } as CharacterWeapon,
+    ];
+    patch({ weapons: list });
+  }
+  function updateWeaponRow(i: number, p: Partial<CharacterWeapon>) {
+    const list = [...(value.weapons ?? [])];
+    list[i] = { ...list[i], ...p };
+    patch({ weapons: list });
+  }
+  function removeWeaponRow(i: number) {
+    const list = [...(value.weapons ?? [])];
+    list.splice(i, 1);
+    patch({ weapons: list });
+  }
+
+  function addArmor(armorId: string) {
+    if (!armorId) return;
+    const list = [
+      ...(value.armors ?? []),
+      { armorId } as CharacterArmor,
+    ];
+    patch({ armors: list });
+  }
+  function updateArmorRow(i: number, p: Partial<CharacterArmor>) {
+    const list = [...(value.armors ?? [])];
+    list[i] = { ...list[i], ...p };
+    patch({ armors: list });
+  }
+  function removeArmorRow(i: number) {
+    const list = [...(value.armors ?? [])];
+    list.splice(i, 1);
+    patch({ armors: list });
   }
 
   const archetypesSorted = useMemo(
@@ -285,6 +338,29 @@ export function CharacterSheetForm({
         </Tooltip>
       </div>
 
+      <Tabs
+        items={[
+          { id: "rasgos", label: "Rasgos" },
+          { id: "ventajas", label: "Ventajas" },
+          { id: "estado", label: "Estado y salud" },
+          {
+            id: "equipo",
+            label: "Equipo",
+            badge:
+              (value.weapons?.length ?? 0) + (value.armors?.length ?? 0) || undefined,
+          },
+          {
+            id: "notas",
+            label: "Notas",
+            badge: value.notes && value.notes.length > 0 ? "•" : undefined,
+          },
+        ]}
+        defaultValue="rasgos"
+      >
+        {(activeTab) => (
+          <>
+            {activeTab === "rasgos" ? (
+              <div className="space-y-8">
       {/* Atributos */}
       <SectionHeading>Atributos</SectionHeading>
       <div className="grid gap-6 md:grid-cols-3">
@@ -379,6 +455,11 @@ export function CharacterSheetForm({
         </AttrBlock>
       </div>
 
+              </div>
+            ) : null}
+
+            {activeTab === "ventajas" ? (
+              <div className="space-y-8">
       {/* Ventajas */}
       <SectionHeading>Ventajas</SectionHeading>
       <div className="grid gap-6 lg:grid-cols-3">
@@ -566,9 +647,9 @@ export function CharacterSheetForm({
         </AttrBlock>
       </div>
 
-      {/* Méritos / Estado */}
-      <SectionHeading>Méritos · Defectos · Estado</SectionHeading>
-      <div className="grid gap-6 lg:grid-cols-3">
+      {/* Méritos / Defectos — todavía dentro de pestaña Ventajas */}
+      <SectionHeading>Méritos · Defectos</SectionHeading>
+      <div className="grid gap-6 lg:grid-cols-2">
         <AttrBlock
           title="Méritos / Defectos"
           action={
@@ -640,7 +721,14 @@ export function CharacterSheetForm({
             })
           )}
         </AttrBlock>
+      </div>
+              </div>
+            ) : null}
 
+            {activeTab === "estado" ? (
+              <div className="space-y-8">
+      <SectionHeading>Humanidad · Voluntad · Sangre · Salud</SectionHeading>
+      <div className="grid gap-6 lg:grid-cols-2">
         <AttrBlock title="Humanidad · Voluntad · Sangre">
           <DotRow
             label={value.virtueScheme === "PATH" ? "Senda" : "Humanidad"}
@@ -740,6 +828,51 @@ export function CharacterSheetForm({
           ))}
         </AttrBlock>
       </div>
+              </div>
+            ) : null}
+
+            {activeTab === "equipo" ? (
+              <EquipmentTab
+                value={value}
+                weapons={weapons}
+                weaponCategories={weaponCategories}
+                armors={armors}
+                readOnly={readOnly}
+                addWeapon={addWeapon}
+                updateWeaponRow={updateWeaponRow}
+                removeWeaponRow={removeWeaponRow}
+                addArmor={addArmor}
+                updateArmorRow={updateArmorRow}
+                removeArmorRow={removeArmorRow}
+                onCreateWeapon={onCreateWeapon}
+                onCreateArmor={onCreateArmor}
+              />
+            ) : null}
+
+            {activeTab === "notas" ? (
+              <div className="space-y-3">
+                <SectionHeading>Notas del jugador</SectionHeading>
+                <p className="font-serif text-xs italic text-muted-foreground">
+                  Espacio libre para apuntes de historia, contactos, frases del
+                  Narrador, etc. Solo tú las verás.
+                </p>
+                <Textarea
+                  value={value.notes ?? ""}
+                  disabled={readOnly}
+                  onChange={(e) => patch({ notes: e.target.value })}
+                  rows={18}
+                  maxLength={8000}
+                  placeholder="Hila aquí los secretos del vástago..."
+                  className="font-serif text-sm leading-relaxed"
+                />
+                <p className="text-right font-mono text-[0.65rem] text-muted-foreground">
+                  {(value.notes ?? "").length} / 8000
+                </p>
+              </div>
+            ) : null}
+          </>
+        )}
+      </Tabs>
     </div>
   );
 }
@@ -857,5 +990,435 @@ function SelectField({
         ))}
       </select>
     </label>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Pestaña Equipo
+// ─────────────────────────────────────────────────────────────────────
+
+interface EquipmentTabProps {
+  value: CharacterInput;
+  weapons: Weapon[];
+  weaponCategories: WeaponCategory[];
+  armors: Armor[];
+  readOnly?: boolean;
+  addWeapon: (id: string) => void;
+  updateWeaponRow: (i: number, p: Partial<CharacterWeapon>) => void;
+  removeWeaponRow: (i: number) => void;
+  addArmor: (id: string) => void;
+  updateArmorRow: (i: number, p: Partial<CharacterArmor>) => void;
+  removeArmorRow: (i: number) => void;
+  onCreateWeapon?: () => void;
+  onCreateArmor?: () => void;
+}
+
+function EquipmentTab({
+  value,
+  weapons,
+  weaponCategories,
+  armors,
+  readOnly,
+  addWeapon,
+  updateWeaponRow,
+  removeWeaponRow,
+  addArmor,
+  updateArmorRow,
+  removeArmorRow,
+  onCreateWeapon,
+  onCreateArmor,
+}: EquipmentTabProps) {
+  const meleeWeapons = useMemo(
+    () => weapons.filter((w) => w.kind === "MELEE"),
+    [weapons],
+  );
+  const rangedWeapons = useMemo(
+    () => weapons.filter((w) => w.kind === "RANGED"),
+    [weapons],
+  );
+  const meleeCategoriesOrder = useMemo(
+    () => weaponCategories.filter((c) => c.kind === "MELEE"),
+    [weaponCategories],
+  );
+  const rangedCategoriesOrder = useMemo(
+    () => weaponCategories.filter((c) => c.kind === "RANGED"),
+    [weaponCategories],
+  );
+
+  const weaponsById = useMemo(() => {
+    const m = new Map<string, Weapon>();
+    for (const w of weapons) m.set(w.id, w);
+    return m;
+  }, [weapons]);
+  const armorsById = useMemo(() => {
+    const m = new Map<string, Armor>();
+    for (const a of armors) m.set(a.id, a);
+    return m;
+  }, [armors]);
+
+  const myMelee = (value.weapons ?? []).filter(
+    (w) => weaponsById.get(w.weaponId)?.kind === "MELEE",
+  );
+  const myRanged = (value.weapons ?? []).filter(
+    (w) => weaponsById.get(w.weaponId)?.kind === "RANGED",
+  );
+
+  return (
+    <div className="space-y-8">
+      <WeaponSection
+        title="Armas cuerpo a cuerpo"
+        kind="MELEE"
+        weaponsAvailable={meleeWeapons}
+        categoriesOrder={meleeCategoriesOrder}
+        rows={value.weapons ?? []}
+        myRows={myMelee}
+        weaponsById={weaponsById}
+        readOnly={readOnly}
+        addWeapon={addWeapon}
+        updateWeaponRow={updateWeaponRow}
+        removeWeaponRow={removeWeaponRow}
+        onCreateWeapon={onCreateWeapon}
+      />
+
+      <WeaponSection
+        title="Armas a distancia"
+        kind="RANGED"
+        weaponsAvailable={rangedWeapons}
+        categoriesOrder={rangedCategoriesOrder}
+        rows={value.weapons ?? []}
+        myRows={myRanged}
+        weaponsById={weaponsById}
+        readOnly={readOnly}
+        addWeapon={addWeapon}
+        updateWeaponRow={updateWeaponRow}
+        removeWeaponRow={removeWeaponRow}
+        onCreateWeapon={onCreateWeapon}
+      />
+
+      <ArmorSection
+        armorsAvailable={armors}
+        rows={value.armors ?? []}
+        armorsById={armorsById}
+        readOnly={readOnly}
+        addArmor={addArmor}
+        updateArmorRow={updateArmorRow}
+        removeArmorRow={removeArmorRow}
+        onCreateArmor={onCreateArmor}
+      />
+    </div>
+  );
+}
+
+interface WeaponSectionProps {
+  title: string;
+  kind: "MELEE" | "RANGED";
+  weaponsAvailable: Weapon[];
+  categoriesOrder: WeaponCategory[];
+  rows: CharacterWeapon[];
+  myRows: CharacterWeapon[];
+  weaponsById: Map<string, Weapon>;
+  readOnly?: boolean;
+  addWeapon: (id: string) => void;
+  updateWeaponRow: (i: number, p: Partial<CharacterWeapon>) => void;
+  removeWeaponRow: (i: number) => void;
+  onCreateWeapon?: () => void;
+}
+
+function WeaponSection({
+  title,
+  kind,
+  weaponsAvailable,
+  categoriesOrder,
+  rows,
+  myRows,
+  weaponsById,
+  readOnly,
+  addWeapon,
+  updateWeaponRow,
+  removeWeaponRow,
+  onCreateWeapon,
+}: WeaponSectionProps) {
+  // Agrupado por categoría para el <select>
+  const grouped = useMemo(() => {
+    const byCategoryId = new Map<string, Weapon[]>();
+    for (const w of weaponsAvailable) {
+      const list = byCategoryId.get(w.categoryId) ?? [];
+      list.push(w);
+      byCategoryId.set(w.categoryId, list);
+    }
+    return categoriesOrder
+      .filter((c) => byCategoryId.has(c.id))
+      .map((c) => ({ category: c, items: byCategoryId.get(c.id) ?? [] }));
+  }, [weaponsAvailable, categoriesOrder]);
+
+  return (
+    <section className="space-y-3">
+      <header className="flex items-center justify-between border-b border-border/60 pb-2">
+        <h2 className="font-heading text-sm uppercase tracking-[0.3em] text-blood">
+          {title}
+        </h2>
+        {!readOnly && onCreateWeapon ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            onClick={onCreateWeapon}
+            className="border border-blood/40 text-blood hover:bg-blood/10"
+            title="Crear arma personalizada"
+          >
+            <Plus className="size-4" /> Nueva arma
+          </Button>
+        ) : null}
+      </header>
+
+      {!readOnly ? (
+        <div className="flex flex-wrap items-end gap-2 rounded-md border border-border/40 bg-background/40 p-3">
+          <div className="flex-1 min-w-50 space-y-1">
+            <label className="font-heading text-[0.65rem] uppercase tracking-widest text-muted-foreground">
+              Añadir desde el catálogo
+            </label>
+            <select
+              defaultValue=""
+              onChange={(e) => {
+                if (e.target.value) {
+                  addWeapon(e.target.value);
+                  e.target.value = "";
+                }
+              }}
+              className={SELECT_DARK_CLASS}
+            >
+              <option value="">Selecciona un arma...</option>
+              {grouped.map(({ category, items }) => (
+                <optgroup key={category.id} label={category.name}>
+                  {items.map((w) => (
+                    <option key={w.id} value={w.id}>
+                      {w.name}
+                      {w.system ? "" : " (custom)"}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+          </div>
+        </div>
+      ) : null}
+
+      {myRows.length === 0 ? (
+        <p className="font-serif text-xs italic text-muted-foreground">
+          Sin {kind === "MELEE" ? "armas cuerpo a cuerpo" : "armas a distancia"}.
+        </p>
+      ) : (
+        <ul className="space-y-2">
+          {myRows.map((row) => {
+            const w = weaponsById.get(row.weaponId);
+            // i en el array global de weapons (importante para update/remove)
+            const i = rows.indexOf(row);
+            return (
+              <li
+                key={`${row.weaponId}-${i}`}
+                className="rounded-md border border-border/40 bg-card/50 p-3"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="font-heading text-sm uppercase tracking-wide text-foreground">
+                      {w?.name ?? "Arma desconocida"}
+                      {w?.system === false ? (
+                        <span className="ml-2 rounded border border-blood/40 px-1.5 py-0.5 align-middle font-mono text-[0.55rem] uppercase tracking-widest text-blood">
+                          Custom
+                        </span>
+                      ) : null}
+                    </p>
+                    <p className="font-serif text-xs italic text-muted-foreground">
+                      {w?.category?.name ?? "—"} ·{" "}
+                      {formatDamage(w)} ·{" "}
+                      {w?.lethal ? "Letal" : w?.aggravated ? "Agravado" : "Contundente"}
+                      {w?.concealment ? ` · Ocultación ${w.concealment}` : ""}
+                    </p>
+                    {w?.kind === "RANGED" ? (
+                      <p className="mt-0.5 font-mono text-[0.7rem] text-foreground/70">
+                        Alc. {w.range ?? "—"} m · Cad. {w.rate ?? "—"} ·
+                        Cargador {w.magazine ?? "—"}
+                      </p>
+                    ) : null}
+                    {w?.notes ? (
+                      <p className="mt-1 font-serif text-xs italic text-foreground/70">
+                        {w.notes}
+                      </p>
+                    ) : null}
+                  </div>
+                  {!readOnly ? (
+                    <Button
+                      type="button"
+                      size="icon-sm"
+                      variant="ghost"
+                      onClick={() => removeWeaponRow(i)}
+                      aria-label="Eliminar arma"
+                      className="text-destructive hover:bg-destructive/10"
+                    >
+                      <Trash2 className="size-4" />
+                    </Button>
+                  ) : null}
+                </div>
+                {!readOnly ? (
+                  <Input
+                    value={row.notes ?? ""}
+                    onChange={(e) => updateWeaponRow(i, { notes: e.target.value })}
+                    placeholder="Notas (ej. munición especial, modificaciones)"
+                    className="mt-2 h-8 text-xs"
+                  />
+                ) : row.notes ? (
+                  <p className="mt-2 font-serif text-xs italic text-foreground/70">
+                    {row.notes}
+                  </p>
+                ) : null}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+function formatDamage(w: Weapon | undefined): string {
+  if (!w) return "—";
+  if (w.damageBase === "STRENGTH") {
+    return w.damageBonus > 0 ? `Fuerza +${w.damageBonus}` : "Fuerza";
+  }
+  return `${w.damageBonus}`;
+}
+
+interface ArmorSectionProps {
+  armorsAvailable: Armor[];
+  rows: CharacterArmor[];
+  armorsById: Map<string, Armor>;
+  readOnly?: boolean;
+  addArmor: (id: string) => void;
+  updateArmorRow: (i: number, p: Partial<CharacterArmor>) => void;
+  removeArmorRow: (i: number) => void;
+  onCreateArmor?: () => void;
+}
+
+function ArmorSection({
+  armorsAvailable,
+  rows,
+  armorsById,
+  readOnly,
+  addArmor,
+  updateArmorRow,
+  removeArmorRow,
+  onCreateArmor,
+}: ArmorSectionProps) {
+  return (
+    <section className="space-y-3">
+      <header className="flex items-center justify-between border-b border-border/60 pb-2">
+        <h2 className="font-heading text-sm uppercase tracking-[0.3em] text-blood">
+          Armaduras
+        </h2>
+        {!readOnly && onCreateArmor ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            onClick={onCreateArmor}
+            className="border border-blood/40 text-blood hover:bg-blood/10"
+            title="Crear armadura personalizada"
+          >
+            <Plus className="size-4" /> Nueva armadura
+          </Button>
+        ) : null}
+      </header>
+
+      {!readOnly ? (
+        <div className="flex flex-wrap items-end gap-2 rounded-md border border-border/40 bg-background/40 p-3">
+          <div className="flex-1 min-w-50 space-y-1">
+            <label className="font-heading text-[0.65rem] uppercase tracking-widest text-muted-foreground">
+              Añadir desde el catálogo
+            </label>
+            <select
+              defaultValue=""
+              onChange={(e) => {
+                if (e.target.value) {
+                  addArmor(e.target.value);
+                  e.target.value = "";
+                }
+              }}
+              className={SELECT_DARK_CLASS}
+            >
+              <option value="">Selecciona una armadura...</option>
+              {armorsAvailable.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name}
+                  {a.system ? "" : " (custom)"} · Abs +{a.rating} / Pen −{a.penalty}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      ) : null}
+
+      {rows.length === 0 ? (
+        <p className="font-serif text-xs italic text-muted-foreground">
+          Sin armaduras equipadas.
+        </p>
+      ) : (
+        <ul className="space-y-2">
+          {rows.map((row, i) => {
+            const a = armorsById.get(row.armorId);
+            return (
+              <li
+                key={`${row.armorId}-${i}`}
+                className="rounded-md border border-border/40 bg-card/50 p-3"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="font-heading text-sm uppercase tracking-wide text-foreground">
+                      {a?.name ?? "Armadura desconocida"}
+                      {a?.system === false ? (
+                        <span className="ml-2 rounded border border-blood/40 px-1.5 py-0.5 align-middle font-mono text-[0.55rem] uppercase tracking-widest text-blood">
+                          Custom
+                        </span>
+                      ) : null}
+                    </p>
+                    <p className="font-serif text-xs italic text-muted-foreground">
+                      Absorción +{a?.rating ?? "?"} · Penalización −{a?.penalty ?? "?"}
+                    </p>
+                    {a?.description ? (
+                      <p className="mt-1 font-serif text-xs italic text-foreground/70">
+                        {a.description}
+                      </p>
+                    ) : null}
+                  </div>
+                  {!readOnly ? (
+                    <Button
+                      type="button"
+                      size="icon-sm"
+                      variant="ghost"
+                      onClick={() => removeArmorRow(i)}
+                      aria-label="Eliminar armadura"
+                      className="text-destructive hover:bg-destructive/10"
+                    >
+                      <Trash2 className="size-4" />
+                    </Button>
+                  ) : null}
+                </div>
+                {!readOnly ? (
+                  <Input
+                    value={row.notes ?? ""}
+                    onChange={(e) => updateArmorRow(i, { notes: e.target.value })}
+                    placeholder="Notas"
+                    className="mt-2 h-8 text-xs"
+                  />
+                ) : row.notes ? (
+                  <p className="mt-2 font-serif text-xs italic text-foreground/70">
+                    {row.notes}
+                  </p>
+                ) : null}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
   );
 }

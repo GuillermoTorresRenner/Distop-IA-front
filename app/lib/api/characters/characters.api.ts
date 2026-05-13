@@ -29,23 +29,72 @@ export async function deleteCharacter(id: string): Promise<{ ok: boolean }> {
   return data;
 }
 
-export async function associateChronicle(
-  characterId: string,
+export async function cloneCharacter(id: string): Promise<Character> {
+  const { data } = await apiClient.post<Character>(`/characters/${id}/clone`);
+  return data;
+}
+
+export interface ChronicleMemberRef {
+  id: string;
+  email: string;
+  nickname: string | null;
+  avatar: string | null;
+}
+
+export interface ChronicleCharacterEntry {
+  joinedAt: string;
+  character: Character & { user: ChronicleMemberRef };
+}
+
+export interface AssociableCharacter extends Character {
+  user: ChronicleMemberRef;
+}
+
+export async function listChronicleCharacters(
   chronicleId: string,
-): Promise<Character> {
-  const { data } = await apiClient.post<Character>(
-    `/characters/${characterId}/chronicles`,
-    { chronicleId },
+): Promise<ChronicleCharacterEntry[]> {
+  const { data } = await apiClient.get<ChronicleCharacterEntry[]>(
+    `/chronicles/${chronicleId}/characters`,
   );
   return data;
 }
 
-export async function dissociateChronicle(
-  characterId: string,
+export async function listAssociableCharacters(
   chronicleId: string,
+): Promise<AssociableCharacter[]> {
+  const { data } = await apiClient.get<AssociableCharacter[]>(
+    `/chronicles/${chronicleId}/associable-characters`,
+  );
+  return data;
+}
+
+export async function createChronicleCharacter(
+  chronicleId: string,
+  input: CharacterInput & { targetUserId?: string },
 ): Promise<Character> {
-  const { data } = await apiClient.delete<Character>(
-    `/characters/${characterId}/chronicles/${chronicleId}`,
+  const { data } = await apiClient.post<Character>(
+    `/chronicles/${chronicleId}/characters`,
+    input,
+  );
+  return data;
+}
+
+export async function linkCharacterToChronicle(
+  chronicleId: string,
+  characterId: string,
+): Promise<{ ok: boolean }> {
+  const { data } = await apiClient.post<{ ok: boolean }>(
+    `/chronicles/${chronicleId}/characters/${characterId}`,
+  );
+  return data;
+}
+
+export async function unlinkCharacterFromChronicle(
+  chronicleId: string,
+  characterId: string,
+): Promise<{ ok: boolean }> {
+  const { data } = await apiClient.delete<{ ok: boolean }>(
+    `/chronicles/${chronicleId}/characters/${characterId}`,
   );
   return data;
 }

@@ -1,11 +1,16 @@
-import { Plus, Skull, Trash2 } from "lucide-react";
+import { Copy, Loader2, Plus, Skull, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { extractAuthError } from "~/components/common/auth-error";
 import { FormAlert } from "~/components/common/form-alert";
 import { PageHeader } from "~/components/common/page-header";
 import { Button } from "~/components/ui/button";
-import { deleteCharacter, listCharacters } from "~/lib/api/characters/characters.api";
+import { useConfirm } from "~/hooks/use-confirm";
+import {
+  cloneCharacter,
+  deleteCharacter,
+  listCharacters,
+} from "~/lib/api/characters/characters.api";
 import type { Character } from "~/lib/api/characters/characters.types";
 
 export function meta() {
@@ -13,8 +18,11 @@ export function meta() {
 }
 
 export default function CharactersListRoute() {
+  const navigate = useNavigate();
+  const { confirm, dialog } = useConfirm();
   const [items, setItems] = useState<Character[]>([]);
   const [loading, setLoading] = useState(true);
+  const [cloningId, setCloningId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function reload() {
@@ -31,8 +39,33 @@ export default function CharactersListRoute() {
     reload();
   }, []);
 
+  async function handleClone(id: string, name: string) {
+    setError(null);
+    setCloningId(id);
+    try {
+      const cloned = await cloneCharacter(id);
+      navigate(`/characters/${cloned.id}`);
+    } catch (err) {
+      setError(extractAuthError(err, `No se pudo clonar a ${name}`));
+    } finally {
+      setCloningId(null);
+    }
+  }
+
   async function handleDelete(id: string, name: string) {
-    if (!confirm(`¿Eliminar a ${name}? Esta acción es irreversible.`)) return;
+    const ok = await confirm({
+      title: "Eliminar vástago",
+      description: (
+        <>
+          ¿Seguro que quieres eliminar a{" "}
+          <strong className="text-foreground">{name}</strong>? Esta acción es
+          irreversible.
+        </>
+      ),
+      confirmLabel: "Eliminar",
+      tone: "danger",
+    });
+    if (!ok) return;
     try {
       await deleteCharacter(id);
       setItems((prev) => prev.filter((c) => c.id !== id));
@@ -83,14 +116,25 @@ export default function CharactersListRoute() {
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <Link
-                    to={`/characters/${c.id}`}
-                    className="font-heading text-xl uppercase tracking-wide text-foreground hover:text-blood"
-                  >
-                    {c.name}
-                  </Link>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Link
+                      to={`/characters/${c.id}`}
+                      className="font-heading text-xl uppercase tracking-wide text-foreground hover:text-blood"
+                    >
+                      {c.name}
+                    </Link>
+                    {c.kind === "ANTAGONIST" ? (
+                      <span className="rounded-full border border-destructive/60 bg-destructive/10 px-2 py-0.5 font-heading text-[0.55rem] uppercase tracking-widest text-destructive">
+                        Antagonista
+                      </span>
+                    ) : c.kind === "NPC" ? (
+                      <span className="rounded-full border border-amber-500/50 bg-amber-500/10 px-2 py-0.5 font-heading text-[0.55rem] uppercase tracking-widest text-amber-300">
+                        PNJ
+                      </span>
+                    ) : null}
+                  </div>
                   <p className="font-serif text-sm italic text-muted-foreground">
-                    {c.clan ?? "Sin clan"} · {c.concept ?? "Concepto sin definir"}
+                    {c.clan?.name ?? "Sin clan"} · {c.concept ?? "Concepto sin definir"}
                   </p>
                   <p className="mt-1 text-xs uppercase tracking-widest text-muted-foreground">
                     Generación {c.generation ?? "—"} ·{" "}
@@ -103,21 +147,40 @@ export default function CharactersListRoute() {
                     </p>
                   )}
                 </div>
-                <Button
-                  type="button"
-                  size="icon-sm"
-                  variant="ghost"
-                  onClick={() => handleDelete(c.id, c.name)}
-                  className="text-destructive hover:bg-destructive/10"
-                  aria-label="Eliminar"
-                >
-                  <Trash2 className="size-4" />
-                </Button>
+                <div className="flex items-center gap-1">
+                  <Button
+                    type="button"
+                    size="icon-sm"
+                    variant="ghost"
+                    onClick={() => handleClone(c.id, c.name)}
+                    disabled={cloningId === c.id}
+                    aria-label={`Clonar ${c.name}`}
+                    title="Clonar como base de otro"
+                    className="text-foreground/70 hover:bg-blood/10 hover:text-blood"
+                  >
+                    {cloningId === c.id ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      <Copy className="size-4" />
+                    )}
+                  </Button>
+                  <Button
+                    type="button"
+                    size="icon-sm"
+                    variant="ghost"
+                    onClick={() => handleDelete(c.id, c.name)}
+                    className="text-destructive hover:bg-destructive/10"
+                    aria-label="Eliminar"
+                  >
+                    <Trash2 className="size-4" />
+                  </Button>
+                </div>
               </div>
             </li>
           ))}
         </ul>
       )}
+      {dialog}
     </section>
   );
 }

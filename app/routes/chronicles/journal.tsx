@@ -16,6 +16,7 @@ import { FormField } from "~/components/common/form-field";
 import { PageHeader } from "~/components/common/page-header";
 import { Button } from "~/components/ui/button";
 import { Textarea } from "~/components/ui/textarea";
+import { useConfirm } from "~/hooks/use-confirm";
 import { getChronicle } from "~/lib/api/chronicles/chronicles.api";
 import type { Chronicle } from "~/lib/api/chronicles/chronicles.types";
 import {
@@ -63,6 +64,7 @@ interface EntryFormState extends JournalEntryInput {
 const emptyForm: EntryFormState = { title: "", body: "", sessionDate: "" };
 
 export default function ChronicleJournalRoute() {
+  const { confirm, dialog } = useConfirm();
   const { id } = useParams<{ id: string }>();
   const user = useUserStore((s) => s.user);
 
@@ -171,7 +173,19 @@ export default function ChronicleJournalRoute() {
 
   async function handleDelete(entry: JournalEntry) {
     if (!id) return;
-    if (!confirm("¿Borrar esta entrada de la bitácora?")) return;
+    const ok = await confirm({
+      title: "Borrar entrada",
+      description: (
+        <>
+          ¿Borrar la entrada{" "}
+          <strong className="text-foreground">«{entry.title}»</strong>? No
+          podrás recuperarla.
+        </>
+      ),
+      confirmLabel: "Borrar",
+      tone: "danger",
+    });
+    if (!ok) return;
     try {
       if (tab === "chronicle") {
         await deleteChronicleEntry(id, entry.id);
@@ -339,6 +353,7 @@ export default function ChronicleJournalRoute() {
           })}
         </ul>
       )}
+      {dialog}
     </section>
   );
 }

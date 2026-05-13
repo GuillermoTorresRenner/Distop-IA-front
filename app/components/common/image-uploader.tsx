@@ -1,6 +1,7 @@
 import { ImagePlus, Loader2, Trash2 } from "lucide-react";
 import { useRef, useState, type ChangeEvent } from "react";
 import { Button } from "~/components/ui/button";
+import { useConfirm } from "~/hooks/use-confirm";
 import { cn } from "~/lib/utils";
 
 const ALLOWED_MIME = ["image/jpeg", "image/png", "image/webp", "image/gif"];
@@ -35,6 +36,7 @@ export function ImageUploader({
   const inputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState<"upload" | "remove" | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const { confirm, dialog } = useConfirm();
 
   function pickFile() {
     inputRef.current?.click();
@@ -67,7 +69,13 @@ export function ImageUploader({
 
   async function handleRemove() {
     if (!onRemove) return;
-    if (!confirm("¿Eliminar la imagen actual?")) return;
+    const ok = await confirm({
+      title: "Eliminar imagen",
+      description: "¿Eliminar la imagen actual?",
+      confirmLabel: "Eliminar",
+      tone: "danger",
+    });
+    if (!ok) return;
     setError(null);
     setBusy("remove");
     try {
@@ -141,6 +149,7 @@ export function ImageUploader({
         onChange={handleChange}
         className="hidden"
       />
+      {dialog}
     </div>
   );
 }

@@ -134,7 +134,11 @@ Toda la paleta vive en `app/app.css`:
 - Tipografías: `--font-sans` (Geist), `--font-heading` / `--font-display` (Cinzel), `--font-serif` (Cormorant Garamond).
 - El `<html>` arranca con la clase `dark` por defecto (estética nocturna del juego). Para implementar toggle: agregar/quitar `dark` y persistir con cookie.
 
-**Reglas**: nunca usar colores hardcoded en componentes. Si necesitas un color nuevo, agrégalo en `:root` + `.dark` + en `@theme inline` antes de consumirlo.
+**Reglas**:
+
+- Nunca usar colores hardcoded en componentes. Si necesitas un color nuevo, agrégalo en `:root` + `.dark` + en `@theme inline` antes de consumirlo.
+- **`<select>` nativos**: SIEMPRE aplicar `SELECT_DARK_CLASS` desde `~/lib/select-styles.ts` (admite `cn(SELECT_DARK_CLASS, "h-8")`). La constante estiliza tanto el control (`bg-input/30 dark:bg-input/50`) como las `<option>` y `<optgroup>` del menú desplegado (`bg-popover text-popover-foreground`, que en dark coincide con el fondo de la hoja de personaje). Prohibido un `<select>` con fondo blanco / sin la clase: rompe la paleta. Si necesitas un select estilizado más elaborado, crea un componente shadcn (`npx shadcn@latest add select`) pero no inventes clases nuevas.
+- **Confirmaciones**: nunca `window.confirm`, `window.alert` ni `window.prompt`. Usar el hook `useConfirm()` de `~/hooks/use-confirm.tsx` que renderiza `ConfirmDialog` con la paleta sangrienta.
 
 ## Crónicas e invitaciones
 

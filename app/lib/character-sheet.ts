@@ -103,7 +103,6 @@ export function emptyCharacterInput(): CharacterInput {
     concept: "",
     chronicleName: "",
     haven: "",
-    clan: "",
     strength: 1,
     dexterity: 1,
     stamina: 1,

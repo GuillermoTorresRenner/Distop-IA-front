@@ -42,3 +42,45 @@ export interface Clan {
   weakness: string | null;
   order: number;
 }
+
+export type WeaponKind = "MELEE" | "RANGED";
+export type WeaponDamageBase = "STRENGTH" | "FLAT";
+
+export interface WeaponCategory {
+  id: string;
+  name: string;
+  kind: WeaponKind;
+  order: number;
+}
+
+export interface Weapon {
+  id: string;
+  name: string;
+  kind: WeaponKind;
+  categoryId: string;
+  category?: WeaponCategory;
+  damageBase: WeaponDamageBase;
+  damageBonus: number;
+  lethal: boolean;
+  aggravated: boolean;
+  bluntPlus: boolean;
+  range: number | null;
+  rate: string | null;
+  magazine: number | null;
+  concealment: string | null;
+  notes: string | null;
+  order: number;
+  system: boolean;
+  userId: string | null;
+}
+
+export interface Armor {
+  id: string;
+  name: string;
+  rating: number;
+  penalty: number;
+  description: string | null;
+  order: number;
+  system: boolean;
+  userId: string | null;
+}
