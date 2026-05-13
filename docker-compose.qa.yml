@@ -1,0 +1,17 @@
+name: distop-ia_qa_frontend
+
+services:
+  distop-ia-frontend-qa:
+    image: lebateleur/distop-ia-frontend:latest
+    container_name: ${PREFIX}_frontend
+    restart: unless-stopped
+    env_file:
+      - .env
+    # expose:
+    #   - '3001'
+    networks:
+      - web
+
+networks:
+  web:
+    external: true

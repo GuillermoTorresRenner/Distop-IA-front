@@ -6,7 +6,7 @@ on:
       - QA
 
 env:
-  DOCKERHUB_REPOSITORY: lebateleur/distop-ia-front
+  DOCKERHUB_REPOSITORY: lebateleur/distop-ia-frontend
   PROJECT_PATH: /home/deployer/proyectos/distop-ia/qa/front
 
 jobs:
@@ -36,10 +36,8 @@ jobs:
 
       - name: Build, tag, and push Docker image to Docker Hub
         run: |
-          COMMIT_TAG=${{ github.sha }}
-          docker build --build-arg VITE_API_URL=${{ steps.extract_env.outputs.VITE_API_URL }} -t $DOCKERHUB_REPOSITORY:qa-$COMMIT_TAG -t $DOCKERHUB_REPOSITORY:qa .
-          docker push $DOCKERHUB_REPOSITORY:qa-$COMMIT_TAG
-          docker push $DOCKERHUB_REPOSITORY:qa
+          docker build --build-arg VITE_API_URL=${{ steps.extract_env.outputs.VITE_API_URL }} -t $DOCKERHUB_REPOSITORY:latest .
+          docker push $DOCKERHUB_REPOSITORY:latest
 
       - name: Upload files to VPS
         uses: appleboy/scp-action@v0.1.4
@@ -83,7 +81,7 @@ jobs:
             echo "Stopping existing containers..."
             docker compose down || echo "No containers to stop or error in down"
             echo "Pulling latest image..."
-            docker pull $DOCKERHUB_REPOSITORY:qa || echo "Failed to pull image"
+            docker pull $DOCKERHUB_REPOSITORY:latest || echo "Failed to pull image"
             echo "Starting containers..."
             docker compose up -d || echo "Failed to start containers"
             echo "Checking container status..."
