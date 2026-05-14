@@ -5,6 +5,9 @@ import {
   type TableSocket,
 } from "~/lib/socket/table.client";
 import type {
+  BoardSharedPayload,
+  BoardUpdatedPayload,
+  BoardUpdateInput,
   ChatMessage,
   ChronicleMemberRole,
   DiceRoll,
@@ -41,6 +44,12 @@ interface UseTableState {
   rolls: DiceRoll[];
   /** id de la tirada recién recibida (para animación; se limpia automáticamente) */
   latestRollId: string | null;
+  /** Estado de la pizarra compartida (lo emite el narrador). */
+  boardShared: boolean;
+  /** Snapshot recibido de la pizarra compartida cuando boardShared = true. */
+  remoteBoard: { elements: unknown[]; appState: Record<string, unknown> | null } | null;
+  /** Token monotónico que cambia cada vez que llega un snapshot nuevo. */
+  remoteBoardVersion: number;
 }
 
 const MAX_FEED = 300;
@@ -59,6 +68,9 @@ export function useTable(chronicleId: string | null) {
     feed: [],
     rolls: [],
     latestRollId: null,
+    boardShared: false,
+    remoteBoard: null,
+    remoteBoardVersion: 0,
   });
 
   const socketRef = useRef<TableSocket | null>(null);
@@ -143,6 +155,28 @@ export function useTable(chronicleId: string | null) {
       setState((s) => ({ ...s, rolls: [], latestRollId: null }));
     };
 
+    const onBoardShared = (p: BoardSharedPayload) => {
+      setState((s) => ({
+        ...s,
+        boardShared: p.isShared,
+        remoteBoard: p.isShared
+          ? { elements: p.elements, appState: p.appState }
+          : null,
+        remoteBoardVersion: s.remoteBoardVersion + 1,
+      }));
+    };
+
+    const onBoardUpdated = (p: BoardUpdatedPayload) => {
+      setState((s) => {
+        if (!s.boardShared) return s;
+        return {
+          ...s,
+          remoteBoard: { elements: p.elements, appState: p.appState },
+          remoteBoardVersion: s.remoteBoardVersion + 1,
+        };
+      });
+    };
+
     socket.on("connect", onConnect);
     socket.on("disconnect", onDisconnect);
     socket.on("error", onError);
@@ -152,6 +186,8 @@ export function useTable(chronicleId: string | null) {
     socket.on("sheet:announce", onSheetAnnounce);
     socket.on("roll:result", onRollResult);
     socket.on("rolls:cleared", onRollsCleared);
+    socket.on("board:shared", onBoardShared);
+    socket.on("board:updated", onBoardUpdated);
 
     // Si ya estaba conectado (singleton reusado), disparamos join manualmente.
     if (socket.connected) onConnect();
@@ -166,6 +202,8 @@ export function useTable(chronicleId: string | null) {
       socket.off("sheet:announce", onSheetAnnounce);
       socket.off("roll:result", onRollResult);
       socket.off("rolls:cleared", onRollsCleared);
+      socket.off("board:shared", onBoardShared);
+      socket.off("board:updated", onBoardUpdated);
       socket.emit("table:leave", {});
     };
   }, [chronicleId]);
@@ -203,6 +241,36 @@ export function useTable(chronicleId: string | null) {
     );
   }, []);
 
+  const shareBoard = useCallback((isShared: boolean) => {
+    const socket = socketRef.current;
+    if (!socket || !socket.connected)
+      return Promise.resolve({ ok: false, error: "Sin conexión" });
+    return new Promise<{
+      ok: boolean;
+      isShared?: boolean;
+      error?: string;
+    }>((resolve) => {
+      socket.emit("board:share", { isShared }, (resp) => {
+        resolve(resp ?? { ok: false });
+      });
+    });
+  }, []);
+
+  const pushBoardUpdate = useCallback((input: BoardUpdateInput) => {
+    const socket = socketRef.current;
+    if (!socket || !socket.connected)
+      return Promise.resolve({ ok: false, error: "Sin conexión" });
+    return new Promise<{
+      ok: boolean;
+      broadcasted?: boolean;
+      error?: string;
+    }>((resolve) => {
+      socket.emit("board:update", input, (resp) => {
+        resolve(resp ?? { ok: false });
+      });
+    });
+  }, []);
+
   const announceSheet = useCallback((input: SheetAnnounceInput) => {
     const socket = socketRef.current;
     if (!socket || !socket.connected || input.deltas.length === 0) {
@@ -236,6 +304,8 @@ export function useTable(chronicleId: string | null) {
     sendMessage,
     rollVtm,
     announceSheet,
+    shareBoard,
+    pushBoardUpdate,
     setInitialRolls,
     dismissLatestRoll,
     dispose,

@@ -7,7 +7,6 @@ import {
   Palette,
   Send,
   User as UserIcon,
-  X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router";
@@ -16,6 +15,7 @@ import { CharacterSheetPanel } from "~/components/table/character-sheet-panel";
 import { DiceRollerVtM, type RollerPrefill } from "~/components/table/dice-roller-vtm";
 import { NotesModal } from "~/components/table/notes-modal";
 import { RollHistory } from "~/components/table/roll-history";
+import { WhiteboardModal } from "~/components/table/whiteboard-modal";
 import { Button } from "~/components/ui/button";
 import { useTable, type FeedItem } from "~/hooks/use-table";
 import {
@@ -59,9 +59,14 @@ export default function ChronicleTableRoute() {
     feed,
     rolls,
     latestRollId,
+    boardShared,
+    remoteBoard,
+    remoteBoardVersion,
     sendMessage,
     rollVtm,
     announceSheet,
+    shareBoard,
+    pushBoardUpdate,
     setInitialRolls,
     dismissLatestRoll,
   } = useTable(chronicleId ?? null);
@@ -375,8 +380,17 @@ export default function ChronicleTableRoute() {
         </aside>
       </div>
 
-      {whiteboardOpen ? (
-        <WhiteboardModal onClose={() => setWhiteboardOpen(false)} />
+      {whiteboardOpen && chronicleId ? (
+        <WhiteboardModal
+          chronicleId={chronicleId}
+          isNarrator={myRole === "NARRATOR"}
+          boardShared={boardShared}
+          remoteBoard={remoteBoard}
+          remoteBoardVersion={remoteBoardVersion}
+          onShareToggle={shareBoard}
+          onPushUpdate={pushBoardUpdate}
+          onClose={() => setWhiteboardOpen(false)}
+        />
       ) : null}
       {notesOpen && chronicleId ? (
         <NotesModal
@@ -714,55 +728,5 @@ function SheetAnnouncementRow({ item }: { item: SheetAnnounce }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Modal de Pizarra (placeholder hasta Fase 3)
+// Modal de Pizarra (real, vive en `whiteboard-modal.tsx`).
 // ─────────────────────────────────────────────────────────────────────────────
-
-function WhiteboardModal({ onClose }: { onClose: () => void }) {
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
-    document.addEventListener("keydown", onKey);
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = prev;
-    };
-  }, [onClose]);
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
-      <div className="relative flex h-[80vh] w-full max-w-5xl flex-col rounded-lg border border-border bg-card">
-        <header className="flex items-center justify-between border-b border-border px-4 py-3">
-          <div>
-            <h3 className="font-heading text-base uppercase tracking-wider">
-              Pizarra
-            </h3>
-            <p className="text-xs italic text-muted-foreground">
-              Próximamente: dibujo colaborativo con Excalidraw.
-            </p>
-          </div>
-          <Button
-            type="button"
-            size="icon"
-            variant="ghost"
-            onClick={onClose}
-          >
-            <X className="size-4" />
-          </Button>
-        </header>
-        <div className="flex flex-1 items-center justify-center p-8 text-center">
-          <div>
-            <Palette className="mx-auto mb-3 size-12 text-blood/60" />
-            <p className="text-sm italic text-muted-foreground">
-              Aquí podrás dibujar mapas tácticos, esquemas y diagramas con tus
-              jugadores. El narrador podrá compartir su pizarra para que todos
-              la vean.
-            </p>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}

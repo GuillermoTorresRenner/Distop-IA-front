@@ -72,6 +72,30 @@ export interface SheetAnnounceInput {
   deltas: SheetDeltaEntry[];
 }
 
+export interface BoardShareInput {
+  isShared: boolean;
+}
+
+export interface BoardUpdateInput {
+  elements: unknown[];
+  appState?: Record<string, unknown>;
+}
+
+export interface BoardSharedPayload {
+  chronicleId: string;
+  isShared: boolean;
+  elements: unknown[];
+  appState: Record<string, unknown> | null;
+  at: string;
+}
+
+export interface BoardUpdatedPayload {
+  chronicleId: string;
+  elements: unknown[];
+  appState: Record<string, unknown> | null;
+  at: string;
+}
+
 export interface SheetAnnounce {
   id: string;
   characterId: string;
@@ -109,6 +133,14 @@ export interface ClientToServerEvents {
     body: SheetAnnounceInput,
     ack?: (resp: { ok: boolean; error?: string }) => void
   ) => void;
+  "board:share": (
+    body: BoardShareInput,
+    ack?: (resp: { ok: boolean; isShared?: boolean; error?: string }) => void
+  ) => void;
+  "board:update": (
+    body: BoardUpdateInput,
+    ack?: (resp: { ok: boolean; broadcasted?: boolean; error?: string }) => void
+  ) => void;
 }
 
 // ── Eventos servidor → cliente ────────────────────────────────
@@ -123,5 +155,7 @@ export interface ServerToClientEvents {
     at: string;
   }) => void;
   "sheet:announce": (announce: SheetAnnounce) => void;
+  "board:shared": (payload: BoardSharedPayload) => void;
+  "board:updated": (payload: BoardUpdatedPayload) => void;
   error: (payload: { message: string }) => void;
 }
