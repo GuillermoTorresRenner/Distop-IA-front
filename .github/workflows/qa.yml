@@ -17,22 +17,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Check VPS Connectivity
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          password: ${{ secrets.VPS_PASSWORD }}
-          port: ${{ secrets.VPS_PORT || 22 }}
-          debug: true
-          sync: true
-          command_timeout: 10m
-          script: |
-            echo "✓ VPS connection successful"
-            echo "VPS Hostname: $(hostname)"
-            echo "Current time: $(date)"
-            echo "Checking Docker availability..."
-            docker --version || echo "⚠ Docker not found"
 
       - name: Set QA environment variables
         run: |
