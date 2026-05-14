@@ -222,7 +222,7 @@ export default function SocialRoute() {
           </div>
 
           {results.length === 0 && !searchLoading ? (
-            <p className="font-serif italic text-muted-foreground">
+            <p className="text-muted-foreground">
               {query
                 ? "Sin vástagos para esa búsqueda."
                 : "Comienza a escribir para descubrir vástagos."}
@@ -248,7 +248,7 @@ export default function SocialRoute() {
 
       {tab === "friends" ? (
         friends.length === 0 ? (
-          <p className="font-serif italic text-muted-foreground">
+          <p className="text-muted-foreground">
             Aún no tienes lazos confirmados. Busca otros vástagos para invitarlos.
           </p>
         ) : (
@@ -287,7 +287,7 @@ export default function SocialRoute() {
               Entrantes ({incoming.length})
             </h2>
             {incoming.length === 0 ? (
-              <p className="font-serif italic text-muted-foreground">
+              <p className="text-muted-foreground">
                 Sin solicitudes nuevas.
               </p>
             ) : (
@@ -329,7 +329,7 @@ export default function SocialRoute() {
               Enviadas ({outgoing.length})
             </h2>
             {outgoing.length === 0 ? (
-              <p className="font-serif italic text-muted-foreground">
+              <p className="text-muted-foreground">
                 Sin solicitudes pendientes.
               </p>
             ) : (

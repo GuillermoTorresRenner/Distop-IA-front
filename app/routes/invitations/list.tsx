@@ -57,13 +57,13 @@ export default function InvitationsListRoute() {
       {error ? <FormAlert message={error} className="mb-6" /> : null}
 
       {loading ? (
-        <p className="font-serif italic text-muted-foreground">Revisando los pactos pendientes...</p>
+        <p className="text-muted-foreground">Revisando los pactos pendientes...</p>
       ) : items.length === 0 ? (
         <div className="rounded-lg border border-dashed border-border/60 bg-card/40 p-10 text-center">
           <p className="font-heading text-lg uppercase tracking-widest text-muted-foreground">
             Sin invitaciones
           </p>
-          <p className="mt-2 font-serif italic text-muted-foreground">
+          <p className="mt-2 text-muted-foreground">
             Nadie te ha convocado aún. Vuelve más tarde o crea tu propia crónica.
           </p>
           <Link to="/chronicles" className="mt-4 inline-block">

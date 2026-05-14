@@ -104,7 +104,7 @@ export default function ChronicleJournalRoute() {
 
   if (loading) {
     return (
-      <p className="font-serif italic text-muted-foreground">Cargando bitácora...</p>
+      <p className="text-muted-foreground">Cargando bitácora...</p>
     );
   }
   if (error || !chronicle || !id) {
@@ -309,7 +309,7 @@ export default function ChronicleJournalRoute() {
       )}
 
       {entries.length === 0 ? (
-        <p className="font-serif italic text-muted-foreground">
+        <p className="text-muted-foreground">
           {tab === "chronicle"
             ? "El narrador aún no ha escrito en la bitácora."
             : "Aún no tienes memorias de tu personaje en esta crónica."}

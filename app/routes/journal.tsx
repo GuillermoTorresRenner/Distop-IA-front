@@ -46,7 +46,7 @@ export default function JournalRoute() {
 
       {error ? <FormAlert message={error} /> : null}
       {loading ? (
-        <p className="font-serif italic text-muted-foreground">Cargando memorias...</p>
+        <p className="text-muted-foreground">Cargando memorias...</p>
       ) : null}
 
       {feed ? (
@@ -78,7 +78,7 @@ function FeedList({
   emptyHint: string;
 }) {
   if (items.length === 0) {
-    return <p className="font-serif italic text-muted-foreground">{emptyHint}</p>;
+    return <p className="text-muted-foreground">{emptyHint}</p>;
   }
   return (
     <ul className="space-y-3">

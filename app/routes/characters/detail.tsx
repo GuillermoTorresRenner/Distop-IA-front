@@ -209,7 +209,7 @@ export default function CharacterDetailRoute() {
 
   if (loading || !value || !character) {
     return (
-      <p className="font-serif italic text-muted-foreground">
+      <p className="text-muted-foreground">
         {error ?? "Cargando vástago..."}
       </p>
     );

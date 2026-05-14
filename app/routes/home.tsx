@@ -85,7 +85,7 @@ export default function Home() {
         <h2 className="font-heading text-sm uppercase tracking-[0.3em] text-blood">
           Crear una nueva crónica
         </h2>
-        <p className="mt-2 font-serif italic text-muted-foreground">
+        <p className="mt-2 text-muted-foreground">
           Funda tu propia historia y convoca a los vástagos que te acompañarán.
         </p>
         <Link to="/chronicles/new" className="mt-4 inline-block">

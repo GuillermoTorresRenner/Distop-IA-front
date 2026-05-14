@@ -77,7 +77,7 @@ export default function RegisterRoute() {
 
   return (
     <AuthCard
-      title="Forjar un pacto"
+      title="Crear cuenta"
       description={
         invite
           ? `Has sido convocado a "${invite.chronicle.name}". Crea tu cuenta para aceptar.`

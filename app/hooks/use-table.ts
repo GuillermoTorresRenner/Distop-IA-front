@@ -7,8 +7,21 @@ import {
 import type {
   ChatMessage,
   ChronicleMemberRole,
+  DiceRoll,
   PresenceMember,
+  RollVtmInput,
+  SheetAnnounce,
+  SheetAnnounceInput,
 } from "~/lib/socket/types";
+
+/**
+ * Item unificado del feed del chat: mensaje humano o anuncio de hoja.
+ * Usamos `_t` como discriminador para no colisionar con el `kind` del
+ * personaje en `SheetAnnounce` (PC/NPC/ANTAGONIST).
+ */
+export type FeedItem =
+  | ({ _t: "chat" } & ChatMessage)
+  | ({ _t: "sheet" } & SheetAnnounce);
 
 export type ConnectionStatus =
   | "idle"
@@ -23,10 +36,15 @@ interface UseTableState {
   error: string | null;
   members: PresenceMember[];
   myRole: ChronicleMemberRole | string | null;
-  messages: ChatMessage[];
+  /** Feed unificado del chat: mensajes humanos + anuncios de hoja. */
+  feed: FeedItem[];
+  rolls: DiceRoll[];
+  /** id de la tirada recién recibida (para animación; se limpia automáticamente) */
+  latestRollId: string | null;
 }
 
-const MAX_MESSAGES = 200;
+const MAX_FEED = 300;
+const MAX_ROLLS = 100;
 
 /**
  * Conecta a la mesa de una crónica. Se debe llamar SOLO en componentes que
@@ -38,7 +56,9 @@ export function useTable(chronicleId: string | null) {
     error: null,
     members: [],
     myRole: null,
-    messages: [],
+    feed: [],
+    rolls: [],
+    latestRollId: null,
   });
 
   const socketRef = useRef<TableSocket | null>(null);
@@ -98,8 +118,29 @@ export function useTable(chronicleId: string | null) {
     const onChatMessage = (msg: ChatMessage) => {
       setState((s) => ({
         ...s,
-        messages: [...s.messages.slice(-MAX_MESSAGES + 1), msg],
+        feed: [...s.feed.slice(-MAX_FEED + 1), { _t: "chat", ...msg }],
       }));
+    };
+
+    const onSheetAnnounce = (a: SheetAnnounce) => {
+      setState((s) => ({
+        ...s,
+        feed: [...s.feed.slice(-MAX_FEED + 1), { _t: "sheet", ...a }],
+      }));
+    };
+
+    const onRollResult = (roll: DiceRoll) => {
+      setState((s) => ({
+        ...s,
+        // Orden ascendente (la más reciente abajo) para que coincida con el
+        // chat y el comportamiento esperado por el usuario.
+        rolls: [...s.rolls.slice(-(MAX_ROLLS - 1)), roll],
+        latestRollId: roll.id,
+      }));
+    };
+
+    const onRollsCleared = () => {
+      setState((s) => ({ ...s, rolls: [], latestRollId: null }));
     };
 
     socket.on("connect", onConnect);
@@ -108,6 +149,9 @@ export function useTable(chronicleId: string | null) {
     socket.on("presence:join", onPresenceJoin);
     socket.on("presence:leave", onPresenceLeave);
     socket.on("chat:message", onChatMessage);
+    socket.on("sheet:announce", onSheetAnnounce);
+    socket.on("roll:result", onRollResult);
+    socket.on("rolls:cleared", onRollsCleared);
 
     // Si ya estaba conectado (singleton reusado), disparamos join manualmente.
     if (socket.connected) onConnect();
@@ -119,6 +163,9 @@ export function useTable(chronicleId: string | null) {
       socket.off("presence:join", onPresenceJoin);
       socket.off("presence:leave", onPresenceLeave);
       socket.off("chat:message", onChatMessage);
+      socket.off("sheet:announce", onSheetAnnounce);
+      socket.off("roll:result", onRollResult);
+      socket.off("rolls:cleared", onRollsCleared);
       socket.emit("table:leave", {});
     };
   }, [chronicleId]);
@@ -143,6 +190,42 @@ export function useTable(chronicleId: string | null) {
     });
   }, []);
 
+  const rollVtm = useCallback((input: RollVtmInput) => {
+    const socket = socketRef.current;
+    if (!socket || !socket.connected)
+      return Promise.resolve({ ok: false, error: "Sin conexión" });
+    return new Promise<{ ok: boolean; id?: string; error?: string }>(
+      (resolve) => {
+        socket.emit("roll:vtm", input, (resp) => {
+          resolve(resp ?? { ok: false, error: "Sin respuesta" });
+        });
+      }
+    );
+  }, []);
+
+  const announceSheet = useCallback((input: SheetAnnounceInput) => {
+    const socket = socketRef.current;
+    if (!socket || !socket.connected || input.deltas.length === 0) {
+      return Promise.resolve({ ok: false });
+    }
+    return new Promise<{ ok: boolean; error?: string }>((resolve) => {
+      socket.emit("sheet:announce", input, (resp) => {
+        resolve(resp ?? { ok: false });
+      });
+    });
+  }, []);
+
+  /** Para hidratar el historial inicial desde el endpoint REST. */
+  const setInitialRolls = useCallback((rolls: DiceRoll[]) => {
+    setState((s) => ({ ...s, rolls }));
+  }, []);
+
+  const dismissLatestRoll = useCallback(() => {
+    setState((s) =>
+      s.latestRollId ? { ...s, latestRollId: null } : s
+    );
+  }, []);
+
   const dispose = useCallback(() => {
     disposeTableSocket();
     socketRef.current = null;
@@ -151,6 +234,10 @@ export function useTable(chronicleId: string | null) {
   return {
     ...state,
     sendMessage,
+    rollVtm,
+    announceSheet,
+    setInitialRolls,
+    dismissLatestRoll,
     dispose,
   };
 }

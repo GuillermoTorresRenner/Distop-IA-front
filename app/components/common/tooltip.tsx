@@ -58,7 +58,7 @@ export function Tooltip({
               {title}
             </span>
           ) : null}
-          <span className="block font-serif italic leading-relaxed text-foreground/90">
+          <span className="block leading-relaxed text-foreground/90">
             {content}
           </span>
         </span>

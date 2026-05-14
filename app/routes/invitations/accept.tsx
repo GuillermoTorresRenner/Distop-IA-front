@@ -50,7 +50,7 @@ export default function AcceptInvitationRoute() {
   }
 
   if (loading) {
-    return <p className="font-serif italic text-muted-foreground">Validando invitación...</p>;
+    return <p className="text-muted-foreground">Validando invitación...</p>;
   }
 
   if (error || !preview) {

@@ -24,7 +24,7 @@ export function ComingSoon({
         <p className="font-heading text-lg uppercase tracking-widest text-muted-foreground">
           La sangre todavía no fluye por aquí
         </p>
-        <p className="mt-2 font-serif italic text-muted-foreground">
+        <p className="mt-2 text-muted-foreground">
           Esta sala del santuario está en construcción. Vuelve en una próxima noche.
         </p>
         {features.length ? (

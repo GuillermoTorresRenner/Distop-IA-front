@@ -81,7 +81,7 @@ export function UserMenu({ user }: UserMenuProps) {
             <p className="font-heading uppercase tracking-widest text-[0.7rem]">
               {user.nickname}
             </p>
-            <p className="mt-0.5 truncate font-serif italic">{user.email}</p>
+            <p className="mt-0.5 truncate ">{user.email}</p>
           </div>
           <button
             type="button"

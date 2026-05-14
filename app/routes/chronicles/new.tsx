@@ -44,7 +44,7 @@ export default function NewChronicleRoute() {
     <section className="mx-auto max-w-2xl">
       <PageHeader
         eyebrow="Nuevo pacto"
-        title="Forjar una crónica"
+        title="Crear crónica"
         description="Como Narrador definirás el escenario y convocarás a tu manada."
       />
 

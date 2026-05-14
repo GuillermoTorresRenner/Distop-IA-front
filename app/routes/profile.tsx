@@ -31,7 +31,7 @@ export default function ProfileRoute() {
 
   if (!user) {
     return (
-      <p className="font-serif italic text-muted-foreground">Cargando perfil...</p>
+      <p className="text-muted-foreground">Cargando perfil...</p>
     );
   }
 

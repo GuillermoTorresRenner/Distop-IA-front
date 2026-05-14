@@ -56,13 +56,13 @@ export default function ChroniclesListRoute() {
       {error ? <FormAlert message={error} className="mb-6" /> : null}
 
       {loading ? (
-        <p className="font-serif italic text-muted-foreground">Convocando crónicas...</p>
+        <p className="text-muted-foreground">Convocando crónicas...</p>
       ) : items.length === 0 ? (
         <div className="rounded-lg border border-dashed border-border/60 bg-card/40 p-10 text-center">
           <p className="font-heading text-lg uppercase tracking-widest text-muted-foreground">
             La noche está en silencio
           </p>
-          <p className="mt-2 font-serif italic text-muted-foreground">
+          <p className="mt-2 text-muted-foreground">
             Aún no participas en ninguna crónica. Crea una nueva o espera una invitación.
           </p>
           <Link to="/chronicles/new" className="mt-4 inline-block">

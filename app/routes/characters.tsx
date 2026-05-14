@@ -91,19 +91,19 @@ export default function CharactersListRoute() {
 
       {error ? <FormAlert message={error} /> : null}
       {loading ? (
-        <p className="font-serif italic text-muted-foreground">Cargando vástagos...</p>
+        <p className="text-muted-foreground">Cargando vástagos...</p>
       ) : items.length === 0 ? (
         <article className="rounded-lg border border-dashed border-border/60 bg-card/40 p-10 text-center">
           <Skull className="mx-auto mb-3 size-10 text-blood" />
           <p className="font-heading text-lg uppercase tracking-widest text-muted-foreground">
             Aún no has forjado un vástago
           </p>
-          <p className="mt-2 font-serif italic text-muted-foreground">
+          <p className="mt-2 text-muted-foreground">
             Crea tu primer personaje para sumarlo a una crónica.
           </p>
           <Link to="/characters/new" className="mt-4 inline-block">
             <Button className="bg-blood text-blood-foreground hover:bg-blood/90">
-              <Plus className="size-4" /> Forjar vástago
+              <Plus className="size-4" /> Crear vástago
             </Button>
           </Link>
         </article>

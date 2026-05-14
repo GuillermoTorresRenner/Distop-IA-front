@@ -24,6 +24,23 @@ export async function updateCharacter(
   return data;
 }
 
+/**
+ * PATCH del personaje en el contexto de una crónica.
+ * Permite que el narrador edite hojas ajenas asociadas a esa crónica.
+ * Si el caller es el dueño, también funciona.
+ */
+export async function updateCharacterInChronicle(
+  chronicleId: string,
+  characterId: string,
+  input: Partial<CharacterInput>,
+): Promise<Character> {
+  const { data } = await apiClient.patch<Character>(
+    `/chronicles/${chronicleId}/characters/${characterId}`,
+    input,
+  );
+  return data;
+}
+
 export async function deleteCharacter(id: string): Promise<{ ok: boolean }> {
   const { data } = await apiClient.delete<{ ok: boolean }>(`/characters/${id}`);
   return data;

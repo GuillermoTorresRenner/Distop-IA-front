@@ -116,7 +116,7 @@ export default function ChronicleDetailRoute() {
 
   if (loading) {
     return (
-      <p className="font-serif italic text-muted-foreground">Cargando crónica...</p>
+      <p className="text-muted-foreground">Cargando crónica...</p>
     );
   }
 
@@ -462,7 +462,7 @@ export default function ChronicleDetailRoute() {
             ) : null}
 
             {characters.length === 0 ? (
-              <p className="font-serif italic text-muted-foreground">
+              <p className="text-muted-foreground">
                 Aún no hay personajes en esta mesa.
               </p>
             ) : (
@@ -587,7 +587,7 @@ export default function ChronicleDetailRoute() {
               <Mail className="size-4" /> Invitaciones pendientes ({chronicle.invitations.length})
             </h2>
             {chronicle.invitations.length === 0 ? (
-              <p className="font-serif italic text-muted-foreground">
+              <p className="text-muted-foreground">
                 Sin invitaciones pendientes.
               </p>
             ) : (

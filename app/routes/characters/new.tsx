@@ -41,7 +41,7 @@ import { findTemplate } from "~/lib/antagonist-templates";
 import { emptyCharacterInput } from "~/lib/character-sheet";
 
 export function meta() {
-  return [{ title: "Forjar vástago · Distop-IA VTT" }];
+  return [{ title: "Crear vástago · Distop-IA VTT" }];
 }
 
 export default function NewCharacterRoute() {
@@ -146,7 +146,7 @@ export default function NewCharacterRoute() {
   }
 
   if (loading) {
-    return <p className="font-serif italic text-muted-foreground">Cargando catálogos...</p>;
+    return <p className="text-muted-foreground">Cargando catálogos...</p>;
   }
 
   return (

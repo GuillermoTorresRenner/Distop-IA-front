@@ -46,7 +46,7 @@ export default function TableHubRoute() {
       {error ? <FormAlert message={error} className="mb-6" /> : null}
 
       {loading ? (
-        <p className="font-serif italic text-muted-foreground">
+        <p className="text-muted-foreground">
           Convocando crónicas...
         </p>
       ) : items.length === 0 ? (
