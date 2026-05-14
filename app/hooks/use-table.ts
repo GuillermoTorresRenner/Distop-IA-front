@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { playDiceRoll, playMessage } from "~/lib/audio/sounds.client";
 import {
   disposeTableSocket,
   getTableSocket,
@@ -136,6 +137,7 @@ export function useTable(chronicleId: string | null) {
         ...s,
         feed: [...s.feed.slice(-MAX_FEED + 1), { _t: "chat", ...msg }],
       }));
+      playMessage();
     };
 
     const onSheetAnnounce = (a: SheetAnnounce) => {
@@ -153,6 +155,7 @@ export function useTable(chronicleId: string | null) {
         rolls: [...s.rolls.slice(-(MAX_ROLLS - 1)), roll],
         latestRollId: roll.id,
       }));
+      playDiceRoll(roll.rolls?.length ?? 5);
     };
 
     const onRollsCleared = () => {

@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!--
+    Gota de sangre · Distop-IA / La Mascarada VTT.
+    Forma de teardrop clásica: punta angosta arriba, base ancha abajo,
+    silueta simétrica con highlight blanco lateral para sugerir líquido.
+  -->
+  <defs>
+    <radialGradient id="dropGrad" cx="38%" cy="68%" r="62%">
+      <stop offset="0%" stop-color="#ff5d6a" />
+      <stop offset="35%" stop-color="#c8202c" />
+      <stop offset="75%" stop-color="#8a0d18" />
+      <stop offset="100%" stop-color="#3a050a" />
+    </radialGradient>
+  </defs>
+
+  <!--
+    Path de teardrop:
+      M 32 4      → punta superior, casi en el borde
+      Q 32 4, ...  → curvas Bezier cuadráticas que abren la base
+    La forma cumple regla 1:1.4 (alto:ancho de la base) para que se vea
+    inconfundiblemente como gota y no como manzana o corazón.
+  -->
+  <path
+    d="M32 4
+       C 32 4, 14 26, 14 42
+       C 14 53.5, 22 60, 32 60
+       C 42 60, 50 53.5, 50 42
+       C 50 26, 32 4, 32 4 Z"
+    fill="url(#dropGrad)"
+    stroke="#2a0408"
+    stroke-width="2"
+    stroke-linejoin="round"
+  />
+
+  <!-- Highlight especular: elipse semi-transparente para sensación de líquido -->
+  <ellipse
+    cx="24"
+    cy="42"
+    rx="4.5"
+    ry="9"
+    fill="#ffffff"
+    opacity="0.32"
+    transform="rotate(-18 24 42)"
+  />
+</svg>

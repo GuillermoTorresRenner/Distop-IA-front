@@ -7,6 +7,8 @@ import {
   Palette,
   Send,
   User as UserIcon,
+  Volume2,
+  VolumeX,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router";
@@ -17,6 +19,7 @@ import { NotesModal } from "~/components/table/notes-modal";
 import { RollHistory } from "~/components/table/roll-history";
 import { WhiteboardModal } from "~/components/table/whiteboard-modal";
 import { Button } from "~/components/ui/button";
+import { useAudioMute } from "~/hooks/use-audio-mute";
 import { useTable, type FeedItem } from "~/hooks/use-table";
 import {
   listChronicleCharacters,
@@ -208,6 +211,9 @@ export default function ChronicleTableRoute() {
   const [whiteboardOpen, setWhiteboardOpen] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
 
+  // ── Silenciar feedback sonoro ───────────────────────────
+  const { muted, toggle: toggleMute } = useAudioMute();
+
   // ── Limpieza de tiradas (solo narrador) ─────────────────
   const { confirm, dialog: confirmDialog } = useConfirm();
   const [clearingRolls, setClearingRolls] = useState(false);
@@ -305,6 +311,30 @@ export default function ChronicleTableRoute() {
           <PresenceTags members={members} />
         </div>
         <div className="flex items-center gap-2">
+          <Tooltip
+            title={muted ? "Activar sonido" : "Silenciar sonido"}
+            content={
+              muted
+                ? "Volverán los sonidos al recibir mensajes y tiradas."
+                : "Silencia el feedback sonoro de mensajes y tiradas. La preferencia se recuerda al recargar."
+            }
+            side="bottom"
+          >
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={toggleMute}
+              aria-label={muted ? "Activar sonido" : "Silenciar sonido"}
+              aria-pressed={muted}
+            >
+              {muted ? (
+                <VolumeX className="size-4 text-muted-foreground" />
+              ) : (
+                <Volume2 className="size-4" />
+              )}
+            </Button>
+          </Tooltip>
           <Button
             type="button"
             variant="outline"
