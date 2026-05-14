@@ -17,6 +17,7 @@ export default [
     route("chronicles/new", "routes/chronicles/new.tsx"),
     route("chronicles/:id", "routes/chronicles/detail.tsx"),
     route("chronicles/:id/journal", "routes/chronicles/journal.tsx"),
+    route("chronicles/:id/table", "routes/chronicles/table.tsx"),
     route("invitations", "routes/invitations/list.tsx"),
     route("invitations/:token", "routes/invitations/accept.tsx"),
     route("social", "routes/social.tsx"),
