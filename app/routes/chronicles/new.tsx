@@ -51,7 +51,7 @@ export default function NewChronicleRoute() {
       <form
         noValidate
         onSubmit={handleSubmit}
-        className="space-y-5 rounded-lg border border-border/60 bg-card/70 p-6 shadow-sm shadow-black/30"
+        className="space-y-5 rounded-lg border border-border/60 bg-card/70 p-4 shadow-sm shadow-black/30 sm:p-6"
       >
         {error ? <FormAlert message={error} /> : null}
 

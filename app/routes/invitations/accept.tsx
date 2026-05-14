@@ -80,7 +80,7 @@ export default function AcceptInvitationRoute() {
         }
       />
 
-      <article className="rounded-lg border border-border/60 bg-card/70 p-6 shadow-sm shadow-black/30">
+      <article className="rounded-lg border border-border/60 bg-card/70 p-4 shadow-sm shadow-black/30 sm:p-6">
         <dl className="space-y-3 font-serif text-sm text-muted-foreground">
           <div>
             <dt className="text-xs uppercase tracking-widest text-blood">Crónica</dt>

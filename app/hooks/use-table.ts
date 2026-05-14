@@ -47,7 +47,11 @@ interface UseTableState {
   /** Estado de la pizarra compartida (lo emite el narrador). */
   boardShared: boolean;
   /** Snapshot recibido de la pizarra compartida cuando boardShared = true. */
-  remoteBoard: { elements: unknown[]; appState: Record<string, unknown> | null } | null;
+  remoteBoard: {
+    elements: unknown[];
+    appState: Record<string, unknown> | null;
+    fileRefs: Record<string, { url: string; mimeType: string }>;
+  } | null;
   /** Token monotónico que cambia cada vez que llega un snapshot nuevo. */
   remoteBoardVersion: number;
 }
@@ -160,7 +164,11 @@ export function useTable(chronicleId: string | null) {
         ...s,
         boardShared: p.isShared,
         remoteBoard: p.isShared
-          ? { elements: p.elements, appState: p.appState }
+          ? {
+              elements: p.elements,
+              appState: p.appState,
+              fileRefs: p.fileRefs ?? {},
+            }
           : null,
         remoteBoardVersion: s.remoteBoardVersion + 1,
       }));
@@ -169,9 +177,17 @@ export function useTable(chronicleId: string | null) {
     const onBoardUpdated = (p: BoardUpdatedPayload) => {
       setState((s) => {
         if (!s.boardShared) return s;
+        // Mantenemos los fileRefs del snapshot inicial (board:shared) porque
+        // board:updated no los re-emite. Si aparece un fileId nuevo en los
+        // elementos, el canvas refresca vía GET REST al detectarlo.
+        const prevFileRefs = s.remoteBoard?.fileRefs ?? {};
         return {
           ...s,
-          remoteBoard: { elements: p.elements, appState: p.appState },
+          remoteBoard: {
+            elements: p.elements,
+            appState: p.appState,
+            fileRefs: prevFileRefs,
+          },
           remoteBoardVersion: s.remoteBoardVersion + 1,
         };
       });

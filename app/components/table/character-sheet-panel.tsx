@@ -272,7 +272,7 @@ export function CharacterSheetPanel({
         </div>
       ) : null}
 
-      <div className="flex-1 overflow-y-auto p-3 space-y-4">
+      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden scrollbar-gutter-stable themed-scrollbar p-3 space-y-4">
         {/* Estado editable (autosave) */}
         <StateSection
           character={character}
@@ -285,7 +285,7 @@ export function CharacterSheetPanel({
         {/* Atributos: 3 columnas (Físicos / Sociales / Mentales) en pantallas grandes */}
         <section>
           <SectionTitle>Atributos</SectionTitle>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3 *:min-w-0">
             {(["physical", "social", "mental"] as const).map((group) => (
               <div key={group}>
                 <p className="mb-1 text-[10px] font-heading uppercase tracking-wider text-muted-foreground">
@@ -311,7 +311,7 @@ export function CharacterSheetPanel({
         {/* Habilidades: 3 columnas (Talentos / Técnicas / Conocimientos) en pantallas grandes */}
         <section>
           <SectionTitle>Habilidades</SectionTitle>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3 *:min-w-0">
             {(["TALENT", "SKILL", "KNOWLEDGE"] as AbilityCategory[]).map((cat) => {
               const items = character.abilities
                 .filter((a) => a.category === cat)

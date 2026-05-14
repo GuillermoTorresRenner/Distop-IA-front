@@ -69,8 +69,8 @@ export function NotesModal({
   }, [onClose]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
-      <div className="relative flex h-[80vh] w-full max-w-4xl flex-col rounded-lg border border-border bg-card">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-2 sm:p-4">
+      <div className="relative flex h-[95dvh] w-full max-w-4xl flex-col rounded-lg border border-border bg-card sm:h-[80dvh]">
         <header className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
           <div className="flex items-center gap-2">
             <NotebookPen className="size-4 text-blood" />

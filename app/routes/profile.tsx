@@ -87,7 +87,7 @@ export default function ProfileRoute() {
   }
 
   return (
-    <section className="space-y-8">
+    <section className="space-y-6 sm:space-y-8">
       <PageHeader
         eyebrow="Vástago"
         title="Mi santuario"
@@ -96,7 +96,7 @@ export default function ProfileRoute() {
 
       {success ? <FormAlert kind="success" message={success} /> : null}
 
-      <article className="rounded-lg border border-border/60 bg-card/70 p-6">
+      <article className="rounded-lg border border-border/60 bg-card/70 p-4 sm:p-6">
         <h2 className="mb-4 flex items-center gap-2 font-heading text-sm uppercase tracking-[0.3em] text-blood">
           <UserCircle2 className="size-4" /> Retrato
         </h2>
@@ -114,7 +114,7 @@ export default function ProfileRoute() {
         />
       </article>
 
-      <article className="rounded-lg border border-border/60 bg-card/70 p-6">
+      <article className="rounded-lg border border-border/60 bg-card/70 p-4 sm:p-6">
         <h2 className="mb-4 font-heading text-xs uppercase tracking-[0.3em] text-blood">
           Identidad
         </h2>

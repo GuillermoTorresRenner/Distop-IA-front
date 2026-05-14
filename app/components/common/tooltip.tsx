@@ -36,7 +36,9 @@ export function Tooltip({
   return (
     <span
       ref={ref}
-      className={cn("relative inline-flex", className)}
+      // `min-w-0` evita que el inline-flex se expanda más allá del 100% del
+      // padre cuando el children tiene contenido largo dentro de grids/flex.
+      className={cn("relative inline-flex min-w-0", className)}
       onMouseEnter={() => setOpen(true)}
       onMouseLeave={() => setOpen(false)}
       onFocus={() => setOpen(true)}

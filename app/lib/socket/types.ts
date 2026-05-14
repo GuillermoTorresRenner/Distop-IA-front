@@ -102,6 +102,8 @@ export interface BoardSharedPayload {
   isShared: boolean;
   elements: unknown[];
   appState: Record<string, unknown> | null;
+  /** Mapping fileId → { url, mimeType } de las imágenes embebidas. */
+  fileRefs: Record<string, { url: string; mimeType: string }>;
   at: string;
 }
 

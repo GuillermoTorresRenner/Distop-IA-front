@@ -77,7 +77,7 @@ export function RollHistory({
       </div>
       <div
         ref={scrollerRef}
-        className="flex-1 overflow-y-auto p-2 space-y-2"
+        className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden scrollbar-gutter-stable themed-scrollbar p-2 space-y-2"
       >
         {rolls.length === 0 ? (
           <p className="px-2 py-3 text-sm text-muted-foreground">

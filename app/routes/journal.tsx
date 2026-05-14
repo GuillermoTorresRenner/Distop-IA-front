@@ -37,7 +37,7 @@ export default function JournalRoute() {
   }, []);
 
   return (
-    <section className="space-y-8">
+    <section className="space-y-6 sm:space-y-8">
       <PageHeader
         eyebrow="Memorias"
         title="Bitácora"
@@ -50,7 +50,7 @@ export default function JournalRoute() {
       ) : null}
 
       {feed ? (
-        <div className="grid gap-6 lg:grid-cols-2">
+        <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
           <article className="rounded-lg border border-border/60 bg-card/70 p-5">
             <h2 className="mb-4 flex items-center gap-2 font-heading text-sm uppercase tracking-[0.3em] text-blood">
               <ScrollText className="size-4" /> Crónicas

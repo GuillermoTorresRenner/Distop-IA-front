@@ -47,25 +47,25 @@ const tiles: Tile[] = [
 export default function Home() {
   const user = useUserStore((s) => s.user);
   return (
-    <section className="space-y-8">
+    <section className="space-y-6 sm:space-y-8">
       <header className="space-y-2">
-        <p className="font-heading text-xs uppercase tracking-[0.4em] text-blood">
+        <p className="font-heading text-[0.65rem] uppercase tracking-[0.3em] text-blood sm:text-xs sm:tracking-[0.4em]">
           Cónclave abierto
         </p>
-        <h1 className="font-heading text-4xl text-foreground sm:text-5xl">
+        <h1 className="font-heading text-3xl text-foreground sm:text-5xl">
           Bienvenido, {user?.nickname ?? "vástago"}
         </h1>
-        <p className="font-serif text-lg italic text-muted-foreground">
+        <p className="text-base italic text-muted-foreground sm:text-lg">
           La noche es larga. Elige por dónde comienza la cacería.
         </p>
       </header>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
         {tiles.map((tile) => (
           <Link
             key={tile.to}
             to={tile.to}
-            className="group relative flex flex-col gap-3 overflow-hidden rounded-lg border border-border/60 bg-card/70 p-5 shadow-sm shadow-black/40 transition hover:border-blood/60 hover:shadow-blood/20"
+            className="group relative flex flex-col gap-3 overflow-hidden rounded-lg border border-border/60 bg-card/70 p-4 shadow-sm shadow-black/40 transition hover:border-blood/60 hover:shadow-blood/20 sm:p-5"
           >
             <tile.icon className="size-6 text-blood" />
             <h2 className="font-heading text-lg uppercase tracking-widest text-foreground">
@@ -81,8 +81,8 @@ export default function Home() {
         ))}
       </div>
 
-      <div className="rounded-lg border border-border/60 bg-card/40 p-6">
-        <h2 className="font-heading text-sm uppercase tracking-[0.3em] text-blood">
+      <div className="rounded-lg border border-border/60 bg-card/40 p-4 sm:p-6">
+        <h2 className="font-heading text-sm uppercase tracking-[0.2em] text-blood sm:tracking-[0.3em]">
           Crear una nueva crónica
         </h2>
         <p className="mt-2 text-muted-foreground">

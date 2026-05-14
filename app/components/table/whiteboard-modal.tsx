@@ -9,7 +9,11 @@ import {
 } from "react";
 import { Tooltip } from "~/components/common/tooltip";
 import { Button } from "~/components/ui/button";
-import { getBoard, saveBoard } from "~/lib/api/board/board.api";
+import {
+  getBoard,
+  saveBoard,
+  uploadBoardFile,
+} from "~/lib/api/board/board.api";
 import { cn } from "~/lib/utils";
 
 // El módulo importa Excalidraw (toca `window`), así que solo lo cargamos
@@ -17,6 +21,56 @@ import { cn } from "~/lib/utils";
 const WhiteboardCanvas = lazy(
   () => import("./whiteboard-canvas.client")
 );
+
+/**
+ * Subset serializable del `appState` de Excalidraw.
+ *
+ * Excalidraw incluye en `appState` campos no-serializables (ej. `collaborators`
+ * que es un Map). Si los persistimos crudo y los rehidratamos desde la DB,
+ * llegan como objetos planos y rompen el render con "collaborators.forEach is
+ * not a function". Acá sanitizamos antes de enviar al back / por WS.
+ *
+ * Mantener sincronizado con el mismo whitelist en `whiteboard-canvas.client.tsx`.
+ */
+const APP_STATE_SAFE_KEYS = [
+  "viewBackgroundColor",
+  "gridSize",
+  "gridStep",
+  "zoom",
+  "scrollX",
+  "scrollY",
+  "theme",
+  "name",
+  "exportBackground",
+  "exportEmbedScene",
+  "exportWithDarkMode",
+  "exportScale",
+  "fileHandle",
+  "currentItemFontFamily",
+  "currentItemFontSize",
+  "currentItemStrokeColor",
+  "currentItemBackgroundColor",
+  "currentItemFillStyle",
+  "currentItemStrokeWidth",
+  "currentItemStrokeStyle",
+  "currentItemRoughness",
+  "currentItemOpacity",
+  "currentItemTextAlign",
+  "currentItemStartArrowhead",
+  "currentItemEndArrowhead",
+  "currentItemRoundness",
+] as const;
+
+function sanitizeAppStateForPersist(
+  raw: Record<string, unknown> | null | undefined
+): Record<string, unknown> | undefined {
+  if (!raw) return undefined;
+  const out: Record<string, unknown> = {};
+  for (const key of APP_STATE_SAFE_KEYS) {
+    if (key in raw) out[key] = raw[key];
+  }
+  return Object.keys(out).length > 0 ? out : undefined;
+}
 
 interface WhiteboardModalProps {
   chronicleId: string;
@@ -26,6 +80,7 @@ interface WhiteboardModalProps {
   remoteBoard: {
     elements: unknown[];
     appState: Record<string, unknown> | null;
+    fileRefs: Record<string, { url: string; mimeType: string }>;
   } | null;
   remoteBoardVersion: number;
   onShareToggle: (
@@ -70,6 +125,9 @@ export function WhiteboardModal({
   const [initialAppState, setInitialAppState] = useState<
     Record<string, unknown> | null
   >(null);
+  const [initialFileRefs, setInitialFileRefs] = useState<
+    Record<string, { url: string; mimeType: string }>
+  >({});
   const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -82,6 +140,7 @@ export function WhiteboardModal({
           if (!mounted) return;
           setInitialElements(board.elements ?? []);
           setInitialAppState(board.appState);
+          setInitialFileRefs(board.fileRefs ?? {});
           setHydrated(true);
         })
         .catch((err) => {
@@ -96,6 +155,7 @@ export function WhiteboardModal({
       if (boardShared && remoteBoard) {
         setInitialElements(remoteBoard.elements);
         setInitialAppState(remoteBoard.appState);
+        setInitialFileRefs(remoteBoard.fileRefs ?? {});
       }
       setHydrated(true);
     }
@@ -113,22 +173,55 @@ export function WhiteboardModal({
   const lastElementsRef = useRef<readonly unknown[]>([]);
   const lastAppStateRef = useRef<Record<string, unknown> | null>(null);
   const pushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /**
+   * Set de fileIds que ya intentamos subir (resueltos o fallidos). Evita
+   * subidas duplicadas: cada `onChange` puede re-emitir los mismos files
+   * y la API es idempotente igual, pero no queremos pegarle al back en cada
+   * trazo.
+   */
+  const uploadedFileIdsRef = useRef<Set<string>>(new Set());
+
+  // Sembramos con los fileRefs iniciales: lo que ya está persistido no
+  // necesita re-subirse.
+  useEffect(() => {
+    for (const id of Object.keys(initialFileRefs)) {
+      uploadedFileIdsRef.current.add(id);
+    }
+  }, [initialFileRefs]);
 
   const handleNarratorChange = useCallback(
-    (elements: readonly unknown[], appState: Record<string, unknown>) => {
+    (
+      elements: readonly unknown[],
+      appState: Record<string, unknown>,
+      files: Record<string, { id: string; dataURL: string; mimeType: string }>
+    ) => {
       lastElementsRef.current = elements;
       lastAppStateRef.current = appState;
+
+      // Detectar files nuevos y subirlos en background.
+      for (const [fileId, f] of Object.entries(files ?? {})) {
+        if (uploadedFileIdsRef.current.has(fileId)) continue;
+        if (!f?.dataURL?.startsWith("data:")) continue;
+        // Marcamos antes de await para evitar dobles disparos en re-render.
+        uploadedFileIdsRef.current.add(fileId);
+        void uploadBoardFile(chronicleId, fileId, f.dataURL).catch(() => {
+          // Si falla (ej. tamaño excedido), permitimos reintentar quitándolo
+          // del set; Excalidraw lo va a re-emitir en el próximo onChange.
+          uploadedFileIdsRef.current.delete(fileId);
+        });
+      }
+
       // Si está compartida, empujamos snapshots con debounce a la sala.
       if (!boardShared) return;
       if (pushTimerRef.current) clearTimeout(pushTimerRef.current);
       pushTimerRef.current = setTimeout(() => {
         void onPushUpdate({
           elements: Array.from(elements),
-          appState: appState,
+          appState: sanitizeAppStateForPersist(appState),
         });
       }, PUSH_DEBOUNCE_MS);
     },
-    [boardShared, onPushUpdate]
+    [boardShared, chronicleId, onPushUpdate]
   );
 
   useEffect(() => {
@@ -143,7 +236,7 @@ export function WhiteboardModal({
     try {
       await saveBoard(chronicleId, {
         elements: Array.from(lastElementsRef.current),
-        appState: lastAppStateRef.current ?? undefined,
+        appState: sanitizeAppStateForPersist(lastAppStateRef.current),
       });
       setSavedHint(true);
       setTimeout(() => setSavedHint(false), 1500);
@@ -162,7 +255,7 @@ export function WhiteboardModal({
       if (!boardShared) {
         await saveBoard(chronicleId, {
           elements: Array.from(lastElementsRef.current),
-          appState: lastAppStateRef.current ?? undefined,
+          appState: sanitizeAppStateForPersist(lastAppStateRef.current),
         });
       }
       await onShareToggle(!boardShared);
@@ -178,13 +271,14 @@ export function WhiteboardModal({
       ? {
           elements: remoteBoard.elements,
           appState: remoteBoard.appState,
+          fileRefs: remoteBoard.fileRefs,
           version: remoteBoardVersion,
         }
       : undefined;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
-      <div className="relative flex h-[90vh] w-full max-w-6xl flex-col rounded-lg border border-border bg-card">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-2 sm:p-4">
+      <div className="relative flex h-[95dvh] w-full max-w-6xl flex-col rounded-lg border border-border bg-card sm:h-[90dvh]">
         <header className="flex items-center justify-between gap-3 border-b border-border px-4 py-2">
           <div className="flex items-center gap-2">
             <Palette className="size-4 text-blood" />
@@ -303,6 +397,7 @@ export function WhiteboardModal({
                 <WhiteboardCanvas
                   initialElements={initialElements}
                   initialAppState={initialAppState}
+                  initialFileRefs={initialFileRefs}
                   viewOnly={!isNarrator}
                   remoteSnapshot={remoteSnapshot}
                   onChange={isNarrator ? handleNarratorChange : undefined}

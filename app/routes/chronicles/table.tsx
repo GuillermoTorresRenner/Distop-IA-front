@@ -290,7 +290,7 @@ export default function ChronicleTableRoute() {
   }, []);
 
   return (
-    <section className="flex h-[calc(100vh-8rem)] flex-col">
+    <section className="flex h-[calc(100dvh-6rem)] min-h-125 flex-col sm:h-[calc(100dvh-8rem)]">
       <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-1 flex-wrap items-center gap-3">
           <Link
@@ -310,18 +310,20 @@ export default function ChronicleTableRoute() {
             variant="outline"
             size="sm"
             onClick={() => setNotesOpen(true)}
+            aria-label="Notas"
           >
             <NotebookPen className="size-4" />
-            Notas
+            <span className="hidden sm:inline">Notas</span>
           </Button>
           <Button
             type="button"
             variant="outline"
             size="sm"
             onClick={() => setWhiteboardOpen(true)}
+            aria-label="Pizarra"
           >
             <Palette className="size-4" />
-            Pizarra
+            <span className="hidden sm:inline">Pizarra</span>
           </Button>
           <ConnectionBadge status={status} error={error} />
         </div>
@@ -338,8 +340,11 @@ export default function ChronicleTableRoute() {
           } as React.CSSProperties
         }
       >
-        {/* ─── Columna izquierda: hoja del personaje ─── */}
-        <aside className="flex h-full flex-1 flex-col overflow-hidden rounded-lg border border-border bg-card lg:flex-[0_0_var(--split-left)]">
+        {/* ─── Columna izquierda: hoja del personaje ───
+            En mobile reservamos máximo ~55% del alto para la hoja, así el
+            chat/dados siempre queda visible debajo. En lg+, el splitter
+            controla el ancho. */}
+        <aside className="flex max-h-[55vh] min-h-0 flex-col overflow-hidden rounded-lg border border-border bg-card lg:h-full lg:max-h-none lg:flex-[0_0_var(--split-left)]">
           <div className="flex-1 overflow-hidden">
             <SheetTab
               chronicleId={chronicleId ?? ""}
@@ -369,7 +374,7 @@ export default function ChronicleTableRoute() {
         </div>
 
         {/* ─── Columna derecha: tabs Chat / Dados + roller ─── */}
-        <aside className="flex h-full flex-1 flex-col overflow-hidden rounded-lg border border-border bg-card lg:flex-[0_0_var(--split-right)]">
+        <aside className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-border bg-card lg:h-full lg:flex-[0_0_var(--split-right)]">
           <nav className="flex border-b border-border">
             <TabButton
               active={rightTab === "chat"}
@@ -731,7 +736,7 @@ function ChatPanel({
     <div className="flex h-full flex-col">
       <div
         ref={scrollerRef}
-        className="flex-1 overflow-y-auto px-3 py-2 space-y-2"
+        className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden scrollbar-gutter-stable themed-scrollbar px-3 py-2 space-y-2"
       >
         {feed.length === 0 ? (
           <p className="text-sm italic text-muted-foreground">
