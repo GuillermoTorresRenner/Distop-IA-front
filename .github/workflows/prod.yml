@@ -5,21 +5,68 @@ on:
   push:
     branches:
       - main
-    paths:
-      - 'front/**'
-      - '.github/workflows/deploy-frontend.yml'
 
 env:
   PROJECT_PATH: /home/deployer/proyectos/distop-ia/prod/front
-  DOCKER_IMAGE: lebateleur/distop-ia-front
-  COMPOSE_PROJECT_NAME: distop_ia_prod
-  VITE_API_URL: https://api-distop-ia.guillermotorresdev.com/api
+  DOCKER_IMAGE: lebateleur/distop-ia-frontend
+  COMPOSE_PROJECT_NAME: distop_ia_prod_frontend
+  IMAGE_TAG: latest
+  INTERNAL_NETWORK: distop_ia_prod_internal_net
 
 jobs:
   deploy:
-    name: Deploy
+    name: Build, Push and Deploy Production Frontend
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Compose .env from secret
+        run: |
+          echo "${{ secrets.PROD_ENV_VARS }}" > .env
+
+      - name: Extract VITE_API_URL from .env
+        id: extract_env
+        run: |
+          VITE_API_URL=$(grep -E '^VITE_API_URL=' .env | head -n1 | cut -d '=' -f2- | tr -d '"' | tr -d "'" | xargs)
+          if [ -z "$VITE_API_URL" ]; then
+            echo "ERROR: VITE_API_URL is empty in PROD_ENV_VARS secret"
+            exit 1
+          fi
+          echo "VITE_API_URL=$VITE_API_URL" >> $GITHUB_OUTPUT
+          echo "Resolved VITE_API_URL=$VITE_API_URL"
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_PASSWORD }}
+
+      - name: Build and push Docker image
+        run: |
+          COMMIT_TAG=${{ github.sha }}
+          docker build \
+            --build-arg VITE_API_URL=${{ steps.extract_env.outputs.VITE_API_URL }} \
+            -t $DOCKER_IMAGE:$COMMIT_TAG \
+            -t $DOCKER_IMAGE:$IMAGE_TAG \
+            .
+          docker push $DOCKER_IMAGE:$COMMIT_TAG
+          docker push $DOCKER_IMAGE:$IMAGE_TAG
+
+      - name: Upload files to VPS
+        uses: appleboy/scp-action@v0.1.4
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          password: ${{ secrets.VPS_PASSWORD }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          source: 'docker-compose.yml,.env'
+          target: ${{ env.PROJECT_PATH }}/
+          strip_components: 0
+          overwrite: true
+          timeout: 600s
+          rm: false
+
       - name: Deploy to Hostinger VPS
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -27,34 +74,61 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           password: ${{ secrets.VPS_PASSWORD }}
           port: ${{ secrets.VPS_PORT || 22 }}
-          envs: PROJECT_PATH,DOCKER_IMAGE,COMPOSE_PROJECT_NAME
+          envs: PROJECT_PATH,DOCKER_IMAGE,COMPOSE_PROJECT_NAME,IMAGE_TAG,INTERNAL_NETWORK
           script: |
             set -e
             echo "=========================================="
             echo "Starting production frontend deployment..."
             echo "=========================================="
-            mkdir -p $PROJECT_PATH
             cd $PROJECT_PATH
 
-            # Pull latest frontend image
-            docker pull ${{ env.DOCKER_IMAGE }}:latest
-
-            # Update container if running
-            CONTAINER_ID=$(docker ps -q -f "name=distop_ia_prod_front" || true)
-            if [ ! -z "$CONTAINER_ID" ]; then
-              echo "Stopping existing frontend container..."
-              docker stop $CONTAINER_ID
-              docker rm $CONTAINER_ID
-            fi
-
-            echo "Starting new frontend container..."
-            docker run -d \
-              --name distop_ia_prod_front \
-              --restart always \
-              -p 3001:3000 \
-              --network distop_ia_prod_network \
-              ${{ env.DOCKER_IMAGE }}:latest
+            set -a
+            source .env
+            set +a
+            PREFIX="${PREFIX:-distop_ia_prod}"
 
             echo "=========================================="
-            echo "Frontend deployment completed successfully!"
+            echo "Step 1: Ensuring required external networks exist..."
+            echo "=========================================="
+            docker network inspect "$INTERNAL_NETWORK" >/dev/null 2>&1 || {
+              echo "Network $INTERNAL_NETWORK not found. The backend production stack must be deployed first."
+              exit 1
+            }
+            docker network inspect web >/dev/null 2>&1 || {
+              echo "Network 'web' not found. Create it manually on the VPS:"
+              echo "  docker network create web"
+              exit 1
+            }
+
+            echo "=========================================="
+            echo "Step 2: Stopping existing containers..."
+            echo "=========================================="
+            docker compose --project-name "$COMPOSE_PROJECT_NAME" down --remove-orphans || echo "No containers to stop"
+            docker rm -f "${PREFIX}_frontend" 2>/dev/null || true
+
+            echo "=========================================="
+            echo "Step 3: Pulling latest Docker image..."
+            echo "=========================================="
+            for i in 1 2 3; do
+              if docker pull "$DOCKER_IMAGE:$IMAGE_TAG"; then
+                echo "Image pulled successfully"
+                break
+              else
+                echo "Pull attempt $i failed, retrying in 10 seconds..."
+                sleep 10
+                if [ $i -eq 3 ]; then
+                  echo "Failed to pull image after 3 attempts"
+                  exit 1
+                fi
+              fi
+            done
+
+            echo "=========================================="
+            echo "Step 4: Starting frontend container..."
+            echo "=========================================="
+            docker compose --project-name "$COMPOSE_PROJECT_NAME" up -d
+            docker compose --project-name "$COMPOSE_PROJECT_NAME" ps
+
+            echo "=========================================="
+            echo "Production frontend deployment completed successfully"
             echo "=========================================="

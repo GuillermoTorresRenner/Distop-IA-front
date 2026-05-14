@@ -88,6 +88,7 @@ export function createServerClient(cookieHeader: string | null | undefined): Axi
   const instance = axios.create({
     baseURL: getApiBaseUrl(),
     withCredentials: true,
+    timeout: 5000,
     headers: {
       "Content-Type": "application/json",
       ...(cookieHeader ? { Cookie: cookieHeader } : {}),

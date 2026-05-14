@@ -1,0 +1,25 @@
+name: distop_ia_prod_frontend
+
+services:
+  frontend:
+    image: lebateleur/distop-ia-frontend:latest
+    container_name: ${PREFIX}_frontend
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - API_URL=http://backend:3000/api
+    networks:
+      - internal
+      - web
+    depends_on: []
+
+networks:
+  internal:
+    name: distop_ia_prod_internal_net
+    external: true
+  web:
+    name: web
+    external: true

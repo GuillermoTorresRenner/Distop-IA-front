@@ -1,17 +1,29 @@
-name: distop-ia_qa_frontend
+name: distop_ia_qa_frontend
 
 services:
-  distop-ia-frontend-qa:
-    image: lebateleur/distop-ia-frontend:latest
+  frontend:
+    image: lebateleur/distop-ia-frontend:qa
     container_name: ${PREFIX}_frontend
     restart: unless-stopped
     env_file:
       - .env
-    # expose:
-    #   - '3001'
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      # API_URL es la URL que el SSR del front usa para hablar con el back por red interna.
+      # VITE_API_URL ya está embebido en el bundle del browser (build-time).
+      - API_URL=http://backend:3000/api
     networks:
+      - internal
       - web
+    depends_on: []
 
 networks:
+  # Red interna del back QA: el front habla con backend:3000 por aquí (SSR).
+  internal:
+    name: distop_ia_qa_internal_net
+    external: true
+  # Red del reverse proxy (nginx-proxy-manager) que expone el front al mundo.
   web:
+    name: web
     external: true
