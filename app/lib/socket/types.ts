@@ -30,7 +30,12 @@ export interface DiceRollUser {
 export interface DiceRollCharacter {
   id: string;
   name: string;
+  /** kind del personaje al momento de la tirada — útil para mostrar etiquetas. */
+  kind?: "PC" | "NPC" | "ANTAGONIST";
 }
+
+/** Efecto de la Voluntad gastada en una tirada V20. */
+export type WillpowerEffect = "NONE" | "SUCCESS" | "WOUND" | "BOTH";
 
 export interface DiceRoll {
   id: string;
@@ -40,10 +45,16 @@ export interface DiceRoll {
   characterId: string | null;
   character: DiceRollCharacter | null;
   label: string | null;
+  /** Pool efectivo: ya descontó heridas (si no se anularon con Voluntad). */
   pool: number;
   difficulty: number;
   specialty: boolean;
+  /** Compatibilidad: true si se gastó voluntad por cualquier motivo. */
   willpowerSpent: boolean;
+  /** Efecto exacto de la voluntad gastada. */
+  willpowerEffect: WillpowerEffect;
+  /** Penalizador por heridas (negativo o 0). Se persiste aunque se haya anulado. */
+  woundPenalty: number;
   rolls: number[];
   successes: number;
   isBotch: boolean;
@@ -55,7 +66,12 @@ export interface RollVtmInput {
   pool: number;
   difficulty?: number;
   specialty?: boolean;
-  willpowerSpent?: boolean;
+  /** +1 éxito automático, no removible por 1s. */
+  willpowerForSuccess?: boolean;
+  /** Anula el penalizador por heridas en esta tirada. */
+  willpowerForWound?: boolean;
+  /** Penalizador por heridas calculado por el cliente (negativo o 0). */
+  woundPenalty?: number;
   isPublic?: boolean;
   label?: string;
   characterId?: string;

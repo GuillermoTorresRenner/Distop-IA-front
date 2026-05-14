@@ -146,6 +146,40 @@ export default function ChronicleTableRoute() {
     );
   }
 
+  // ── Sincronización en vivo: aplica deltas de sheet:announce ──
+  //
+  // Cuando el back emite un anuncio de hoja (por ejemplo, "Voluntad actual: 4 → 3"
+  // tras gastar voluntad en una tirada), actualizamos el personaje en memoria
+  // para que el saldo se vea inmediatamente en el panel.
+  const lastAppliedAnnounceRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (feed.length === 0) return;
+    // Recorremos del final hacia atrás hasta encontrar el último ya aplicado.
+    for (let i = feed.length - 1; i >= 0; i--) {
+      const item = feed[i];
+      if (item._t !== "sheet") continue;
+      if (item.id === lastAppliedAnnounceRef.current) break;
+      // Aplicar este item. Sólo nos interesa actualizar si tenemos el
+      // personaje cargado y los labels son campos numéricos conocidos.
+      setAllCharacters((cs) => {
+        const target = cs.find((c) => c.id === item.characterId);
+        if (!target) return cs;
+        const patch = deltasToCharacterPatch(item);
+        if (!patch) return cs;
+        return cs.map((c) =>
+          c.id === item.characterId ? ({ ...c, ...patch } as CharWithOwner) : c
+        );
+      });
+    }
+    // Marcamos el último announce visto para no reaplicar.
+    for (let i = feed.length - 1; i >= 0; i--) {
+      if (feed[i]._t === "sheet") {
+        lastAppliedAnnounceRef.current = (feed[i] as SheetAnnounce).id;
+        break;
+      }
+    }
+  }, [feed]);
+
   // ── Prefill del roller desde la hoja ─────────────────────
   const [prefill, setPrefill] = useState<RollerPrefill | undefined>(undefined);
   const prefillSeqRef = useRef(0);
@@ -154,12 +188,16 @@ export default function ChronicleTableRoute() {
     pool: number;
     label: string;
     characterId: string;
+    woundPenalty: number;
+    willpowerAvailable: number;
   }) {
     prefillSeqRef.current += 1;
     setPrefill({
       pool: input.pool,
       label: input.label,
       characterId: input.characterId,
+      woundPenalty: input.woundPenalty,
+      willpowerAvailable: input.willpowerAvailable,
       signature: prefillSeqRef.current,
     });
     setRightTab("dice");
@@ -530,7 +568,13 @@ function SheetTab({
   characters: CharWithOwner[];
   selectedChar: CharWithOwner | null;
   onSelectChar: (id: string) => void;
-  onPrefillRoll: (input: { pool: number; label: string; characterId: string }) => void;
+  onPrefillRoll: (input: {
+    pool: number;
+    label: string;
+    characterId: string;
+    woundPenalty: number;
+    willpowerAvailable: number;
+  }) => void;
   onCharacterUpdated: (c: Character) => void;
   onAnnounceSheet: ReturnType<typeof useTable>["announceSheet"];
   error: string | null;
@@ -581,6 +625,7 @@ function SheetTab({
           onPrefillRoll={onPrefillRoll}
           onCharacterUpdated={onCharacterUpdated}
           onAnnounceSheet={onAnnounceSheet}
+          canEditWillpower={isNarrator}
         />
       ) : null}
     </div>
@@ -594,6 +639,64 @@ function labelForCharacter(c: CharWithOwner, isNarrator: boolean): string {
   const owner = c.kind === "PC" ? c.user?.nickname ?? c.user?.email ?? "" : "";
   const suffix = [kindLabel, owner].filter(Boolean).join(" · ");
   return suffix ? `${c.name} — ${suffix}` : c.name;
+}
+
+/**
+ * Traduce un sheet:announce a un patch parcial del Character para que el
+ * panel vea los cambios en vivo sin tener que pegarle al back.
+ *
+ * Soporta los labels que emite el back (ver `STATE_LABELS` en
+ * character-sheet-panel y los anuncios automáticos del gateway).
+ */
+function deltasToCharacterPatch(
+  announce: SheetAnnounce
+): Partial<Character> | null {
+  const patch: Partial<Character> = {};
+  let touched = false;
+  for (const d of announce.deltas) {
+    const key = labelToCharacterKey(d.label);
+    if (!key) continue;
+    const numeric = Number.parseInt(d.after, 10);
+    if (Number.isFinite(numeric)) {
+      (patch as Record<string, number>)[key] = numeric;
+      touched = true;
+    }
+  }
+  return touched ? patch : null;
+}
+
+function labelToCharacterKey(label: string): keyof Character | null {
+  switch (label) {
+    case "Sangre":
+    case "Reserva de sangre":
+      return "bloodPool";
+    case "Voluntad actual":
+      return "willpowerCurrent";
+    case "Voluntad permanente":
+    case "Voluntad máxima":
+      return "willpowerMax";
+    case "Humanidad":
+    case "Senda":
+      return "humanity";
+    case "Experiencia":
+      return "experience";
+    case "Contusionado":
+      return "healthBruised";
+    case "Magullado":
+      return "healthHurt";
+    case "Herido":
+      return "healthInjured";
+    case "Lesionado":
+      return "healthWounded";
+    case "Malherido":
+      return "healthMauled";
+    case "Tullido":
+      return "healthCrippled";
+    case "Incapacitado":
+      return "healthIncapacitated";
+    default:
+      return null;
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -73,9 +73,9 @@ export const STATE_TOOLTIPS = {
   path:
     "Nivel de tu Senda alternativa (Senda de la Sangre, Honor, etc.). Sustituye a la Humanidad.",
   willpowerMax:
-    "Puntos totales de Fuerza de Voluntad. Mide tu firmeza mental.",
+    "Voluntad permanente (1-10): tu firmeza mental como atributo. Es el techo de la Voluntad actual y solo cambia con experiencia.",
   willpowerCurrent:
-    "Voluntad disponible ahora mismo. Gasta para forzar una acción reflexiva o resistir un efecto.",
+    "Voluntad actual (0..permanente): los puntos que tenés ahora mismo. Se gastan para resistir, ganar un éxito automático en una tirada o anular un penalizador por heridas.",
   bloodPool:
     "Sangre almacenada (0-20 según generación). La gastas para curar, alimentar disciplinas o aparentar humanidad.",
   experience: "Puntos de experiencia para mejorar al personaje entre sesiones.",

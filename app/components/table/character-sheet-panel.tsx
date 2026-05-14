@@ -31,16 +31,32 @@ export interface RollSelection {
 interface CharacterSheetPanelProps {
   character: Character;
   chronicleId: string;
-  /** Llamado cuando el usuario tira con el atajo desde la hoja. */
+  /**
+   * Llamado cuando el usuario tira con el atajo desde la hoja.
+   * `pool` es el pool BASE (atributo + habilidad), sin restar heridas:
+   * el roller aplica el penalizador él mismo (y permite anularlo con Voluntad).
+   * `woundPenalty` es el penalizador actual del personaje (negativo o 0).
+   * `willpowerAvailable` es la Voluntad actual del personaje, que el roller
+   * usa para deshabilitar los toggles cuando no alcanza el saldo.
+   */
   onPrefillRoll: (input: {
     pool: number;
     label: string;
     characterId: string;
+    woundPenalty: number;
+    willpowerAvailable: number;
   }) => void;
   /** Cuando se hace PATCH exitoso al back. */
   onCharacterUpdated?: (updated: Character) => void;
   /** Anuncia el delta de cambios al resto de la mesa (WS). */
   onAnnounceSheet?: (input: SheetAnnounceInput) => Promise<unknown>;
+  /**
+   * Si false, los campos de Voluntad (permanente y actual) son read-only.
+   * Por convención: solo el narrador puede modificar la voluntad desde la mesa.
+   * El jugador ve los valores pero no puede tocarlos a mano; se descuentan
+   * automáticamente al gastar Voluntad en una tirada.
+   */
+  canEditWillpower?: boolean;
 }
 
 const HEALTH_LEVELS: Array<{
@@ -94,7 +110,7 @@ const STATE_KEYS: readonly StateKey[] = [
 const STATE_LABELS: Record<StateKey, string> = {
   bloodPool: "Sangre",
   willpowerCurrent: "Voluntad actual",
-  willpowerMax: "Voluntad máxima",
+  willpowerMax: "Voluntad permanente",
   humanity: "Humanidad",
   experience: "Experiencia",
   healthBruised: "Contusionado",
@@ -118,6 +134,7 @@ export function CharacterSheetPanel({
   onPrefillRoll,
   onCharacterUpdated,
   onAnnounceSheet,
+  canEditWillpower = false,
 }: CharacterSheetPanelProps) {
   // ── Selección click-to-roll ─────────────────────────────────
   const [selection, setSelection] = useState<RollSelection>({});
@@ -158,10 +175,12 @@ export function CharacterSheetPanel({
   const attrValue = selection.attributeKey ? valueOf(selection.attributeKey) : 0;
   const woundPenalty = useMemo(() => computeWoundPenalty(character), [character]);
 
-  // En VtM V20 el penalizador es negativo (ej -1). Lo sumamos al pool.
-  // Si la suma queda <= 0 dejamos 1 dado (regla común para que igual se pueda tirar).
-  const rawPool = attrValue + abilityValue + woundPenalty;
-  const pool = attrValue + abilityValue > 0 ? Math.max(1, rawPool) : 0;
+  // Pool BASE (atributo + habilidad). El roller aplica el penalizador.
+  // El preview muestra ambos: el base y cómo quedaría tras heridas.
+  const basePool = attrValue + abilityValue;
+  const effectivePoolAfterWounds = basePool > 0
+    ? Math.max(1, basePool + woundPenalty)
+    : 0;
 
   const labelParts: string[] = [];
   if (selection.attributeKey) labelParts.push(attributeLabel(selection.attributeKey));
@@ -173,11 +192,13 @@ export function CharacterSheetPanel({
   }
 
   function commitRoll() {
-    if (pool === 0) return;
+    if (basePool === 0) return;
     onPrefillRoll({
-      pool,
+      pool: basePool,
       label,
       characterId: character.id,
+      woundPenalty,
+      willpowerAvailable: character.willpowerCurrent,
     });
   }
 
@@ -201,22 +222,25 @@ export function CharacterSheetPanel({
       </header>
 
       {/* Preview de selección click-to-roll */}
-      {attrValue + abilityValue > 0 ? (
+      {basePool > 0 ? (
         <div className="border-b border-blood bg-blood/10 px-3 py-2 text-sm">
           <div className="flex items-center justify-between gap-2">
             <div className="min-w-0 flex-1">
               <p className="text-muted-foreground">{label}</p>
               <p className="font-heading text-base uppercase tracking-wider text-blood">
-                {pool}d10
+                {effectivePoolAfterWounds}d10
                 {woundPenalty < 0 ? (
                   <span className="ml-1 text-xs text-amber-400 normal-case tracking-normal">
-                    ({attrValue + abilityValue}{woundPenalty})
+                    ({basePool}{woundPenalty})
                   </span>
                 ) : null}
               </p>
               {woundPenalty < 0 ? (
                 <p className="text-[10px] text-amber-400/80">
                   Penalización por heridas: {woundPenalty}
+                  <span className="ml-1 text-muted-foreground">
+                    · podés anularla gastando Voluntad
+                  </span>
                 </p>
               ) : null}
             </div>
@@ -255,6 +279,7 @@ export function CharacterSheetPanel({
           chronicleId={chronicleId}
           onCharacterUpdated={onCharacterUpdated}
           onAnnounceSheet={onAnnounceSheet}
+          canEditWillpower={canEditWillpower}
         />
 
         {/* Atributos: 3 columnas (Físicos / Sociales / Mentales) en pantallas grandes */}
@@ -444,11 +469,13 @@ function StateSection({
   chronicleId,
   onCharacterUpdated,
   onAnnounceSheet,
+  canEditWillpower,
 }: {
   character: Character;
   chronicleId: string;
   onCharacterUpdated?: (c: Character) => void;
   onAnnounceSheet?: (input: SheetAnnounceInput) => Promise<unknown>;
+  canEditWillpower: boolean;
 }) {
   const [draft, setDraft] = useState<Character>(character);
   const [saving, setSaving] = useState(false);
@@ -551,11 +578,37 @@ function StateSection({
       />
       <StateField
         icon={<Zap className="size-3.5 text-amber-400" />}
+        label="Voluntad permanente"
+        tooltip={
+          canEditWillpower
+            ? "Tu atributo de Fuerza de Voluntad (1-10). Es el techo de la Voluntad actual; sólo cambia con experiencia."
+            : "Tu atributo de Fuerza de Voluntad (1-10). Solo el narrador puede modificarla desde la mesa."
+        }
+        value={draft.willpowerMax}
+        min={1}
+        max={10}
+        readOnly={!canEditWillpower}
+        onChange={(v) => {
+          // Si bajamos el techo, recortamos la actual para que no quede por encima.
+          const nextCurrent = Math.min(draft.willpowerCurrent, v);
+          setField("willpowerMax", v, 1, 10);
+          if (nextCurrent !== draft.willpowerCurrent) {
+            setField("willpowerCurrent", nextCurrent, 0, v);
+          }
+        }}
+      />
+      <StateField
+        icon={<Zap className="size-3.5 text-amber-300" />}
         label="Voluntad actual"
-        tooltip="Puntos de Fuerza de Voluntad disponibles para gastar."
+        tooltip={
+          canEditWillpower
+            ? "Puntos de Voluntad que tenés ahora. Se gastan para resistir, sumar un éxito automático o anular el penalizador por heridas en una tirada."
+            : "Se descuenta automáticamente cuando gastás Voluntad en una tirada. Solo el narrador puede ajustarla a mano desde la mesa."
+        }
         value={draft.willpowerCurrent}
         min={0}
         max={draft.willpowerMax}
+        readOnly={!canEditWillpower}
         onChange={(v) => setField("willpowerCurrent", v, 0, draft.willpowerMax)}
         right={
           <span className="text-xs text-muted-foreground">
@@ -614,6 +667,7 @@ function StateField({
   max,
   onChange,
   right,
+  readOnly = false,
 }: {
   icon: React.ReactNode;
   label: string;
@@ -623,6 +677,7 @@ function StateField({
   max: number;
   onChange: (v: number) => void;
   right?: React.ReactNode;
+  readOnly?: boolean;
 }) {
   const row = (
     <div className="flex w-full items-center justify-between gap-2">
@@ -631,23 +686,31 @@ function StateField({
         <span>{label}</span>
       </span>
       <div className="flex items-center gap-1">
-        <button
-          type="button"
-          onClick={() => onChange(value - 1)}
-          disabled={value <= min}
-          className="size-6 rounded border border-border bg-input/30 font-heading text-sm hover:bg-blood/20 disabled:opacity-40"
-        >
-          −
-        </button>
-        <span className="w-8 text-center font-heading text-sm">{value}</span>
-        <button
-          type="button"
-          onClick={() => onChange(value + 1)}
-          disabled={value >= max}
-          className="size-6 rounded border border-border bg-input/30 font-heading text-sm hover:bg-blood/20 disabled:opacity-40"
-        >
-          +
-        </button>
+        {readOnly ? (
+          <span className="w-8 text-center font-heading text-sm text-muted-foreground/80">
+            {value}
+          </span>
+        ) : (
+          <>
+            <button
+              type="button"
+              onClick={() => onChange(value - 1)}
+              disabled={value <= min}
+              className="size-6 rounded border border-border bg-input/30 font-heading text-sm hover:bg-blood/20 disabled:opacity-40"
+            >
+              −
+            </button>
+            <span className="w-8 text-center font-heading text-sm">{value}</span>
+            <button
+              type="button"
+              onClick={() => onChange(value + 1)}
+              disabled={value >= max}
+              className="size-6 rounded border border-border bg-input/30 font-heading text-sm hover:bg-blood/20 disabled:opacity-40"
+            >
+              +
+            </button>
+          </>
+        )}
         {right}
       </div>
     </div>

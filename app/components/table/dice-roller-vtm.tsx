@@ -1,4 +1,4 @@
-import { Dices, EyeOff, Star, Zap } from "lucide-react";
+import { Dices, EyeOff, HeartCrack, Star, Zap } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Tooltip } from "~/components/common/tooltip";
 import { Button } from "~/components/ui/button";
@@ -9,6 +9,18 @@ export interface RollerPrefill {
   pool?: number;
   label?: string;
   characterId?: string;
+  /**
+   * Penalizador por heridas del personaje seleccionado (negativo o 0).
+   * Lo emite la hoja de personaje. Se usa para mostrar el desglose en el
+   * preview y para enviárselo al back, que lo persiste con la tirada.
+   */
+  woundPenalty?: number;
+  /**
+   * Voluntad actual del personaje seleccionado. Si está definido, los toggles
+   * de voluntad se deshabilitan cuando no alcanza el saldo. Si es undefined
+   * (tirada sin personaje asociado), los toggles quedan deshabilitados también.
+   */
+  willpowerAvailable?: number;
   /** Incrementa cuando cambia para forzar re-set del form aunque pool sea igual */
   signature?: number;
 }
@@ -24,7 +36,10 @@ interface DiceRollerVtMProps {
 /**
  * Roller VtM V20:
  *   pool d10s contra dificultad. 10 con especialidad = doble éxito.
- *   1s restan éxitos. Voluntad = +1 éxito automático.
+ *   1s restan éxitos.
+ *   Voluntad puede usarse para dos cosas (cada una cuesta 1 punto):
+ *     - éxito automático no removible por 1s.
+ *     - anular el penalizador por heridas en esta tirada.
  *   Pifia: 0 éxitos finales con al menos un 1.
  */
 export function DiceRollerVtM({
@@ -35,7 +50,8 @@ export function DiceRollerVtM({
   const [pool, setPool] = useState(5);
   const [difficulty, setDifficulty] = useState(6);
   const [specialty, setSpecialty] = useState(false);
-  const [willpower, setWillpower] = useState(false);
+  const [wpSuccess, setWpSuccess] = useState(false);
+  const [wpWound, setWpWound] = useState(false);
   const [label, setLabel] = useState("");
   const [isPublic, setIsPublic] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -46,7 +62,25 @@ export function DiceRollerVtM({
     if (!prefill) return;
     if (typeof prefill.pool === "number") setPool(prefill.pool);
     if (typeof prefill.label === "string") setLabel(prefill.label);
+    // Reset de los toggles de voluntad cuando viene una selección nueva,
+    // para no arrastrar gastos del último click.
+    setWpSuccess(false);
+    setWpWound(false);
   }, [prefill?.signature]);
+
+  // Penalizador por heridas que vino del prefill (negativo o 0).
+  const rawPenalty = Math.min(0, prefill?.woundPenalty ?? 0);
+  const effectivePenalty = wpWound ? 0 : rawPenalty;
+  const previewPool = Math.max(1, pool + effectivePenalty);
+
+  // Voluntad disponible para gastar en esta tirada. Si no hay personaje
+  // asociado (tirada anónima), el saldo es 0 y los toggles quedan deshabilitados.
+  const wpBudget = prefill?.willpowerAvailable ?? 0;
+  /** Cuántos puntos de voluntad costaría la combinación dada. */
+  function wpCost(success: boolean, wound: boolean) {
+    return (success ? 1 : 0) + (wound ? 1 : 0);
+  }
+  const wpToSpend = wpCost(wpSuccess, wpWound);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -57,7 +91,9 @@ export function DiceRollerVtM({
       pool,
       difficulty,
       specialty,
-      willpowerSpent: willpower,
+      willpowerForSuccess: wpSuccess,
+      willpowerForWound: wpWound,
+      woundPenalty: rawPenalty,
       isPublic,
       label: label.trim() || undefined,
       characterId: prefill?.characterId,
@@ -104,11 +140,52 @@ export function DiceRollerVtM({
           tooltip="Especialidad (V20): si tu habilidad tiene especialidad declarada, cada 10 que saques cuenta como 2 éxitos."
         />
         <Toggle
-          active={willpower}
-          onToggle={() => setWillpower((v) => !v)}
+          active={wpSuccess}
+          onToggle={() => {
+            // Si vamos a activar, validamos que no exceda el saldo.
+            if (!wpSuccess && wpCost(true, wpWound) > wpBudget) return;
+            setWpSuccess((v) => !v);
+          }}
           icon={<Zap className="size-3.5" />}
-          label="Voluntad"
-          tooltip="Gastar 1 punto de Fuerza de Voluntad: agrega 1 éxito automático no removible por 1s. La pifia (botch) sigue contando."
+          label="Voluntad: éxito"
+          tooltip={
+            prefill?.characterId === undefined
+              ? "Asocia un personaje para gastar Voluntad."
+              : wpBudget === 0
+                ? "Tu personaje no tiene puntos de Voluntad actuales."
+                : !wpSuccess && wpCost(true, wpWound) > wpBudget
+                  ? "No te alcanzan los puntos de Voluntad para esta combinación."
+                  : "Gasta 1 punto de Voluntad para sumar 1 éxito automático no removible por 1s. La pifia sigue contando: la Voluntad no rescata de un botch."
+          }
+          disabled={
+            prefill?.characterId === undefined ||
+            (!wpSuccess && wpCost(true, wpWound) > wpBudget)
+          }
+        />
+        <Toggle
+          active={wpWound}
+          onToggle={() => {
+            if (!wpWound && wpCost(wpSuccess, true) > wpBudget) return;
+            setWpWound((v) => !v);
+          }}
+          icon={<HeartCrack className="size-3.5" />}
+          label="Voluntad: anular heridas"
+          tooltip={
+            rawPenalty === 0
+              ? "Sin heridas penalizadoras: no hay nada que anular."
+              : prefill?.characterId === undefined
+                ? "Asocia un personaje para gastar Voluntad."
+                : wpBudget === 0
+                  ? "Tu personaje no tiene puntos de Voluntad actuales."
+                  : !wpWound && wpCost(wpSuccess, true) > wpBudget
+                    ? "No te alcanzan los puntos de Voluntad para esta combinación."
+                    : "Gasta 1 punto de Voluntad para anular el penalizador por heridas en esta tirada. Tu pool no se ve reducido por el daño recibido."
+          }
+          disabled={
+            rawPenalty === 0 ||
+            prefill?.characterId === undefined ||
+            (!wpWound && wpCost(wpSuccess, true) > wpBudget)
+          }
         />
         {canTryPrivate ? (
           <Toggle
@@ -121,9 +198,26 @@ export function DiceRollerVtM({
         ) : null}
       </div>
 
-      {error ? (
-        <p className="text-xs text-blood">{error}</p>
+      {rawPenalty < 0 ? (
+        <p className="text-[10px] text-amber-400/90">
+          Penalización por heridas: {rawPenalty}
+          {wpWound ? (
+            <span className="ml-1 text-emerald-300">
+              · anulada por Voluntad
+            </span>
+          ) : null}
+        </p>
       ) : null}
+
+      {prefill?.characterId && wpToSpend > 0 ? (
+        <p className="text-[10px] text-amber-300">
+          Gastarás {wpToSpend}{" "}
+          {wpToSpend === 1 ? "punto" : "puntos"} de Voluntad ({wpBudget}{" "}
+          disponibles).
+        </p>
+      ) : null}
+
+      {error ? <p className="text-xs text-blood">{error}</p> : null}
 
       <Button
         type="submit"
@@ -131,7 +225,9 @@ export function DiceRollerVtM({
         className="w-full bg-blood text-blood-foreground hover:bg-blood/90"
       >
         <Dices className="size-4" />
-        {busy ? "Tirando..." : `Tirar ${pool}d10 vs ${difficulty}`}
+        {busy
+          ? "Tirando..."
+          : `Tirar ${previewPool}d10 vs ${difficulty}`}
       </Button>
     </form>
   );
@@ -194,23 +290,27 @@ function Toggle({
   icon,
   label,
   tooltip,
+  disabled = false,
 }: {
   active: boolean;
   onToggle: () => void;
   icon: React.ReactNode;
   label: string;
   tooltip?: string;
+  disabled?: boolean;
 }) {
   const button = (
     <button
       type="button"
       onClick={onToggle}
+      disabled={disabled}
       aria-label={label}
       className={cn(
         "inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-heading uppercase tracking-wider transition-colors",
         active
           ? "border-blood bg-blood/20 text-blood-foreground"
-          : "border-border bg-input/30 text-muted-foreground hover:bg-blood/10"
+          : "border-border bg-input/30 text-muted-foreground hover:bg-blood/10",
+        disabled && "opacity-40 cursor-not-allowed hover:bg-input/30"
       )}
     >
       {icon}

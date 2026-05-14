@@ -744,7 +744,7 @@ export function CharacterSheetForm({
             readOnly={readOnly}
           />
           <DotRow
-            label="Voluntad (máx)"
+            label="Voluntad permanente"
             tooltip={STATE_TOOLTIPS.willpowerMax}
             value={value.willpowerMax ?? 1}
             min={0}

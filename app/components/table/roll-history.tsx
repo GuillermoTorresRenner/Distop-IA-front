@@ -1,4 +1,11 @@
-import { EyeOff, Loader2, Star, Trash2, Zap } from "lucide-react";
+import {
+  EyeOff,
+  HeartCrack,
+  Loader2,
+  Star,
+  Trash2,
+  Zap,
+} from "lucide-react";
 import { useEffect, useRef } from "react";
 import { Tooltip } from "~/components/common/tooltip";
 import { Button } from "~/components/ui/button";
@@ -102,6 +109,13 @@ function RollCard({ roll, highlight }: { roll: DiceRoll; highlight: boolean }) {
       ? "text-emerald-400"
       : "text-muted-foreground";
 
+  const wp = roll.willpowerEffect;
+  const wpForSuccess = wp === "SUCCESS" || wp === "BOTH";
+  const wpForWound = wp === "WOUND" || wp === "BOTH";
+  const wpCount = wp === "BOTH" ? 2 : wp === "NONE" ? 0 : 1;
+  const hasWound = roll.woundPenalty < 0;
+  const woundAnulledByWp = hasWound && wpForWound;
+
   return (
     <article
       className={cn(
@@ -118,13 +132,16 @@ function RollCard({ roll, highlight }: { roll: DiceRoll; highlight: boolean }) {
             {roll.character ? (
               <span className="text-muted-foreground">
                 · {roll.character.name}
+                {roll.character.kind && roll.character.kind !== "PC" ? (
+                  <span className="ml-1 text-amber-400">
+                    ({roll.character.kind === "NPC" ? "PNJ" : "antagonista"})
+                  </span>
+                ) : null}
               </span>
             ) : null}
           </div>
           {roll.label ? (
-            <p className="text-muted-foreground truncate">
-              {roll.label}
-            </p>
+            <p className="text-muted-foreground truncate">{roll.label}</p>
           ) : null}
         </div>
         <span className="text-[10px] text-muted-foreground whitespace-nowrap">
@@ -143,11 +160,36 @@ function RollCard({ roll, highlight }: { roll: DiceRoll; highlight: boolean }) {
         ))}
       </div>
 
+      {/* Desglose explicativo */}
+      <p className="mt-2 text-[10px] leading-snug text-muted-foreground">
+        <span>
+          {roll.pool}d10 vs dif {roll.difficulty}
+        </span>
+        {hasWound ? (
+          woundAnulledByWp ? (
+            <span className="ml-1 text-emerald-300">
+              · heridas {roll.woundPenalty} anuladas con Voluntad
+            </span>
+          ) : (
+            <span className="ml-1 text-amber-400">
+              · heridas {roll.woundPenalty} ya aplicadas al pool
+            </span>
+          )
+        ) : null}
+        {wpForSuccess ? (
+          <span className="ml-1 text-amber-300">
+            · +1 éxito por Voluntad (no removible por 1s)
+          </span>
+        ) : null}
+        {wpCount > 0 ? (
+          <span className="ml-1 text-muted-foreground/70">
+            · gasta {wpCount} {wpCount === 1 ? "Voluntad" : "Voluntades"}
+          </span>
+        ) : null}
+      </p>
+
       <footer className="mt-2 flex items-center justify-between gap-2 text-xs">
         <div className="flex items-center gap-2 text-muted-foreground">
-          <span>
-            {roll.pool}d10 · dif {roll.difficulty}
-          </span>
           {roll.specialty ? (
             <Tooltip
               title="Especialidad"
@@ -158,13 +200,23 @@ function RollCard({ roll, highlight }: { roll: DiceRoll; highlight: boolean }) {
               </span>
             </Tooltip>
           ) : null}
-          {roll.willpowerSpent ? (
+          {wpForSuccess ? (
             <Tooltip
-              title="Voluntad"
-              content="Punto de Fuerza de Voluntad gastado: +1 éxito automático no removible por 1s."
+              title="Voluntad: éxito"
+              content="1 punto de Voluntad gastado para sumar 1 éxito automático no removible por 1s."
             >
-              <span className="inline-flex items-center gap-0.5">
+              <span className="inline-flex items-center gap-0.5 text-amber-300">
                 <Zap className="size-3" />
+              </span>
+            </Tooltip>
+          ) : null}
+          {wpForWound ? (
+            <Tooltip
+              title="Voluntad: anular heridas"
+              content="1 punto de Voluntad gastado para anular el penalizador por heridas en esta tirada."
+            >
+              <span className="inline-flex items-center gap-0.5 text-emerald-300">
+                <HeartCrack className="size-3" />
               </span>
             </Tooltip>
           ) : null}
