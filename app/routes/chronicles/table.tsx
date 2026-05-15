@@ -20,6 +20,7 @@ import { RollHistory } from "~/components/table/roll-history";
 import { WhiteboardModal } from "~/components/table/whiteboard-modal";
 import { Button } from "~/components/ui/button";
 import { useAudioMute } from "~/hooks/use-audio-mute";
+import { useAudioUnlock } from "~/hooks/use-audio-unlock";
 import { useTable, type FeedItem } from "~/hooks/use-table";
 import {
   listChronicleCharacters,
@@ -213,6 +214,9 @@ export default function ChronicleTableRoute() {
 
   // ── Silenciar feedback sonoro ───────────────────────────
   const { muted, toggle: toggleMute } = useAudioMute();
+  // Desbloquea el AudioContext en el primer gesto del usuario; sin esto
+  // los browsers no permiten reproducir sonido en respuesta a eventos WS.
+  useAudioUnlock();
 
   // ── Limpieza de tiradas (solo narrador) ─────────────────
   const { confirm, dialog: confirmDialog } = useConfirm();
@@ -426,6 +430,13 @@ export default function ChronicleTableRoute() {
                 feed={feed}
                 disabled={status !== "joined"}
                 onSend={sendMessage}
+                members={members}
+                currentUserId={userId}
+                myRole={myRole}
+                myCharacters={visibleCharacters
+                  .filter((c) => c.userId === userId)
+                  .map((c) => ({ id: c.id, name: c.name }))}
+                initialSpeakerCharacterId={selectedCharId}
               />
             ) : (
               <RollHistory
@@ -469,6 +480,7 @@ export default function ChronicleTableRoute() {
         <NotesModal
           chronicleId={chronicleId}
           isNarrator={myRole === "NARRATOR"}
+          currentCharacterId={selectedCharId}
           onClose={() => setNotesOpen(false)}
         />
       ) : null}
@@ -742,12 +754,47 @@ function ChatPanel({
   feed,
   disabled,
   onSend,
+  members,
+  currentUserId,
+  myRole,
+  myCharacters,
+  initialSpeakerCharacterId,
 }: {
   feed: FeedItem[];
   disabled: boolean;
-  onSend: (text: string) => Promise<boolean>;
+  onSend: (
+    text: string,
+    recipient?: import("~/lib/socket/types").ChatRecipient,
+    as?: import("~/lib/socket/types").ChatSpeakerInput,
+  ) => Promise<boolean>;
+  members: ReturnType<typeof useTable>["members"];
+  currentUserId: string | null;
+  myRole: ReturnType<typeof useTable>["myRole"];
+  /** PJs propios para el selector "Hablar como". */
+  myCharacters: { id: string; name: string }[];
+  /** Si hay un PJ activo, lo pre-seleccionamos en el selector. */
+  initialSpeakerCharacterId: string | null;
 }) {
   const [text, setText] = useState("");
+  // recipientValue es el valor del <select>:
+  //   "all"           → toda la sala
+  //   "narrator"      → al narrador (oculto si yo soy narrador)
+  //   "user:<userId>" → susurro a ese usuario
+  const [recipientValue, setRecipientValue] = useState<string>("all");
+  // speakerValue:
+  //   "self"        → habla como usuario (nickname)
+  //   "char:<id>"   → habla como ese PJ
+  const [speakerValue, setSpeakerValue] = useState<string>(
+    initialSpeakerCharacterId ? `char:${initialSpeakerCharacterId}` : "self",
+  );
+  // Si el PJ seleccionado deja de estar disponible, volvemos a "self".
+  useEffect(() => {
+    if (speakerValue === "self") return;
+    const id = speakerValue.slice(5);
+    if (!myCharacters.some((c) => c.id === id)) {
+      setSpeakerValue("self");
+    }
+  }, [myCharacters, speakerValue]);
   const scrollerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -755,10 +802,41 @@ function ChatPanel({
     if (el) el.scrollTop = el.scrollHeight;
   }, [feed.length]);
 
+  // Lista de destinatarios para el selector: presentes excepto yo.
+  const otherMembers = members.filter((m) => m.id !== currentUserId);
+  const narratorPresent = members.some(
+    (m) => m.role === "NARRATOR" && m.id !== currentUserId
+  );
+  const iAmNarrator = myRole === "NARRATOR";
+
+  function parseRecipient():
+    | import("~/lib/socket/types").ChatRecipient
+    | undefined {
+    if (recipientValue === "all") return undefined; // default
+    if (recipientValue === "narrator") {
+      return { kind: "narrator", userId: null };
+    }
+    if (recipientValue.startsWith("user:")) {
+      const uid = recipientValue.slice(5);
+      return { kind: "user", userId: uid };
+    }
+    return undefined;
+  }
+
+  function parseSpeaker():
+    | import("~/lib/socket/types").ChatSpeakerInput
+    | undefined {
+    if (speakerValue === "self") return undefined; // default
+    if (speakerValue.startsWith("char:")) {
+      return { kind: "character", characterId: speakerValue.slice(5) };
+    }
+    return undefined;
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!text.trim() || disabled) return;
-    const ok = await onSend(text);
+    const ok = await onSend(text, parseRecipient(), parseSpeaker());
     if (ok) setText("");
   }
 
@@ -775,7 +853,12 @@ function ChatPanel({
         ) : (
           feed.map((item, i) =>
             item._t === "chat" ? (
-              <ChatMessageRow key={item.id ?? i} item={item} />
+              <ChatMessageRow
+                key={item.id ?? i}
+                item={item}
+                currentUserId={currentUserId}
+                members={members}
+              />
             ) : (
               <SheetAnnouncementRow key={item.id ?? i} item={item} />
             )
@@ -784,24 +867,83 @@ function ChatPanel({
       </div>
       <form
         onSubmit={handleSubmit}
-        className="flex items-center gap-2 border-t border-border bg-background/30 p-2"
+        className="flex flex-col gap-2 border-t border-border bg-background/30 p-2"
       >
-        <input
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          disabled={disabled}
-          placeholder={disabled ? "Conectando..." : "Escribe un mensaje..."}
-          maxLength={2000}
-          className="h-9 flex-1 rounded-md border border-input bg-input/30 px-3 text-sm placeholder:italic placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-blood"
-        />
-        <Button
-          type="submit"
-          disabled={disabled || !text.trim()}
-          size="icon"
-          className="bg-blood text-blood-foreground hover:bg-blood/90"
-        >
-          <Send className="size-4" />
-        </Button>
+        <div className="flex flex-wrap gap-1">
+          <select
+            value={speakerValue}
+            onChange={(e) => setSpeakerValue(e.target.value)}
+            disabled={disabled}
+            aria-label="Hablar como"
+            className={cn(SELECT_DARK_CLASS, "h-7 text-xs flex-1 min-w-0")}
+          >
+            <option value="self">Hablar como yo (nick)</option>
+            {myCharacters.length > 0 ? (
+              <optgroup label="Hablar como personaje">
+                {myCharacters.map((c) => (
+                  <option key={c.id} value={`char:${c.id}`}>
+                    {c.name}
+                  </option>
+                ))}
+              </optgroup>
+            ) : null}
+          </select>
+          <select
+            value={recipientValue}
+            onChange={(e) => setRecipientValue(e.target.value)}
+            disabled={disabled}
+            aria-label="Destinatario del mensaje"
+            className={cn(SELECT_DARK_CLASS, "h-7 text-xs flex-1 min-w-0")}
+          >
+            <option value="all">A todos</option>
+            {!iAmNarrator && narratorPresent ? (
+              <option value="narrator">Al narrador (privado)</option>
+            ) : null}
+            {otherMembers.length > 0 ? (
+              <optgroup label="Susurrar a">
+                {otherMembers.map((m) => {
+                  const display =
+                    m.nickname?.trim() ||
+                    m.email?.split("@")[0] ||
+                    m.id;
+                  const label =
+                    display + (m.role === "NARRATOR" ? " · narrador" : "");
+                  return (
+                    <option key={m.id} value={`user:${m.id}`}>
+                      {label}
+                    </option>
+                  );
+                })}
+              </optgroup>
+            ) : null}
+          </select>
+        </div>
+        <div className="flex items-center gap-2">
+          <input
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            disabled={disabled}
+            placeholder={
+              disabled
+                ? "Conectando..."
+                : recipientValue === "all"
+                  ? "Escribe un mensaje..."
+                  : recipientValue === "narrator"
+                    ? "Mensaje privado al narrador..."
+                    : "Susurro..."
+            }
+            maxLength={2000}
+            className="h-9 flex-1 rounded-md border border-input bg-input/30 px-3 text-sm placeholder:italic placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-blood"
+          />
+          <Button
+            type="submit"
+            disabled={disabled || !text.trim()}
+            size="icon"
+            className="bg-blood text-blood-foreground hover:bg-blood/90"
+          >
+            <Send className="size-4" />
+          </Button>
+        </div>
       </form>
     </div>
   );
@@ -809,15 +951,71 @@ function ChatPanel({
 
 function ChatMessageRow({
   item,
+  currentUserId,
+  members,
 }: {
   item: Extract<FeedItem, { _t: "chat" }>;
+  currentUserId: string | null;
+  members: ReturnType<typeof useTable>["members"];
 }) {
+  const recipient = item.recipient;
+  const isPrivate = recipient && recipient.kind !== "all";
+  const isMine = item.userId === currentUserId;
+  const isNarratorChannel = recipient?.kind === "narrator";
+
+  // Identidad mostrada. Por defecto el server manda `speaker`. Si no
+  // viene (compatibilidad con mensajes antiguos), caemos al nickname del
+  // miembro presente o al local-part del email.
+  const memberOfAuthor = members.find((m) => m.id === item.userId);
+  const fallbackName =
+    memberOfAuthor?.nickname?.trim() ||
+    item.email?.split("@")[0] ||
+    "Desconocido";
+  const speakerName = item.speaker?.name ?? fallbackName;
+  const speakingAsCharacter = item.speaker?.kind === "character";
+
+  // Texto descriptivo del destinatario (visible solo en mensajes privados).
+  let target: string | null = null;
+  if (isNarratorChannel) {
+    target = isMine ? "Al narrador" : "Del jugador al narrador";
+  } else if (recipient?.kind === "user" && recipient.userId) {
+    const otherId = isMine ? recipient.userId : item.userId;
+    const other = members.find((m) => m.id === otherId);
+    const label =
+      other?.nickname?.trim() ||
+      other?.email?.split("@")[0] ||
+      "alguien";
+    target = isMine ? `Susurro a ${label}` : `Susurro de ${label}`;
+  }
+
   return (
-    <div className="text-sm">
+    <div
+      className={cn(
+        "text-sm",
+        isPrivate &&
+          "rounded-md border border-amber-500/30 bg-amber-500/5 px-2 py-1.5"
+      )}
+    >
       <div className="flex items-baseline gap-2">
-        <span className="font-heading text-xs uppercase tracking-wider text-blood">
-          {item.email}
+        <span
+          className={cn(
+            "font-heading text-xs uppercase tracking-wider",
+            speakingAsCharacter ? "text-blood" : "text-foreground/90",
+          )}
+          title={speakingAsCharacter ? `Habla como personaje · usuario: ${fallbackName}` : undefined}
+        >
+          {speakerName}
         </span>
+        {speakingAsCharacter ? (
+          <span className="rounded-sm bg-blood/15 px-1.5 py-0.5 font-heading text-[9px] uppercase tracking-wider text-blood">
+            PJ
+          </span>
+        ) : null}
+        {target ? (
+          <span className="rounded-sm bg-amber-500/15 px-1.5 py-0.5 font-heading text-[9px] uppercase tracking-wider text-amber-300">
+            {target}
+          </span>
+        ) : null}
         <span className="text-[10px] italic text-muted-foreground">
           {new Date(item.at).toLocaleTimeString()}
         </span>

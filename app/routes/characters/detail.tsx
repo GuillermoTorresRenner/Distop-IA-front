@@ -9,6 +9,7 @@ import { ReferenceTablesButton } from "~/components/character/reference-tables-b
 import { extractAuthError } from "~/components/common/auth-error";
 import { FormAlert } from "~/components/common/form-alert";
 import { PageHeader } from "~/components/common/page-header";
+import { useToast } from "~/components/common/toast";
 import { Button } from "~/components/ui/button";
 import { useConfirm } from "~/hooks/use-confirm";
 import {
@@ -116,6 +117,7 @@ export default function CharacterDetailRoute() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { confirm, dialog } = useConfirm();
+  const toast = useToast();
 
   const [archetypes, setArchetypes] = useState<Archetype[]>([]);
   const [clans, setClans] = useState<Clan[]>([]);
@@ -130,7 +132,6 @@ export default function CharacterDetailRoute() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
   const [weaponDialogOpen, setWeaponDialogOpen] = useState(false);
   const [armorDialogOpen, setArmorDialogOpen] = useState(false);
 
@@ -165,7 +166,6 @@ export default function CharacterDetailRoute() {
     event.preventDefault();
     if (!id || !value) return;
     setError(null);
-    setSuccess(null);
     setSaving(true);
     try {
       const payload: Partial<CharacterInput> = {
@@ -175,9 +175,11 @@ export default function CharacterDetailRoute() {
       const updated = await updateCharacter(id, payload);
       setCharacter(updated);
       setValue(toInput(updated));
-      setSuccess("Cambios guardados.");
+      toast.success("Cambios guardados.");
     } catch (err) {
-      setError(extractAuthError(err, "No se pudo guardar"));
+      const msg = extractAuthError(err, "No se pudo guardar");
+      setError(msg);
+      toast.error(msg);
     } finally {
       setSaving(false);
     }
@@ -243,7 +245,6 @@ export default function CharacterDetailRoute() {
       />
 
       {error ? <FormAlert message={error} /> : null}
-      {success ? <FormAlert kind="success" message={success} /> : null}
 
       {character.chronicles.length > 0 ? (
         <article className="rounded-lg border border-border/60 bg-card/70 p-4">
@@ -280,6 +281,11 @@ export default function CharacterDetailRoute() {
           weapons={weapons}
           weaponCategories={weaponCategories}
           armors={armors}
+          playerName={
+            character.user?.nickname ||
+            character.user?.email?.split("@")[0] ||
+            null
+          }
           onCreateWeapon={() => setWeaponDialogOpen(true)}
           onCreateArmor={() => setArmorDialogOpen(true)}
         />

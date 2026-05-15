@@ -10,6 +10,8 @@ import type {
   BoardUpdatedPayload,
   BoardUpdateInput,
   ChatMessage,
+  ChatRecipient,
+  ChatSpeakerInput,
   ChronicleMemberRole,
   DiceRoll,
   PresenceMember,
@@ -235,17 +237,28 @@ export function useTable(chronicleId: string | null) {
     };
   }, []);
 
-  const sendMessage = useCallback((text: string) => {
-    const trimmed = text.trim();
-    if (!trimmed) return Promise.resolve(false);
-    const socket = socketRef.current;
-    if (!socket || !socket.connected) return Promise.resolve(false);
-    return new Promise<boolean>((resolve) => {
-      socket.emit("chat:message", { text: trimmed }, (resp) => {
-        resolve(Boolean(resp?.ok));
+  const sendMessage = useCallback(
+    (
+      text: string,
+      recipient?: ChatRecipient,
+      as?: ChatSpeakerInput,
+    ) => {
+      const trimmed = text.trim();
+      if (!trimmed) return Promise.resolve(false);
+      const socket = socketRef.current;
+      if (!socket || !socket.connected) return Promise.resolve(false);
+      return new Promise<boolean>((resolve) => {
+        socket.emit(
+          "chat:message",
+          { text: trimmed, recipient, as },
+          (resp) => {
+            resolve(Boolean(resp?.ok));
+          }
+        );
       });
-    });
-  }, []);
+    },
+    []
+  );
 
   const rollVtm = useCallback((input: RollVtmInput) => {
     const socket = socketRef.current;

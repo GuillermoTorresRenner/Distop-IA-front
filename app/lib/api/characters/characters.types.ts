@@ -69,9 +69,21 @@ export interface ChronicleCharacterLink {
   chronicle: ChronicleSummary;
 }
 
+export interface CharacterOwner {
+  id: string;
+  email: string;
+  nickname: string | null;
+  avatar: string | null;
+}
+
 export interface Character {
   id: string;
   userId: string;
+  /**
+   * Dueño del personaje (incluido en respuestas del backend). Útil para
+   * mostrar el nickname en la hoja sin consultar al user store.
+   */
+  user?: CharacterOwner;
   kind: CharacterKind;
   name: string;
   concept: string | null;

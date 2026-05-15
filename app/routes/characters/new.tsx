@@ -39,6 +39,7 @@ import type {
 } from "~/lib/api/characters/characters.types";
 import { findTemplate } from "~/lib/antagonist-templates";
 import { emptyCharacterInput } from "~/lib/character-sheet";
+import { useUserStore } from "~/stores/user.store";
 
 export function meta() {
   return [{ title: "Crear vástago · Distop-IA VTT" }];
@@ -48,6 +49,11 @@ export default function NewCharacterRoute() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const chronicleId = searchParams.get("chronicleId") ?? undefined;
+  const currentUser = useUserStore((s) => s.user);
+  const ownerNick =
+    currentUser?.nickname ||
+    currentUser?.email?.split("@")[0] ||
+    null;
   const kindParam = searchParams.get("kind") as CharacterKind | null;
   const nameParam = searchParams.get("name") ?? "";
   const templateParam = searchParams.get("template") ?? "";
@@ -193,6 +199,7 @@ export default function NewCharacterRoute() {
           weapons={weapons}
           weaponCategories={weaponCategories}
           armors={armors}
+          playerName={ownerNick}
           onCreateWeapon={() => setWeaponDialogOpen(true)}
           onCreateArmor={() => setArmorDialogOpen(true)}
         />

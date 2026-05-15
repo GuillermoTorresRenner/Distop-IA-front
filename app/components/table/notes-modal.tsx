@@ -8,6 +8,7 @@ import {
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { MarkdownEditor } from "~/components/common/markdown-editor";
 import { Tooltip } from "~/components/common/tooltip";
 import { Button } from "~/components/ui/button";
 import {
@@ -19,6 +20,7 @@ import {
   listChronicleJournal,
   updateCharacterEntry,
   updateChronicleEntry,
+  uploadJournalImage,
 } from "~/lib/api/journal/journal.api";
 import type {
   JournalEntry,
@@ -38,6 +40,12 @@ type NoteScope = "character" | "chronicle";
 interface NotesModalProps {
   chronicleId: string;
   isNarrator: boolean;
+  /**
+   * PJ activo del jugador en la mesa (el que está abierto en su panel de
+   * hoja). Las notas privadas se vinculan automáticamente a este personaje.
+   * Si es null, la creación de notas privadas queda bloqueada con un aviso.
+   */
+  currentCharacterId: string | null;
   onClose: () => void;
 }
 
@@ -47,6 +55,7 @@ const MAX_BODY = 8000;
 export function NotesModal({
   chronicleId,
   isNarrator,
+  currentCharacterId,
   onClose,
 }: NotesModalProps) {
   // El narrador entra a "Campaña" por defecto; el jugador siempre ve "Privadas".
@@ -107,6 +116,7 @@ export function NotesModal({
           chronicleId={chronicleId}
           scope={scope}
           canEdit={scope === "character" || isNarrator}
+          currentCharacterId={currentCharacterId}
         />
       </div>
     </div>
@@ -155,10 +165,13 @@ function NotesScopeView({
   chronicleId,
   scope,
   canEdit,
+  currentCharacterId,
 }: {
   chronicleId: string;
   scope: NoteScope;
   canEdit: boolean;
+  /** PJ activo del jugador en la mesa. Solo aplica al scope "character". */
+  currentCharacterId: string | null;
 }) {
   const [entries, setEntries] = useState<JournalEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -206,10 +219,23 @@ function NotesScopeView({
   }
 
   async function handleCreate(input: JournalEntryInput): Promise<JournalEntry> {
-    const created =
-      scope === "chronicle"
-        ? await createChronicleEntry(chronicleId, input)
-        : await createCharacterEntry(chronicleId, input);
+    let created: JournalEntry;
+    if (scope === "chronicle") {
+      created = await createChronicleEntry(chronicleId, input);
+    } else {
+      // En notas privadas necesitamos un PJ del autor asociado a la crónica.
+      // En la Mesa Virtual asumimos el PJ activo del jugador (el seleccionado
+      // en el panel de hoja).
+      if (!currentCharacterId) {
+        throw new Error(
+          "No tienes un personaje activo en la mesa para asociar la nota.",
+        );
+      }
+      created = await createCharacterEntry(chronicleId, {
+        ...input,
+        characterId: currentCharacterId,
+      });
+    }
     setEntries((prev) => [created, ...prev]);
     setSelectedId(created.id);
     setDrafting(false);
@@ -305,6 +331,7 @@ function NotesScopeView({
           <NoteEditor
             key="draft"
             mode="create"
+            chronicleId={chronicleId}
             canEdit={canEdit}
             onSubmit={handleCreate}
             onCancel={() => setDrafting(false)}
@@ -313,6 +340,7 @@ function NotesScopeView({
           <NoteEditor
             key={selected.id}
             mode="edit"
+            chronicleId={chronicleId}
             entry={selected}
             canEdit={canEdit}
             onSubmit={(input) => handleUpdate(selected.id, input)}
@@ -341,6 +369,7 @@ function NotesScopeView({
 
 function NoteEditor({
   mode,
+  chronicleId,
   entry,
   canEdit,
   onSubmit,
@@ -348,6 +377,7 @@ function NoteEditor({
   onDelete,
 }: {
   mode: "create" | "edit";
+  chronicleId: string;
   entry?: JournalEntry;
   canEdit: boolean;
   onSubmit: (input: JournalEntryInput) => Promise<JournalEntry>;
@@ -450,14 +480,23 @@ function NoteEditor({
         </div>
       </div>
 
-      <textarea
-        value={body}
-        onChange={(e) => setBody(e.target.value)}
-        maxLength={MAX_BODY}
-        placeholder="Escribe lo que pasó esta sesión, una pista, un descubrimiento..."
-        disabled={!canEdit}
-        className="flex-1 resize-none bg-transparent p-3 text-sm leading-relaxed placeholder:italic placeholder:text-muted-foreground focus:outline-none"
-      />
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <MarkdownEditor
+          value={body}
+          onChange={setBody}
+          maxLength={MAX_BODY}
+          disabled={!canEdit}
+          placeholder="Escribe lo que pasó esta sesión, una pista, un descubrimiento... (soporta markdown)"
+          onUploadImage={
+            canEdit
+              ? async (file) => {
+                  const { url } = await uploadJournalImage(chronicleId, file);
+                  return url;
+                }
+              : undefined
+          }
+        />
+      </div>
 
       <footer className="flex flex-wrap items-center justify-between gap-2 border-t border-border bg-background/30 px-3 py-2">
         <div className="flex items-center gap-2 text-[10px] text-muted-foreground">

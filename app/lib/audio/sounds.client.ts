@@ -42,6 +42,22 @@ async function ensureRunning(c: AudioContext) {
 }
 
 /**
+ * "Desbloquea" el AudioContext en respuesta a un gesto del usuario.
+ *
+ * Los browsers prohíben crear/resumir un AudioContext fuera de un gesto;
+ * llamar a esta función desde un handler de click/keydown garantiza que el
+ * contexto quede en estado "running" para los próximos `playMessage` /
+ * `playDiceRoll` que vendrán desde eventos WS (sin gesto del usuario).
+ *
+ * Idempotente: si el contexto ya está corriendo, no hace nada.
+ */
+export async function unlockAudio(): Promise<void> {
+  const c = getContext();
+  if (!c) return;
+  await ensureRunning(c);
+}
+
+/**
  * Lee el flag de mute desde localStorage. Lo consultamos en cada disparo
  * para que el toggle tenga efecto inmediato sin necesidad de event bus.
  */

@@ -90,7 +90,7 @@ export default function Home() {
         </p>
         <Link to="/chronicles/new" className="mt-4 inline-block">
           <Button className="bg-blood text-blood-foreground hover:bg-blood/90">
-            Fundar crónica
+            Crear crónica
           </Button>
         </Link>
       </div>

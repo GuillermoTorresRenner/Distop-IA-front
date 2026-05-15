@@ -8,16 +8,56 @@ export type ChronicleMemberRole = "NARRATOR" | "PLAYER";
 export interface PresenceMember {
   id: string;
   email: string;
+  nickname: string | null;
   avatar: string | null;
   role: ChronicleMemberRole | string | null;
+}
+
+export type ChatRecipientKind = "all" | "narrator" | "user";
+
+export interface ChatRecipient {
+  kind: ChatRecipientKind;
+  /** userId del destinatario si kind === "user". */
+  userId: string | null;
+}
+
+/**
+ * Identidad del hablante resuelta por el server:
+ *  - `self`: el usuario habla como tal (con su nickname).
+ *  - `character`: el usuario habla como un PJ suyo asociado a la crónica.
+ */
+export interface ChatSpeaker {
+  kind: "self" | "character";
+  name: string;
+  characterId: string | null;
+}
+
+/**
+ * Identidad enviada por el cliente. El server resuelve el nombre y valida
+ * la propiedad del PJ; el cliente nunca decide el `name` mostrado.
+ */
+export interface ChatSpeakerInput {
+  kind: "self" | "character";
+  characterId?: string;
 }
 
 export interface ChatMessage {
   id: string;
   userId: string;
   email: string;
+  /** Identidad mostrada en el chat. Si no viene (mensajes legacy), caer al email. */
+  speaker?: ChatSpeaker;
   text: string;
   at: string; // ISO
+  /** Sentido a quién va el mensaje. Si no viene, asumir "all". */
+  recipient?: ChatRecipient;
+}
+
+export interface ChatMessageInput {
+  text: string;
+  recipient?: ChatRecipient;
+  /** Identidad bajo la que se envía (default: self). */
+  as?: ChatSpeakerInput;
 }
 
 export interface DiceRollUser {
@@ -140,7 +180,7 @@ export interface ClientToServerEvents {
     ack?: (resp: { ok: boolean }) => void
   ) => void;
   "chat:message": (
-    body: { text: string },
+    body: ChatMessageInput,
     ack?: (resp: { ok: boolean; id?: string; error?: string }) => void
   ) => void;
   "roll:vtm": (

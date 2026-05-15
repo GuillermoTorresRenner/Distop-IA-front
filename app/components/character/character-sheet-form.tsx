@@ -58,6 +58,11 @@ interface Props {
   onCreateWeapon?: () => void;
   onCreateArmor?: () => void;
   readOnly?: boolean;
+  /**
+   * Nombre del jugador (nick del usuario dueño del PJ). Se muestra en el
+   * campo "Jugador" de Identidad (read-only). Si no llega, queda vacío.
+   */
+  playerName?: string | null;
 }
 
 export function CharacterSheetForm({
@@ -73,6 +78,7 @@ export function CharacterSheetForm({
   onCreateWeapon,
   onCreateArmor,
   readOnly,
+  playerName,
 }: Props) {
   function patch(p: Partial<CharacterInput>) {
     onChange({ ...value, ...p });
@@ -248,9 +254,9 @@ export function CharacterSheetForm({
         <FormField
           label="Jugador"
           name="player"
-          value=""
+          value={playerName ?? ""}
           disabled
-          hint="Se infiere del usuario logueado"
+          hint="Se infiere del usuario dueño del personaje"
           onChange={() => undefined}
         />
 
@@ -282,16 +288,12 @@ export function CharacterSheetForm({
           />
         </Tooltip>
 
-        <Tooltip content={IDENTITY_TOOLTIPS.chronicleName} title="Crónica">
-          <FormField
-            label="Crónica"
-            name="chronicleName"
-            value={value.chronicleName ?? ""}
-            disabled={readOnly}
-            onChange={(e) => patch({ chronicleName: e.target.value })}
-            containerClassName="w-full"
-          />
-        </Tooltip>
+        {/*
+          El campo libre "Crónica" se retiró: la asociación real vive en la
+          relación N:M `ChronicleCharacter`. Se gestiona desde /chronicles/:id.
+          El field sigue en el modelo Prisma para no romper datos viejos,
+          pero NO se muestra ni edita aquí.
+        */}
 
         <SelectField
           label="Clan"

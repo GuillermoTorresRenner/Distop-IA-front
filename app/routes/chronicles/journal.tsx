@@ -8,15 +8,18 @@ import {
   UserCircle,
   X,
 } from "lucide-react";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { Link, useParams } from "react-router";
 import { extractAuthError } from "~/components/common/auth-error";
 import { FormAlert } from "~/components/common/form-alert";
 import { FormField } from "~/components/common/form-field";
+import { MarkdownEditor } from "~/components/common/markdown-editor";
 import { PageHeader } from "~/components/common/page-header";
 import { Button } from "~/components/ui/button";
-import { Textarea } from "~/components/ui/textarea";
 import { useConfirm } from "~/hooks/use-confirm";
+import { listChronicleCharacters } from "~/lib/api/characters/characters.api";
 import { getChronicle } from "~/lib/api/chronicles/chronicles.api";
 import type { Chronicle } from "~/lib/api/chronicles/chronicles.types";
 import {
@@ -28,8 +31,15 @@ import {
   listChronicleJournal,
   updateCharacterEntry,
   updateChronicleEntry,
+  uploadJournalImage,
 } from "~/lib/api/journal/journal.api";
-import type { JournalEntry, JournalEntryInput } from "~/lib/api/journal/journal.types";
+import type {
+  CharacterJournalEntryInput,
+  JournalEntry,
+  JournalEntryInput,
+} from "~/lib/api/journal/journal.types";
+import { SELECT_DARK_CLASS } from "~/lib/select-styles";
+import { cn } from "~/lib/utils";
 import { useUserStore } from "~/stores/user.store";
 
 export function meta() {
@@ -59,9 +69,22 @@ function toDateInputValue(value: string | null | undefined): string {
 
 interface EntryFormState extends JournalEntryInput {
   id?: string;
+  /** Solo aplica en tab "character". Vacío hasta que el user elige o se auto-asigna. */
+  characterId?: string;
 }
 
-const emptyForm: EntryFormState = { title: "", body: "", sessionDate: "" };
+const emptyForm: EntryFormState = {
+  title: "",
+  body: "",
+  sessionDate: "",
+  characterId: "",
+};
+
+interface CharacterRef {
+  id: string;
+  name: string;
+  kind: "PC" | "NPC" | "ANTAGONIST";
+}
 
 export default function ChronicleJournalRoute() {
   const { confirm, dialog } = useConfirm();
@@ -71,10 +94,15 @@ export default function ChronicleJournalRoute() {
   const [chronicle, setChronicle] = useState<Chronicle | null>(null);
   const [chronicleEntries, setChronicleEntries] = useState<JournalEntry[]>([]);
   const [characterEntries, setCharacterEntries] = useState<JournalEntry[]>([]);
+  /** Personajes propios asociados a esta crónica. Vienen de
+   * `/chronicles/:id/characters` filtrados por `user.id` en el cliente. */
+  const [myCharacters, setMyCharacters] = useState<CharacterRef[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const [tab, setTab] = useState<"chronicle" | "character">("chronicle");
+  /** Filtro por personaje en la tab "character". `null` = mostrar todas. */
+  const [characterFilter, setCharacterFilter] = useState<string | null>(null);
   const [form, setForm] = useState<EntryFormState>(emptyForm);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -83,14 +111,22 @@ export default function ChronicleJournalRoute() {
   async function reload() {
     if (!id) return;
     try {
-      const [c, entries, mine] = await Promise.all([
+      const [c, entries, mine, chronCharacters] = await Promise.all([
         getChronicle(id),
         listChronicleJournal(id),
         listCharacterJournal(id),
+        listChronicleCharacters(id),
       ]);
       setChronicle(c);
       setChronicleEntries(entries);
       setCharacterEntries(mine);
+      const ownId = useUserStore.getState().user?.id;
+      setMyCharacters(
+        chronCharacters
+          .map((cc) => cc.character)
+          .filter((ch) => ch.user.id === ownId)
+          .map((ch) => ({ id: ch.id, name: ch.name, kind: ch.kind })),
+      );
     } catch (err) {
       setError(extractAuthError(err, "No se pudo cargar la bitácora"));
     }
@@ -102,6 +138,25 @@ export default function ChronicleJournalRoute() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
+  // ⚠️ Hooks SIEMPRE antes de cualquier return condicional para no romper
+  // la regla de orden estable de React.
+  const visibleEntries = useMemo(() => {
+    if (tab === "chronicle") return chronicleEntries;
+    if (!characterFilter) return characterEntries;
+    if (characterFilter === "__unassigned__") {
+      return characterEntries.filter((e) => !e.character);
+    }
+    return characterEntries.filter(
+      (e) => e.character?.id === characterFilter,
+    );
+  }, [tab, chronicleEntries, characterEntries, characterFilter]);
+  // Cuántas notas hay sin PJ asignado (legado). Si es 0, ocultamos esa opción
+  // del filtro para no ensuciar el menú.
+  const unassignedCount = useMemo(
+    () => characterEntries.filter((e) => !e.character).length,
+    [characterEntries],
+  );
+
   if (loading) {
     return (
       <p className="text-muted-foreground">Cargando bitácora...</p>
@@ -112,8 +167,11 @@ export default function ChronicleJournalRoute() {
   }
 
   const isNarrator = chronicle.narratorId === user?.id;
-  const canEditCurrent = tab === "chronicle" ? isNarrator : true;
-  const entries = tab === "chronicle" ? chronicleEntries : characterEntries;
+  // Para escribir notas personales se necesita al menos un PJ propio en la
+  // crónica. Sin PJs asociados, mostramos un aviso y bloqueamos el form.
+  const canWriteCharacter = myCharacters.length > 0;
+  const canEditCurrent =
+    tab === "chronicle" ? isNarrator : canWriteCharacter;
 
   function resetForm() {
     setForm(emptyForm);
@@ -122,7 +180,13 @@ export default function ChronicleJournalRoute() {
   }
 
   function startCreate() {
-    setForm(emptyForm);
+    // Si el user tiene un solo PJ, lo pre-seleccionamos (UX directa). Con
+    // varios, queda vacío para forzar elección explícita.
+    const autoCharacter =
+      tab === "character" && myCharacters.length === 1
+        ? myCharacters[0].id
+        : "";
+    setForm({ ...emptyForm, characterId: autoCharacter });
     setEditing(true);
     setFormError(null);
   }
@@ -133,6 +197,7 @@ export default function ChronicleJournalRoute() {
       title: entry.title,
       body: entry.body,
       sessionDate: toDateInputValue(entry.sessionDate),
+      characterId: entry.character?.id ?? "",
     });
     setEditing(true);
     setFormError(null);
@@ -142,24 +207,38 @@ export default function ChronicleJournalRoute() {
     event.preventDefault();
     if (!id) return;
     setFormError(null);
-    setSaving(true);
-    const payload: JournalEntryInput = {
+
+    const basePayload: JournalEntryInput = {
       title: form.title.trim(),
       body: form.body.trim(),
-      ...(form.sessionDate ? { sessionDate: new Date(form.sessionDate).toISOString() } : {}),
+      ...(form.sessionDate
+        ? { sessionDate: new Date(form.sessionDate).toISOString() }
+        : {}),
     };
+
+    // Validación previa para notas personales: characterId es obligatorio.
+    if (tab === "character" && !form.characterId) {
+      setFormError("Debes elegir a qué personaje pertenece esta nota.");
+      return;
+    }
+
+    setSaving(true);
     try {
       if (tab === "chronicle") {
         if (form.id) {
-          await updateChronicleEntry(id, form.id, payload);
+          await updateChronicleEntry(id, form.id, basePayload);
         } else {
-          await createChronicleEntry(id, payload);
+          await createChronicleEntry(id, basePayload);
         }
       } else {
+        const characterPayload: CharacterJournalEntryInput = {
+          ...basePayload,
+          characterId: form.characterId!,
+        };
         if (form.id) {
-          await updateCharacterEntry(id, form.id, payload);
+          await updateCharacterEntry(id, form.id, characterPayload);
         } else {
-          await createCharacterEntry(id, payload);
+          await createCharacterEntry(id, characterPayload);
         }
       }
       await reload();
@@ -219,6 +298,7 @@ export default function ChronicleJournalRoute() {
           active={tab === "chronicle"}
           onClick={() => {
             setTab("chronicle");
+            setCharacterFilter(null);
             resetForm();
           }}
         >
@@ -228,12 +308,47 @@ export default function ChronicleJournalRoute() {
           active={tab === "character"}
           onClick={() => {
             setTab("character");
+            setCharacterFilter(null);
             resetForm();
           }}
         >
           <UserCircle className="size-4" /> Mi personaje · {characterEntries.length}
         </TabBtn>
       </nav>
+
+      {tab === "character" && myCharacters.length > 1 ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <label
+            htmlFor="character-filter"
+            className="font-heading text-xs uppercase tracking-widest text-muted-foreground"
+          >
+            Filtrar por personaje
+          </label>
+          <select
+            id="character-filter"
+            value={characterFilter ?? ""}
+            onChange={(e) => setCharacterFilter(e.target.value || null)}
+            className={cn(SELECT_DARK_CLASS, "h-8 max-w-xs")}
+          >
+            <option value="">Todos ({characterEntries.length})</option>
+            {myCharacters.map((ch) => {
+              const count = characterEntries.filter(
+                (e) => e.character?.id === ch.id,
+              ).length;
+              return (
+                <option key={ch.id} value={ch.id}>
+                  {ch.name} ({count})
+                </option>
+              );
+            })}
+            {unassignedCount > 0 ? (
+              <option value="__unassigned__">
+                Sin personaje ({unassignedCount})
+              </option>
+            ) : null}
+          </select>
+        </div>
+      ) : null}
 
       {canEditCurrent ? (
         editing ? (
@@ -263,6 +378,35 @@ export default function ChronicleJournalRoute() {
                   setForm((f) => ({ ...f, sessionDate: e.target.value }))
                 }
               />
+              {tab === "character" ? (
+                <div>
+                  <label
+                    htmlFor="characterId"
+                    className="mb-1 block font-heading text-xs uppercase tracking-widest text-muted-foreground"
+                  >
+                    Personaje{" "}
+                    <span className="text-blood">*</span>
+                  </label>
+                  <select
+                    id="characterId"
+                    required
+                    value={form.characterId ?? ""}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, characterId: e.target.value }))
+                    }
+                    className={cn(SELECT_DARK_CLASS, "h-9")}
+                  >
+                    <option value="" disabled>
+                      — Elige un personaje —
+                    </option>
+                    {myCharacters.map((ch) => (
+                      <option key={ch.id} value={ch.id}>
+                        {ch.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : null}
               <div>
                 <label
                   htmlFor="body"
@@ -270,17 +414,20 @@ export default function ChronicleJournalRoute() {
                 >
                   Cuerpo
                 </label>
-                <Textarea
-                  id="body"
-                  name="body"
-                  required
-                  rows={10}
-                  value={form.body}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, body: e.target.value }))
-                  }
-                  placeholder="Escribe los hechos de la noche..."
-                />
+                <div className="h-128 overflow-hidden rounded-md border border-border bg-background/40">
+                  <MarkdownEditor
+                    value={form.body}
+                    onChange={(value) =>
+                      setForm((f) => ({ ...f, body: value }))
+                    }
+                    disabled={saving}
+                    placeholder="Escribe los hechos de la noche..."
+                    onUploadImage={async (file) => {
+                      const { url } = await uploadJournalImage(id, file);
+                      return url;
+                    }}
+                  />
+                </div>
               </div>
               <div className="flex items-center gap-2">
                 <Button
@@ -302,21 +449,28 @@ export default function ChronicleJournalRoute() {
             <Plus className="size-4" /> Nueva entrada
           </Button>
         )
-      ) : (
+      ) : tab === "chronicle" ? (
         <p className="font-serif text-sm italic text-muted-foreground">
           Solo el narrador puede escribir en la bitácora de la crónica.
         </p>
+      ) : (
+        <p className="font-serif text-sm italic text-muted-foreground">
+          Para escribir notas personales necesitas tener al menos un personaje
+          asociado a esta crónica.
+        </p>
       )}
 
-      {entries.length === 0 ? (
+      {visibleEntries.length === 0 ? (
         <p className="text-muted-foreground">
           {tab === "chronicle"
             ? "El narrador aún no ha escrito en la bitácora."
-            : "Aún no tienes memorias de tu personaje en esta crónica."}
+            : characterFilter
+              ? "No hay notas para el filtro seleccionado."
+              : "Aún no tienes memorias de tu personaje en esta crónica."}
         </p>
       ) : (
         <ul className="space-y-4">
-          {entries.map((entry) => {
+          {visibleEntries.map((entry) => {
             const mine = entry.author.id === user?.id;
             const canManage = tab === "chronicle" ? isNarrator : mine;
             return (
@@ -325,14 +479,28 @@ export default function ChronicleJournalRoute() {
                 className="rounded-lg border border-border/60 bg-card/70 p-5"
               >
                 <header className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
-                  <h3 className="font-heading text-lg text-foreground">{entry.title}</h3>
+                  <div className="flex flex-col">
+                    <h3 className="font-heading text-lg text-foreground">{entry.title}</h3>
+                    {tab === "character" ? (
+                      <span className="font-serif text-xs italic text-blood/80">
+                        {entry.character
+                          ? entry.character.name
+                          : "Sin personaje asignado"}
+                      </span>
+                    ) : null}
+                  </div>
                   <p className="text-xs uppercase tracking-widest text-muted-foreground">
                     {formatDate(entry.sessionDate ?? entry.createdAt)} · {entry.author.nickname}
                   </p>
                 </header>
-                <p className="whitespace-pre-wrap font-serif text-sm text-foreground/90">
-                  {entry.body}
-                </p>
+                <div className="markdown-content text-sm text-foreground/90">
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    urlTransform={(url) => url}
+                  >
+                    {entry.body}
+                  </ReactMarkdown>
+                </div>
                 {canManage ? (
                   <div className="mt-3 flex items-center gap-2">
                     <Button variant="ghost" size="sm" onClick={() => startEdit(entry)}>

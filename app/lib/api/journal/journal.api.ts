@@ -1,5 +1,6 @@
 import { apiClient } from "~/lib/api/client";
 import type {
+  CharacterJournalEntryInput,
   JournalEntry,
   JournalEntryInput,
   MyJournalFeed,
@@ -63,7 +64,7 @@ export async function listCharacterJournal(
 
 export async function createCharacterEntry(
   chronicleId: string,
-  input: JournalEntryInput,
+  input: CharacterJournalEntryInput,
 ): Promise<JournalEntry> {
   const { data } = await apiClient.post<JournalEntry>(
     `/chronicles/${chronicleId}/character-journal`,
@@ -75,7 +76,7 @@ export async function createCharacterEntry(
 export async function updateCharacterEntry(
   chronicleId: string,
   entryId: string,
-  input: Partial<JournalEntryInput>,
+  input: Partial<CharacterJournalEntryInput>,
 ): Promise<JournalEntry> {
   const { data } = await apiClient.patch<JournalEntry>(
     `/chronicles/${chronicleId}/character-journal/${entryId}`,
@@ -90,6 +91,24 @@ export async function deleteCharacterEntry(
 ): Promise<{ ok: boolean }> {
   const { data } = await apiClient.delete<{ ok: boolean }>(
     `/chronicles/${chronicleId}/character-journal/${entryId}`,
+  );
+  return data;
+}
+
+/**
+ * Sube una imagen al back para insertarla en una nota de bitácora.
+ * Devuelve la URL relativa servida via NPM `/images`.
+ */
+export async function uploadJournalImage(
+  chronicleId: string,
+  file: File,
+): Promise<{ url: string; mimeType: string }> {
+  const form = new FormData();
+  form.append("file", file);
+  const { data } = await apiClient.post<{ url: string; mimeType: string }>(
+    `/chronicles/${chronicleId}/journal/files`,
+    form,
+    { headers: { "Content-Type": "multipart/form-data" } },
   );
   return data;
 }

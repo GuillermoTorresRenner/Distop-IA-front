@@ -452,7 +452,9 @@ function DotRow({
           ? "Sin puntos. Súbelo desde la hoja completa para poder añadirlo a una tirada."
           : `Click para añadirlo a la tirada (${value} ${value === 1 ? "punto" : "puntos"}).`
       }
-      side="right"
+      // `top` evita la colisión con el divisor central entre la hoja y el
+      // panel derecho de chat/dados que se daba con `side="right"`.
+      side="top"
       className="w-full"
     >
       {button}
