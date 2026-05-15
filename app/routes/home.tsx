@@ -2,6 +2,7 @@ import {
   ArrowRight,
   BookOpenText,
   Code2,
+  Coffee,
   Dice5,
   Mail,
   Map,
@@ -109,6 +110,7 @@ export default function Home() {
         <div className="mt-5 grid gap-3 lg:grid-cols-3">
           {/* Cafecito */}
           <article className="flex flex-col gap-3 rounded-lg border border-border/60 bg-card/70 p-4">
+            <Coffee className="size-5 text-blood" />
             <h3 className="font-heading text-sm uppercase tracking-widest text-foreground">
               Invitame un café
             </h3>
@@ -117,15 +119,14 @@ export default function Home() {
               desarrollo y al hosting de la mesa.
             </p>
             <a
-              href="https://cafecito.app/distop-ia"
+              href="https://www.flow.cl/btn.php?token=fcad54c1863fa475fbc2c46706beb2eb3f59bd99"
               rel="noopener"
               target="_blank"
               className="mt-auto inline-block"
             >
               <img
-                srcSet="https://cdn.cafecito.app/imgs/buttons/button_2.png 1x, https://cdn.cafecito.app/imgs/buttons/button_2_2x.png 2x, https://cdn.cafecito.app/imgs/buttons/button_2_3.75x.png 3.75x"
-                src="https://cdn.cafecito.app/imgs/buttons/button_2.png"
-                alt="Invitame un café en cafecito.app"
+                src="https://www.flow.cl/img/botones/btn-pagar-negro.png"
+                alt="Pagar con Flow"
               />
             </a>
           </article>
