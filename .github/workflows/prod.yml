@@ -1,5 +1,10 @@
 name: Deploy Production Frontend to Hostinger VPS
 
+# El front se construye en cada deploy a prod porque `VITE_API_URL` se embebe
+# en el bundle en build-time. La imagen `:qa` apunta al backend de QA, así que
+# no se puede reutilizar en prod sin reescribir el bundle. Por eso este
+# workflow sí buildea y pushea su propia imagen `:latest`.
+
 on:
   workflow_dispatch:
   push:

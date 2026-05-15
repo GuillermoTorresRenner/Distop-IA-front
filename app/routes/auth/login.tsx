@@ -47,7 +47,7 @@ export default function LoginRoute() {
 
   return (
     <AuthCard
-      title="Entrar al aquelarre"
+      title="Entrar al círculo interior"
       description="Las sombras reconocen a los suyos. Ingresa tus credenciales."
       footer={
         <span>
@@ -90,7 +90,7 @@ export default function LoginRoute() {
           minLength={6}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          placeholder="••••••••"
+          
         />
         <div className="flex justify-end">
           <Link
