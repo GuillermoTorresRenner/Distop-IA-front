@@ -141,13 +141,37 @@ export default function Home() {
               ¿Programás? ¿Diseñás? ¿Probás mesas y encontrás bugs? Hay sitio
               para más manos. Escribime y armamos juntos cómo encarar tu aporte.
             </p>
-            <a
-              href={`mailto:${SUPPORT_EMAIL}?subject=Colaborar%20en%20Distop-IA`}
-              className="mt-auto inline-flex items-center gap-1.5 text-xs font-medium uppercase tracking-widest text-blood hover:underline"
-            >
-              <Mail className="size-3.5" />
-              {SUPPORT_EMAIL}
-            </a>
+            <div className="mt-auto flex flex-col gap-2">
+              <a
+                href={`mailto:${SUPPORT_EMAIL}?subject=Colaborar%20en%20Distop-IA`}
+                className="inline-flex items-center gap-1.5 text-xs font-medium uppercase tracking-widest text-blood hover:underline"
+              >
+                <Mail className="size-3.5" />
+                {SUPPORT_EMAIL}
+              </a>
+              <div className="flex items-center gap-3">
+                <a
+                  href="https://github.com/GuillermoTorresRenner/Distop-IA-front"
+                  rel="noopener"
+                  target="_blank"
+                  className="inline-flex items-center gap-1.5 text-xs font-medium uppercase tracking-widest text-muted-foreground transition hover:text-blood"
+                  aria-label="Repositorio del frontend en GitHub"
+                >
+                  <GithubIcon className="size-4" />
+                  Frontend
+                </a>
+                <a
+                  href="https://github.com/GuillermoTorresRenner/Distop-IA-backend"
+                  rel="noopener"
+                  target="_blank"
+                  className="inline-flex items-center gap-1.5 text-xs font-medium uppercase tracking-widest text-muted-foreground transition hover:text-blood"
+                  aria-label="Repositorio del backend en GitHub"
+                >
+                  <GithubIcon className="size-4" />
+                  Backend
+                </a>
+              </div>
+            </div>
           </article>
 
           {/* Roadmap */}
@@ -170,5 +194,19 @@ export default function Home() {
         </div>
       </section>
     </section>
+  );
+}
+
+function GithubIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      role="img"
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      aria-hidden="true"
+      className={className}
+    >
+      <path d="M12 .297a12 12 0 0 0-3.793 23.39c.6.11.82-.26.82-.577 0-.285-.01-1.04-.016-2.04-3.338.726-4.043-1.61-4.043-1.61-.546-1.387-1.333-1.757-1.333-1.757-1.09-.745.083-.729.083-.729 1.205.084 1.84 1.237 1.84 1.237 1.07 1.834 2.809 1.304 3.495.997.108-.775.42-1.305.762-1.605-2.665-.305-5.466-1.334-5.466-5.933 0-1.31.468-2.382 1.236-3.222-.124-.303-.535-1.527.118-3.181 0 0 1.008-.323 3.3 1.23a11.5 11.5 0 0 1 6.003 0c2.29-1.553 3.296-1.23 3.296-1.23.655 1.654.243 2.878.12 3.181.77.84 1.234 1.912 1.234 3.222 0 4.61-2.804 5.625-5.476 5.92.43.371.823 1.103.823 2.222 0 1.606-.015 2.9-.015 3.293 0 .32.216.694.825.576A12 12 0 0 0 12 .297Z" />
+    </svg>
   );
 }
