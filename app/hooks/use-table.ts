@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { CombatState } from "~/lib/api/combat/combat.types";
 import { playDiceRoll, playMessage } from "~/lib/audio/sounds.client";
 import {
   disposeTableSocket,
@@ -57,6 +58,11 @@ interface UseTableState {
   } | null;
   /** Token monotónico que cambia cada vez que llega un snapshot nuevo. */
   remoteBoardVersion: number;
+  /**
+   * Último snapshot del tracker de turnos. Llega filtrado según rol desde
+   * el back. `null` si todavía no se cargó ni hubo broadcast.
+   */
+  combat: CombatState | null;
 }
 
 const MAX_FEED = 300;
@@ -78,6 +84,7 @@ export function useTable(chronicleId: string | null) {
     boardShared: false,
     remoteBoard: null,
     remoteBoardVersion: 0,
+    combat: null,
   });
 
   const socketRef = useRef<TableSocket | null>(null);
@@ -179,6 +186,10 @@ export function useTable(chronicleId: string | null) {
       }));
     };
 
+    const onCombatState = (state: CombatState) => {
+      setState((s) => ({ ...s, combat: state }));
+    };
+
     const onBoardUpdated = (p: BoardUpdatedPayload) => {
       setState((s) => {
         if (!s.boardShared) return s;
@@ -209,6 +220,7 @@ export function useTable(chronicleId: string | null) {
     socket.on("rolls:cleared", onRollsCleared);
     socket.on("board:shared", onBoardShared);
     socket.on("board:updated", onBoardUpdated);
+    socket.on("combat:state", onCombatState);
 
     // Si ya estaba conectado (singleton reusado), disparamos join manualmente.
     if (socket.connected) onConnect();
@@ -225,6 +237,7 @@ export function useTable(chronicleId: string | null) {
       socket.off("rolls:cleared", onRollsCleared);
       socket.off("board:shared", onBoardShared);
       socket.off("board:updated", onBoardUpdated);
+      socket.off("combat:state", onCombatState);
       socket.emit("table:leave", {});
     };
   }, [chronicleId]);
@@ -320,6 +333,11 @@ export function useTable(chronicleId: string | null) {
     setState((s) => ({ ...s, rolls }));
   }, []);
 
+  /** Para hidratar el tracker de turnos desde REST al montar. */
+  const setCombat = useCallback((state: CombatState | null) => {
+    setState((s) => ({ ...s, combat: state }));
+  }, []);
+
   const dismissLatestRoll = useCallback(() => {
     setState((s) =>
       s.latestRollId ? { ...s, latestRollId: null } : s
@@ -339,6 +357,7 @@ export function useTable(chronicleId: string | null) {
     shareBoard,
     pushBoardUpdate,
     setInitialRolls,
+    setCombat,
     dismissLatestRoll,
     dispose,
   };

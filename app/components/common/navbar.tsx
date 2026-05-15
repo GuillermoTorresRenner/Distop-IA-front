@@ -3,10 +3,10 @@ import {
   Dice5,
   Home,
   Mail,
+  Map,
   ScrollText,
   Skull,
   Users,
-  Zap,
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router";
 import type { User } from "~/lib/api/users/users.types";
@@ -53,13 +53,14 @@ export function Navbar({ user, invitationCount = 0 }: NavbarProps) {
             Distop-IA
           </NavLink>
           <div className="flex shrink-0 items-center gap-1 sm:gap-2">
-            <button
-              type="button"
-              aria-label="Notificaciones"
+            <NavLink
+              to="/roadmap"
+              aria-label="Próximos features"
+              title="Próximos features"
               className="relative inline-flex size-8 items-center justify-center rounded-full text-white/90 transition hover:bg-white/10"
             >
-              <Zap className="size-4" />
-            </button>
+              <Map className="size-4" />
+            </NavLink>
             <NavLink
               to="/invitations"
               aria-label="Invitaciones"

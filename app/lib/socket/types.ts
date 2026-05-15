@@ -215,5 +215,11 @@ export interface ServerToClientEvents {
   "sheet:announce": (announce: SheetAnnounce) => void;
   "board:shared": (payload: BoardSharedPayload) => void;
   "board:updated": (payload: BoardUpdatedPayload) => void;
+  /**
+   * Snapshot completo del tracker de turnos. Cada cliente recibe la versión
+   * adecuada a su rol: narrador ve iniciativas y NPCs/Antagonists, jugador
+   * solo PCs.
+   */
+  "combat:state": (state: import("~/lib/api/combat/combat.types").CombatState) => void;
   error: (payload: { message: string }) => void;
 }

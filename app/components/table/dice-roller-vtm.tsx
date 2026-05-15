@@ -104,16 +104,6 @@ export function DiceRollerVtM({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-3 p-3">
-      <div>
-        <input
-          value={label}
-          onChange={(e) => setLabel(e.target.value)}
-          placeholder="Etiqueta (ej: Percepción + Alerta)"
-          maxLength={120}
-          className="h-9 w-full rounded-md border border-input bg-input/30 px-3 text-sm font-serif placeholder:italic placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-blood"
-        />
-      </div>
-
       <div className="grid grid-cols-2 gap-3">
         <NumberStepper
           label="Pool (d10)"

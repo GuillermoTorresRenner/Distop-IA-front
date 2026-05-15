@@ -1,9 +1,15 @@
 import { Check, Droplet, Heart, Loader2, Sparkles, X, Zap } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
+import { CatalogReferenceButtons } from "~/components/character/catalog-reference-buttons";
 import { Tooltip } from "~/components/common/tooltip";
 import { Button } from "~/components/ui/button";
 import { updateCharacterInChronicle } from "~/lib/api/characters/characters.api";
+import type {
+  Armor,
+  Weapon,
+  WeaponCategory,
+} from "~/lib/api/catalog/catalog.types";
 import type {
   Character,
   CharacterAbility,
@@ -57,6 +63,14 @@ interface CharacterSheetPanelProps {
    * automáticamente al gastar Voluntad en una tirada.
    */
   canEditWillpower?: boolean;
+  /**
+   * Catálogos V20 para los botones de consulta (Armas CC / Armas de fuego /
+   * Armaduras) que se muestran bajo Habilidades en la hoja embebida.
+   * Si no se proveen, los botones no se renderizan.
+   */
+  weapons?: Weapon[];
+  weaponCategories?: WeaponCategory[];
+  armors?: Armor[];
 }
 
 const HEALTH_LEVELS: Array<{
@@ -135,6 +149,9 @@ export function CharacterSheetPanel({
   onCharacterUpdated,
   onAnnounceSheet,
   canEditWillpower = false,
+  weapons,
+  weaponCategories,
+  armors,
 }: CharacterSheetPanelProps) {
   // ── Selección click-to-roll ─────────────────────────────────
   const [selection, setSelection] = useState<RollSelection>({});
@@ -348,6 +365,15 @@ export function CharacterSheetPanel({
             })}
           </div>
         </section>
+
+        {/* Consulta rápida de catálogos V20 */}
+        {weapons && weaponCategories && armors ? (
+          <CatalogReferenceButtons
+            weapons={weapons}
+            weaponCategories={weaponCategories}
+            armors={armors}
+          />
+        ) : null}
 
         {/* Link a edición completa */}
         <div className="pt-2 text-center">

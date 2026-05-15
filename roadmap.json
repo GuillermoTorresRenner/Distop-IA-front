@@ -1,0 +1,104 @@
+{
+  "updatedAt": "2026-05-16",
+  "intro": "Distop-IA está en desarrollo activo. Estas son las integraciones y mejoras que están en cola. Los aportes de la comunidad aceleran cada hito.",
+  "groups": [
+    {
+      "id": "lines",
+      "title": "Nuevas líneas del Mundo de Tinieblas",
+      "description": "El núcleo del VTT está sintonizado con Vampiro: la Mascarada V20. Estas líneas comparten esqueleto (atributos, habilidades, tiradas en d10) y se irán sumando con sus propios catálogos, hojas y reglas.",
+      "items": [
+        {
+          "title": "Vampiro: la Mascarada V5",
+          "status": "planned",
+          "description": "Quinta edición: Hambre como d10 especial, Compulsiones, Convicciones y Toques, nueva tabla de Disciplinas (Blood Sorcery, Oblivion) y reescritura del bloque de Estado de la hoja.",
+          "tags": ["WoD", "Vampiro", "V5"]
+        },
+        {
+          "title": "Hombre Lobo: el Apocalipsis (W20)",
+          "status": "planned",
+          "description": "Garou con sus cinco formas (Homínido, Glabro, Crinos, Hispo, Lupus), Don/Rito, Gnosis y Furia. Hoja de personaje con cambio de forma dinámico durante la mesa.",
+          "tags": ["WoD", "Hombre Lobo", "W20"]
+        },
+        {
+          "title": "Hombre Lobo: el Apocalipsis V5",
+          "status": "planned",
+          "description": "Versión quinta edición con Renombre, Tribu y mecánica de Frenesí adaptada. Comparte motor con W:tA W20 pero con su propia hoja y catálogo.",
+          "tags": ["WoD", "Hombre Lobo", "V5"]
+        },
+        {
+          "title": "Mago: la Ascensión",
+          "status": "planned",
+          "description": "Tradiciones y Convenciones, las nueve Esferas (Correspondencia, Entropía, Fuerzas, Vida, Materia, Mente, Primigenio, Espíritu, Tiempo), Arete, Quintaesencia y Paradoja. La hoja se reorganiza alrededor de las Esferas y la dificultad dinámica de los hechizos."
+        }
+      ]
+    },
+    {
+      "id": "contenido",
+      "title": "Contenido y textos",
+      "description": "Pulir lo que se lee en pantalla y abrir la herramienta a más mesas:",
+      "items": [
+        {
+          "title": "Revisión y mejora de textos",
+          "status": "planned",
+          "description": "Repaso completo de tooltips, mensajes de error, placeholders y descripciones de la UI. Tono coherente con el ambiente de Vampiro y precisión con la jerga del manual."
+        },
+        {
+          "title": "Traducción multilenguaje",
+          "status": "planned",
+          "description": "Soporte de i18n para arrancar con español (rioplatense), español neutro, portugués (Brasil) e inglés. Cambio en caliente desde el menú de usuario, persistente por cuenta.",
+          "tags": ["i18n"]
+        },
+        {
+          "title": "Descripciones y canon V20",
+          "status": "planned",
+          "description": "Completar las descripciones de clanes, disciplinas, méritos/defectos y arquetipos con texto canónico del manual: linaje, debilidad, frase representativa, ejemplos de uso. Disponibles desde la hoja vía hover/tap, sin abandonar la mesa."
+        }
+      ]
+    },
+    {
+      "id": "mesa",
+      "title": "Mejoras a la Mesa Virtual",
+      "description": "Lo que ya funciona en mesa (chat, dados, pizarra, bitácora) se irá extendiendo:",
+      "items": [
+        {
+          "title": "Iniciativa y orden de combate",
+          "status": "in-progress",
+          "description": "Tracker de turnos disponible en beta dentro de la mesa virtual: el narrador agrega PCs, PNJs, antagonistas o entradas libres, anota iniciativa a mano y avanza turnos con un click. Los jugadores ven el orden de PCs sin valores numéricos. Pendiente: tirada automática de Iniciativa (Des + Astucia + 1d10) y pulido de mobile.",
+          "tags": ["Beta"]
+        },
+        {
+          "title": "Mapas con tokens y niebla de guerra",
+          "status": "planned",
+          "description": "Pizarra evolucionada: subir mapas, mover tokens de personajes, ocultar zonas al jugador y revelar conforme exploran."
+        },
+        {
+          "title": "Tirada simultánea oculta",
+          "status": "planned",
+          "description": "Tirada solo entre narrador y un jugador (chequeo en secreto) con auditoría posterior para evitar dudas."
+        }
+      ]
+    },
+    {
+      "id": "calidad",
+      "title": "Calidad de vida",
+      "description": "Detalles para que la herramienta acompañe sin estorbar:",
+      "items": [
+        {
+          "title": "Tema claro / oscuro",
+          "status": "planned",
+          "description": "El esqueleto ya está (paleta dual en oklch). Falta el toggle persistente y un repaso visual del modo claro."
+        },
+        {
+          "title": "Notificaciones push",
+          "status": "planned",
+          "description": "Avisos al usuario cuando lo invitan a una mesa, le susurran en chat o el narrador agenda sesión."
+        },
+        {
+          "title": "Exportar bitácora a PDF",
+          "status": "planned",
+          "description": "Cierre de crónica con un PDF compilado: bitácora, hojas finales y tiradas memorables."
+        }
+      ]
+    }
+  ]
+}

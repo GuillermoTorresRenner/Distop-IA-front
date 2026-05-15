@@ -6,14 +6,17 @@ import {
   NotebookPen,
   Palette,
   Send,
+  Swords,
   User as UserIcon,
   Volume2,
   VolumeX,
+  X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router";
 import { Tooltip } from "~/components/common/tooltip";
 import { CharacterSheetPanel } from "~/components/table/character-sheet-panel";
+import { CombatPanel } from "~/components/table/combat-panel";
 import { DiceRollerVtM, type RollerPrefill } from "~/components/table/dice-roller-vtm";
 import { NotesModal } from "~/components/table/notes-modal";
 import { RollHistory } from "~/components/table/roll-history";
@@ -26,6 +29,18 @@ import {
   listChronicleCharacters,
   type ChronicleMemberRef,
 } from "~/lib/api/characters/characters.api";
+import {
+  listArmors,
+  listWeaponCategories,
+  listWeapons,
+} from "~/lib/api/catalog/catalog.api";
+import { getCombat } from "~/lib/api/combat/combat.api";
+import type { CombatState } from "~/lib/api/combat/combat.types";
+import type {
+  Armor,
+  Weapon,
+  WeaponCategory,
+} from "~/lib/api/catalog/catalog.types";
 import type { Character } from "~/lib/api/characters/characters.types";
 import {
   clearChronicleRolls,
@@ -41,7 +56,7 @@ export function meta() {
   return [{ title: "Mesa · Distop-IA VTT" }];
 }
 
-type RightTab = "chat" | "dice";
+type RightTab = "chat" | "dice" | "turns";
 
 // ── Splitter (columna izquierda / derecha) ─────────────────
 const SPLIT_MIN = 40; // % mínimo de la columna izquierda
@@ -72,7 +87,9 @@ export default function ChronicleTableRoute() {
     shareBoard,
     pushBoardUpdate,
     setInitialRolls,
+    setCombat,
     dismissLatestRoll,
+    combat,
   } = useTable(chronicleId ?? null);
 
   // ── Historial REST ──────────────────────────────────────
@@ -94,12 +111,53 @@ export default function ChronicleTableRoute() {
     };
   }, [chronicleId, setInitialRolls]);
 
+  // ── Tracker de turnos (carga inicial REST) ───────────────
+  // El WS hidrata después con cualquier cambio en tiempo real.
+  useEffect(() => {
+    if (!chronicleId) return;
+    let mounted = true;
+    getCombat(chronicleId)
+      .then((state) => {
+        if (mounted) setCombat(state);
+      })
+      .catch(() => {
+        /* Si falla, el tab muestra "Cargando…" hasta que llegue un broadcast. */
+      });
+    return () => {
+      mounted = false;
+    };
+  }, [chronicleId, setCombat]);
+
   // ── Personajes accesibles ──────────────────────────────
   // - Jugador: solo sus PJs asociados a esta crónica.
   // - Narrador: todos los PJs de la crónica + sus PNJs + sus antagonistas.
   const [allCharacters, setAllCharacters] = useState<CharWithOwner[]>([]);
   const [selectedCharId, setSelectedCharId] = useState<string | null>(null);
   const [sheetError, setSheetError] = useState<string | null>(null);
+  // Catálogos V20 para los botones de consulta rápida en la hoja embebida.
+  const [weapons, setWeapons] = useState<Weapon[]>([]);
+  const [weaponCategories, setWeaponCategories] = useState<WeaponCategory[]>(
+    [],
+  );
+  const [armors, setArmors] = useState<Armor[]>([]);
+
+  useEffect(() => {
+    let mounted = true;
+    Promise.all([listWeapons(), listWeaponCategories(), listArmors()])
+      .then(([w, c, a]) => {
+        if (!mounted) return;
+        setWeapons(w);
+        setWeaponCategories(c);
+        setArmors(a);
+      })
+      .catch(() => {
+        // Silencioso: si el catálogo falla, los botones simplemente no
+        // muestran datos. El resto de la mesa sigue funcionando.
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const visibleCharacters = useMemo<CharWithOwner[]>(() => {
     if (!userId) return [];
@@ -205,10 +263,29 @@ export default function ChronicleTableRoute() {
       signature: prefillSeqRef.current,
     });
     setRightTab("dice");
+    setMobileTab("chat");
+    setMobileDiceOpen(true);
   }
 
   // ── Tabs y modal pizarra ─────────────────────────────────
   const [rightTab, setRightTab] = useState<RightTab>("chat");
+
+  // Si un jugador estaba viendo Turnos y el tracker se vacía (el master
+  // limpió el combate), lo regresamos al chat para no dejarlo en un tab
+  // que dejó de mostrarse.
+  useEffect(() => {
+    if (rightTab !== "turns") return;
+    if (myRole === "NARRATOR") return;
+    if (!combat || combat.participants.length === 0) {
+      setRightTab("chat");
+    }
+  }, [rightTab, myRole, combat]);
+  // En mobile (<lg) las dos columnas se alternan por tabs para que el scroll
+  // de la hoja no atrape el dedo y haga inaccesible el chat. En lg+ ambas
+  // columnas se muestran a la vez con el splitter horizontal.
+  const [mobileTab, setMobileTab] = useState<"sheet" | "chat">("sheet");
+  // En mobile el DiceRoller se colapsa tras un botón para ganar alto de chat.
+  const [mobileDiceOpen, setMobileDiceOpen] = useState(false);
   const [whiteboardOpen, setWhiteboardOpen] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
 
@@ -300,7 +377,7 @@ export default function ChronicleTableRoute() {
   }, []);
 
   return (
-    <section className="flex h-[calc(100dvh-6rem)] min-h-125 flex-col sm:h-[calc(100dvh-8rem)]">
+    <section className="flex h-[calc(100dvh-7rem)] min-h-125 flex-col lg:h-[calc(100dvh-8rem)]">
       <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-1 flex-wrap items-center gap-3">
           <Link
@@ -363,9 +440,25 @@ export default function ChronicleTableRoute() {
         </div>
       </header>
 
+      {/* ─── Tabs mobile (<lg): alterna entre hoja y chat ─── */}
+      <nav className="mb-3 flex rounded-lg border border-border bg-card p-1 lg:hidden">
+        <MobileTabButton
+          active={mobileTab === "sheet"}
+          onClick={() => setMobileTab("sheet")}
+          icon={<UserIcon className="size-4" />}
+          label="Hoja"
+        />
+        <MobileTabButton
+          active={mobileTab === "chat"}
+          onClick={() => setMobileTab("chat")}
+          icon={<MessageSquare className="size-4" />}
+          label={`Chat${rolls.length ? ` · ${rolls.length}` : ""}`}
+        />
+      </nav>
+
       <div
         ref={splitContainerRef}
-        className="flex flex-1 flex-col gap-4 overflow-hidden lg:flex-row lg:gap-0"
+        className="flex flex-1 flex-col overflow-hidden lg:flex-row lg:gap-0"
         style={
           {
             // Variables CSS consumidas por las columnas (solo se aplican en lg+).
@@ -375,10 +468,15 @@ export default function ChronicleTableRoute() {
         }
       >
         {/* ─── Columna izquierda: hoja del personaje ───
-            En mobile reservamos máximo ~55% del alto para la hoja, así el
-            chat/dados siempre queda visible debajo. En lg+, el splitter
-            controla el ancho. */}
-        <aside className="flex max-h-[55vh] min-h-0 flex-col overflow-hidden rounded-lg border border-border bg-card lg:h-full lg:max-h-none lg:flex-[0_0_var(--split-left)]">
+            En mobile solo es visible cuando mobileTab === "sheet" y ocupa
+            todo el alto disponible. En lg+, el splitter controla el ancho
+            y ambas columnas se muestran a la vez. */}
+        <aside
+          className={cn(
+            "min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-border bg-card lg:flex lg:h-full lg:flex-[0_0_var(--split-left)]",
+            mobileTab === "sheet" ? "flex" : "hidden"
+          )}
+        >
           <div className="flex-1 overflow-hidden">
             <SheetTab
               chronicleId={chronicleId ?? ""}
@@ -390,6 +488,9 @@ export default function ChronicleTableRoute() {
               onAnnounceSheet={announceSheet}
               error={sheetError}
               isNarrator={myRole === "NARRATOR"}
+              weapons={weapons}
+              weaponCategories={weaponCategories}
+              armors={armors}
             />
           </div>
         </aside>
@@ -407,8 +508,14 @@ export default function ChronicleTableRoute() {
           </span>
         </div>
 
-        {/* ─── Columna derecha: tabs Chat / Dados + roller ─── */}
-        <aside className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-border bg-card lg:h-full lg:flex-[0_0_var(--split-right)]">
+        {/* ─── Columna derecha: tabs Chat / Dados + roller ───
+            En mobile solo es visible cuando mobileTab === "chat". */}
+        <aside
+          className={cn(
+            "min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-border bg-card lg:flex lg:h-full lg:flex-[0_0_var(--split-right)]",
+            mobileTab === "chat" ? "flex" : "hidden"
+          )}
+        >
           <nav className="flex border-b border-border">
             <TabButton
               active={rightTab === "chat"}
@@ -422,6 +529,17 @@ export default function ChronicleTableRoute() {
               icon={<Dice5 className="size-3.5" />}
               label={`Tiradas${rolls.length ? ` (${rolls.length})` : ""}`}
             />
+            {/* Turnos: siempre visible para el narrador; jugadores solo si
+                hay un combate activo con al menos un participante PC. */}
+            {myRole === "NARRATOR" ||
+            (combat && combat.participants.length > 0) ? (
+              <TabButton
+                active={rightTab === "turns"}
+                onClick={() => setRightTab("turns")}
+                icon={<Swords className="size-3.5" />}
+                label="Turnos"
+              />
+            ) : null}
           </nav>
 
           <div className="flex-1 overflow-hidden">
@@ -438,7 +556,7 @@ export default function ChronicleTableRoute() {
                   .map((c) => ({ id: c.id, name: c.name }))}
                 initialSpeakerCharacterId={selectedCharId}
               />
-            ) : (
+            ) : rightTab === "dice" ? (
               <RollHistory
                 rolls={rolls}
                 latestRollId={latestRollId}
@@ -447,22 +565,86 @@ export default function ChronicleTableRoute() {
                 onClear={handleClearRolls}
                 clearing={clearingRolls}
               />
+            ) : (
+              <CombatPanel
+                chronicleId={chronicleId ?? ""}
+                state={combat}
+                isNarrator={myRole === "NARRATOR"}
+                myUserId={userId}
+                associableCharacters={allCharacters}
+                onStateChange={(next: CombatState) => setCombat(next)}
+              />
             )}
           </div>
 
-          <div className="border-t border-border bg-background/30">
+          {/* DiceRoller anclado al tab "Tiradas". En lg+ va inline al pie
+              de la columna; en mobile se accede por botón que abre un sheet
+              para no robarle alto al historial. */}
+          {rightTab === "dice" ? (
+            <>
+              <div className="hidden border-t border-border bg-background/30 lg:block">
+                <DiceRollerVtM
+                  canTryPrivate={myRole !== "NARRATOR"}
+                  prefill={prefill}
+                  onRoll={async (input) => {
+                    const resp = await rollVtm(input);
+                    return resp;
+                  }}
+                />
+              </div>
+              <div className="border-t border-border bg-background/30 p-2 lg:hidden">
+                <Button
+                  type="button"
+                  onClick={() => setMobileDiceOpen(true)}
+                  className="w-full bg-blood text-blood-foreground hover:bg-blood/90"
+                >
+                  <Dice5 className="size-4" />
+                  Lanzar dados
+                </Button>
+              </div>
+            </>
+          ) : null}
+        </aside>
+      </div>
+
+      {/* Sheet mobile con el DiceRoller. */}
+      {mobileDiceOpen ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Lanzador de dados"
+          className="fixed inset-0 z-50 flex flex-col bg-background lg:hidden"
+        >
+          <div className="flex items-center justify-between border-b border-border px-4 py-3">
+            <h2 className="font-heading text-sm uppercase tracking-widest text-foreground">
+              Lanzar dados
+            </h2>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => setMobileDiceOpen(false)}
+              aria-label="Cerrar"
+            >
+              <X className="size-5" />
+            </Button>
+          </div>
+          <div className="flex-1 overflow-y-auto themed-scrollbar">
             <DiceRollerVtM
               canTryPrivate={myRole !== "NARRATOR"}
               prefill={prefill}
               onRoll={async (input) => {
                 const resp = await rollVtm(input);
-                if (resp.ok) setRightTab("dice");
+                if (resp.ok) {
+                  setRightTab("dice");
+                  setMobileDiceOpen(false);
+                }
                 return resp;
               }}
             />
           </div>
-        </aside>
-      </div>
+        </div>
+      ) : null}
 
       {whiteboardOpen && chronicleId ? (
         <WhiteboardModal
@@ -556,6 +738,35 @@ function TabButton({
   );
 }
 
+function MobileTabButton({
+  active,
+  onClick,
+  icon,
+  label,
+}: {
+  active: boolean;
+  onClick: () => void;
+  icon: React.ReactNode;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={cn(
+        "flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-heading uppercase tracking-wider transition-colors",
+        active
+          ? "bg-blood text-blood-foreground shadow-sm shadow-blood/40"
+          : "text-muted-foreground hover:bg-blood/10"
+      )}
+    >
+      {icon}
+      {label}
+    </button>
+  );
+}
+
 function PresenceTags({
   members,
 }: {
@@ -571,7 +782,7 @@ function PresenceTags({
   return (
     <ul className="flex flex-wrap items-center gap-1.5">
       {members.map((m) => {
-        const name = m.email.split("@")[0];
+        const name = m.nickname?.trim() || m.email.split("@")[0];
         const isNarrator = m.role === "NARRATOR";
         return (
           <li key={m.id}>
@@ -610,6 +821,9 @@ function SheetTab({
   onAnnounceSheet,
   error,
   isNarrator,
+  weapons,
+  weaponCategories,
+  armors,
 }: {
   chronicleId: string;
   characters: CharWithOwner[];
@@ -626,6 +840,9 @@ function SheetTab({
   onAnnounceSheet: ReturnType<typeof useTable>["announceSheet"];
   error: string | null;
   isNarrator: boolean;
+  weapons: Weapon[];
+  weaponCategories: WeaponCategory[];
+  armors: Armor[];
 }) {
   if (error) {
     return <div className="p-3 text-sm italic text-blood">{error}</div>;
@@ -673,6 +890,9 @@ function SheetTab({
           onCharacterUpdated={onCharacterUpdated}
           onAnnounceSheet={onAnnounceSheet}
           canEditWillpower={isNarrator}
+          weapons={weapons}
+          weaponCategories={weaponCategories}
+          armors={armors}
         />
       ) : null}
     </div>
@@ -869,6 +1089,32 @@ function ChatPanel({
         onSubmit={handleSubmit}
         className="flex flex-col gap-2 border-t border-border bg-background/30 p-2"
       >
+        <div className="flex items-center gap-2">
+          <input
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            disabled={disabled}
+            placeholder={
+              disabled
+                ? "Conectando..."
+                : recipientValue === "all"
+                  ? "Escribe un mensaje..."
+                  : recipientValue === "narrator"
+                    ? "Mensaje privado al narrador..."
+                    : "Susurro..."
+            }
+            maxLength={2000}
+            className="h-9 flex-1 rounded-md border border-input bg-input/30 px-3 text-sm placeholder:italic placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-blood"
+          />
+          <Button
+            type="submit"
+            disabled={disabled || !text.trim()}
+            size="icon"
+            className="bg-blood text-blood-foreground hover:bg-blood/90"
+          >
+            <Send className="size-4" />
+          </Button>
+        </div>
         <div className="flex flex-wrap gap-1">
           <select
             value={speakerValue}
@@ -917,32 +1163,6 @@ function ChatPanel({
               </optgroup>
             ) : null}
           </select>
-        </div>
-        <div className="flex items-center gap-2">
-          <input
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            disabled={disabled}
-            placeholder={
-              disabled
-                ? "Conectando..."
-                : recipientValue === "all"
-                  ? "Escribe un mensaje..."
-                  : recipientValue === "narrator"
-                    ? "Mensaje privado al narrador..."
-                    : "Susurro..."
-            }
-            maxLength={2000}
-            className="h-9 flex-1 rounded-md border border-input bg-input/30 px-3 text-sm placeholder:italic placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-blood"
-          />
-          <Button
-            type="submit"
-            disabled={disabled || !text.trim()}
-            size="icon"
-            className="bg-blood text-blood-foreground hover:bg-blood/90"
-          >
-            <Send className="size-4" />
-          </Button>
         </div>
       </form>
     </div>

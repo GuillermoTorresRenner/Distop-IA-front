@@ -23,5 +23,6 @@ export default [
     route("social", "routes/social.tsx"),
     route("journal", "routes/journal.tsx"),
     route("table", "routes/table.tsx"),
+    route("roadmap", "routes/roadmap.tsx"),
   ]),
 ] satisfies RouteConfig;
