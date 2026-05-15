@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from "react-router";
 import { AuthCard } from "~/components/common/auth-card";
 import { FormAlert } from "~/components/common/form-alert";
 import { FormField } from "~/components/common/form-field";
+import { PasswordField } from "~/components/common/password-field";
 import { SubmitButton } from "~/components/common/submit-button";
 import { extractAuthError } from "~/components/common/auth-error";
 import { register } from "~/lib/api/auth/auth.api";
@@ -117,7 +118,6 @@ export default function RegisterRoute() {
           required
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          placeholder="nombre@dominio.com"
           disabled={!!invite}
           hint={invite ? "Debe coincidir con el correo invitado." : undefined}
         />
@@ -129,16 +129,14 @@ export default function RegisterRoute() {
           required
           value={nickname}
           onChange={(e) => setNickname(e.target.value)}
-          placeholder="vlad_dracul"
           minLength={3}
           maxLength={30}
           pattern="[a-zA-Z0-9_-]{3,30}"
           hint="3-30 caracteres. Letras, números, _ y -."
         />
-        <FormField
+        <PasswordField
           label="Contraseña"
           name="password"
-          type="password"
           autoComplete="new-password"
           required
           minLength={6}
@@ -146,10 +144,9 @@ export default function RegisterRoute() {
           onChange={(e) => setPassword(e.target.value)}
           hint="Mínimo 6 caracteres."
         />
-        <FormField
+        <PasswordField
           label="Confirmar contraseña"
           name="confirm"
-          type="password"
           autoComplete="new-password"
           required
           minLength={6}

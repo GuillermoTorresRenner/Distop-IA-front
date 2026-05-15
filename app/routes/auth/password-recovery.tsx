@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { AuthCard } from "~/components/common/auth-card";
 import { FormAlert } from "~/components/common/form-alert";
-import { FormField } from "~/components/common/form-field";
+import { PasswordField } from "~/components/common/password-field";
 import { SubmitButton } from "~/components/common/submit-button";
 import { extractAuthError } from "~/components/common/auth-error";
 import { resetPassword } from "~/lib/api/auth/auth.api";
@@ -70,10 +70,9 @@ export default function PasswordRecoveryRoute() {
       <form noValidate onSubmit={handleSubmit} className="space-y-4">
         {error ? <FormAlert message={error} /> : null}
         {success ? <FormAlert kind="success" message={success} /> : null}
-        <FormField
+        <PasswordField
           label="Nueva contraseña"
           name="password"
-          type="password"
           autoComplete="new-password"
           required
           minLength={6}
@@ -82,10 +81,9 @@ export default function PasswordRecoveryRoute() {
           hint="Mínimo 6 caracteres."
           disabled={!token}
         />
-        <FormField
+        <PasswordField
           label="Confirmar contraseña"
           name="confirm"
-          type="password"
           autoComplete="new-password"
           required
           minLength={6}

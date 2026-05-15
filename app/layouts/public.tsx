@@ -1,4 +1,5 @@
 import { Outlet, redirect } from "react-router";
+import { BloodCursorTrail } from "~/components/common/blood-cursor-trail";
 import { getAuthSession } from "~/lib/api/auth/auth.server";
 
 export async function loader({ request }: { request: Request }) {
@@ -19,6 +20,7 @@ export default function PublicLayout() {
       <main className="flex flex-1 items-center justify-center px-4 py-10">
         <Outlet />
       </main>
+      <BloodCursorTrail />
       <footer className="border-t border-border/40 px-6 py-4 text-center text-xs uppercase tracking-[0.3em] text-muted-foreground">
         Distop-IA · La Mascarada VTT
       </footer>

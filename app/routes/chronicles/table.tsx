@@ -5,6 +5,7 @@ import {
   MessageSquare,
   NotebookPen,
   Palette,
+  RefreshCw,
   Send,
   Swords,
   User as UserIcon,
@@ -89,6 +90,7 @@ export default function ChronicleTableRoute() {
     setInitialRolls,
     setCombat,
     dismissLatestRoll,
+    reconnect,
     combat,
   } = useTable(chronicleId ?? null);
 
@@ -436,6 +438,27 @@ export default function ChronicleTableRoute() {
             <Palette className="size-4" />
             <span className="hidden sm:inline">Pizarra</span>
           </Button>
+          <Tooltip
+            title="Reconectar"
+            content="Recrea la conexión a la mesa por si quedó dormida (proxy inactivo, cambio de red). No pierdes el chat ni las tiradas."
+            side="bottom"
+          >
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={reconnect}
+              disabled={status === "connecting"}
+              aria-label="Reconectar a la mesa"
+            >
+              <RefreshCw
+                className={cn(
+                  "size-4",
+                  status === "connecting" && "animate-spin"
+                )}
+              />
+            </Button>
+          </Tooltip>
           <ConnectionBadge status={status} error={error} />
         </div>
       </header>

@@ -88,6 +88,10 @@ export function useTable(chronicleId: string | null) {
   });
 
   const socketRef = useRef<TableSocket | null>(null);
+  // Nonce manual para forzar reconexión preventiva: cada cambio dispara el
+  // cleanup del effect (off de listeners + table:leave) y rearma todo con un
+  // socket recién creado.
+  const [reconnectNonce, setReconnectNonce] = useState(0);
 
   // ── conexión + listeners ──────────────────────────────────────
   useEffect(() => {
@@ -240,7 +244,7 @@ export function useTable(chronicleId: string | null) {
       socket.off("combat:state", onCombatState);
       socket.emit("table:leave", {});
     };
-  }, [chronicleId]);
+  }, [chronicleId, reconnectNonce]);
 
   // ── desmonte total: si el componente se va, soltamos el singleton ──
   useEffect(() => {
@@ -349,6 +353,19 @@ export function useTable(chronicleId: string | null) {
     socketRef.current = null;
   }, []);
 
+  /**
+   * Reconexión preventiva: bota el socket actual y dispara el effect para
+   * crear uno nuevo (auth fresca, listeners limpios, rejoin a la sala).
+   * Útil cuando el usuario percibe que la mesa "se durmió" — por proxy
+   * inactivo, cambio de red, etc. — pero el badge aún dice connected.
+   */
+  const reconnect = useCallback(() => {
+    setState((s) => ({ ...s, status: "connecting", error: null }));
+    disposeTableSocket();
+    socketRef.current = null;
+    setReconnectNonce((n) => n + 1);
+  }, []);
+
   return {
     ...state,
     sendMessage,
@@ -360,5 +377,6 @@ export function useTable(chronicleId: string | null) {
     setCombat,
     dismissLatestRoll,
     dispose,
+    reconnect,
   };
 }

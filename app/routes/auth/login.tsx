@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from "react-router";
 import { AuthCard } from "~/components/common/auth-card";
 import { FormAlert } from "~/components/common/form-alert";
 import { FormField } from "~/components/common/form-field";
+import { PasswordField } from "~/components/common/password-field";
 import { SubmitButton } from "~/components/common/submit-button";
 import { extractAuthError } from "~/components/common/auth-error";
 import { login } from "~/lib/api/auth/auth.api";
@@ -47,7 +48,7 @@ export default function LoginRoute() {
 
   return (
     <AuthCard
-      title="Entrar al círculo interior"
+      title="Entrar al Eliseo"
       description="Las sombras reconocen a los suyos. Ingresa tus credenciales."
       footer={
         <span>
@@ -58,7 +59,7 @@ export default function LoginRoute() {
             }
             className="font-medium text-blood hover:underline"
           >
-            Solicita un sitio en la mesa
+             Abraza la bestia
           </Link>
         </span>
       }
@@ -79,18 +80,15 @@ export default function LoginRoute() {
           required
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          placeholder="nombre@dominio.com"
         />
-        <FormField
+        <PasswordField
           label="Contraseña"
           name="password"
-          type="password"
           autoComplete="current-password"
           required
           minLength={6}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          
         />
         <div className="flex justify-end">
           <Link

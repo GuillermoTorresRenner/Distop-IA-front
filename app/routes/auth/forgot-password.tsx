@@ -58,7 +58,6 @@ export default function ForgotPasswordRoute() {
           required
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          placeholder="nombre@dominio.com"
         />
         <SubmitButton loading={loading} loadingText="Enviando...">
           Enviar enlace
