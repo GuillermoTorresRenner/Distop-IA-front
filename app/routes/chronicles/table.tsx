@@ -254,6 +254,7 @@ export default function ChronicleTableRoute() {
     characterId: string;
     woundPenalty: number;
     willpowerAvailable: number;
+    skillRating: number;
   }) {
     prefillSeqRef.current += 1;
     setPrefill({
@@ -262,6 +263,7 @@ export default function ChronicleTableRoute() {
       characterId: input.characterId,
       woundPenalty: input.woundPenalty,
       willpowerAvailable: input.willpowerAvailable,
+      skillRating: input.skillRating,
       signature: prefillSeqRef.current,
     });
     setRightTab("dice");
@@ -858,6 +860,7 @@ function SheetTab({
     characterId: string;
     woundPenalty: number;
     willpowerAvailable: number;
+    skillRating: number;
   }) => void;
   onCharacterUpdated: (c: Character) => void;
   onAnnounceSheet: ReturnType<typeof useTable>["announceSheet"];

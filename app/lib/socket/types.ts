@@ -89,13 +89,24 @@ export interface DiceRoll {
   pool: number;
   difficulty: number;
   specialty: boolean;
+  /** Nivel declarado de la habilidad al momento de la tirada (1..5) o null. */
+  skillRating: number | null;
   /** Compatibilidad: true si se gastó voluntad por cualquier motivo. */
   willpowerSpent: boolean;
-  /** Efecto exacto de la voluntad gastada. */
+  /** Efecto legacy: solo refleja éxito/heridas (no reroll). */
   willpowerEffect: WillpowerEffect;
+  /** Flags exactos de la voluntad gastada (fuente de verdad). */
+  wpForSuccess: boolean;
+  wpForWound: boolean;
+  wpForReroll: boolean;
   /** Penalizador por heridas (negativo o 0). Se persiste aunque se haya anulado. */
   woundPenalty: number;
+  /** Tirada del pool inicial. */
   rolls: number[];
+  /** Dados extras de la regla de especialidad (cada 10 detona uno). */
+  specialtyRerolls: number[];
+  /** Dados extras del reroll de voluntad (fallos del pool inicial). */
+  willpowerRerolls: number[];
   successes: number;
   isBotch: boolean;
   isPublic: boolean;
@@ -106,10 +117,14 @@ export interface RollVtmInput {
   pool: number;
   difficulty?: number;
   specialty?: boolean;
+  /** Nivel de la habilidad (1..5). Obligatorio si specialty=true. */
+  skillRating?: number;
   /** +1 éxito automático, no removible por 1s. */
   willpowerForSuccess?: boolean;
   /** Anula el penalizador por heridas en esta tirada. */
   willpowerForWound?: boolean;
+  /** Relanza todos los dados que no fueron éxito una sola vez. */
+  willpowerForReroll?: boolean;
   /** Penalizador por heridas calculado por el cliente (negativo o 0). */
   woundPenalty?: number;
   isPublic?: boolean;

@@ -51,6 +51,8 @@ interface CharacterSheetPanelProps {
     characterId: string;
     woundPenalty: number;
     willpowerAvailable: number;
+    /** Valor de la habilidad seleccionada (0..5). 0 si no hay habilidad. */
+    skillRating: number;
   }) => void;
   /** Cuando se hace PATCH exitoso al back. */
   onCharacterUpdated?: (updated: Character) => void;
@@ -216,6 +218,7 @@ export function CharacterSheetPanel({
       characterId: character.id,
       woundPenalty,
       willpowerAvailable: character.willpowerCurrent,
+      skillRating: abilityValue,
     });
   }
 

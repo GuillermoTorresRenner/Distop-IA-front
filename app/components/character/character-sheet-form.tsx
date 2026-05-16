@@ -3,6 +3,7 @@ import { useMemo, type ReactNode } from "react";
 import { DotRating } from "~/components/character/dot-rating";
 import { HealthToggle, type DamageState } from "~/components/character/health-toggle";
 import { FormField } from "~/components/common/form-field";
+import { MarkdownEditor } from "~/components/common/markdown-editor";
 import { Tooltip } from "~/components/common/tooltip";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
@@ -856,20 +857,15 @@ export function CharacterSheetForm({
                 <SectionHeading>Notas del jugador</SectionHeading>
                 <p className="font-serif text-xs italic text-muted-foreground">
                   Espacio libre para apuntes de historia, contactos, frases del
-                  Narrador, etc. Solo tú las verás.
+                  Narrador, etc. Solo tú las verás. Soporta markdown.
                 </p>
-                <Textarea
+                <MarkdownEditor
                   value={value.notes ?? ""}
+                  onChange={(next) => patch({ notes: next })}
                   disabled={readOnly}
-                  onChange={(e) => patch({ notes: e.target.value })}
-                  rows={18}
                   maxLength={8000}
-                  placeholder="Hila aquí los secretos del vástago..."
-                  className="font-serif text-sm leading-relaxed"
+                  placeholder="Hila aquí los secretos del vástago... (soporta markdown)"
                 />
-                <p className="text-right font-mono text-[0.65rem] text-muted-foreground">
-                  {(value.notes ?? "").length} / 8000
-                </p>
               </div>
             ) : null}
           </>

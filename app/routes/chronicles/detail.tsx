@@ -13,15 +13,16 @@ import {
   UserMinus,
   Users,
 } from "lucide-react";
-import { useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { extractAuthError } from "~/components/common/auth-error";
 import { FormAlert } from "~/components/common/form-alert";
-import { FormField } from "~/components/common/form-field";
 import { ImageUploader } from "~/components/common/image-uploader";
 import { CreateNpcDialog } from "~/components/character/create-npc-dialog";
 import { PageHeader } from "~/components/common/page-header";
+import { UserAutocomplete } from "~/components/common/user-autocomplete";
 import { Button } from "~/components/ui/button";
+import type { UserSummary } from "~/lib/api/users/users.types";
 import { useConfirm } from "~/hooks/use-confirm";
 import { SELECT_DARK_CLASS } from "~/lib/select-styles";
 import {
@@ -39,6 +40,7 @@ import {
   getChronicle,
   inviteToChronicle,
   removeMember,
+  searchInvitableUsers,
   uploadChronicleImage,
 } from "~/lib/api/chronicles/chronicles.api";
 import type { Chronicle } from "~/lib/api/chronicles/chronicles.types";
@@ -69,7 +71,8 @@ export default function ChronicleDetailRoute() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteQuery, setInviteQuery] = useState("");
+  const [inviteSelected, setInviteSelected] = useState<UserSummary | null>(null);
   const [inviteLoading, setInviteLoading] = useState(false);
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [inviteSuccess, setInviteSuccess] = useState<string | null>(null);
@@ -114,6 +117,11 @@ export default function ChronicleDetailRoute() {
       .finally(() => setLoading(false));
   }, [id]);
 
+  const inviteSearchFn = useCallback(
+    (q: string) => (id ? searchInvitableUsers(id, q) : Promise.resolve([])),
+    [id],
+  );
+
   if (loading) {
     return (
       <p className="text-muted-foreground">Cargando crónica...</p>
@@ -126,26 +134,37 @@ export default function ChronicleDetailRoute() {
 
   const isNarrator = chronicle.narratorId === user?.id;
 
-  async function handleInvite(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function submitInvite(payload: { email?: string; userId?: string }) {
     if (!id) return;
     setInviteError(null);
     setInviteSuccess(null);
     setInviteLoading(true);
     try {
-      const inv = await inviteToChronicle(id, inviteEmail.trim());
+      const inv = await inviteToChronicle(id, payload);
       setInviteSuccess(
         inv.invitedUser
           ? `Invitación enviada a ${inv.email} (usuario registrado).`
           : `Invitación enviada a ${inv.email}. Recibirá un enlace de registro.`,
       );
-      setInviteEmail("");
+      setInviteQuery("");
+      setInviteSelected(null);
       await reload();
     } catch (err) {
       setInviteError(extractAuthError(err, "No se pudo enviar la invitación"));
     } finally {
       setInviteLoading(false);
     }
+  }
+
+  async function handleInvite(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (inviteSelected) {
+      await submitInvite({ userId: inviteSelected.id });
+      return;
+    }
+    const email = inviteQuery.trim();
+    if (!email) return;
+    await submitInvite({ email });
   }
 
   async function handleCancel(invitationId: string, email: string) {
@@ -651,27 +670,62 @@ export default function ChronicleDetailRoute() {
                 <Send className="size-4" /> Invitar a la mesa
               </h2>
               <p className="mb-4 font-serif text-sm italic text-muted-foreground">
-                Si el correo ya existe en el sistema, recibirá un enlace para aceptar. Si no, se enviará una invitación con instrucciones de registro.
+                Busca a un vástago por su nickname o correo. Si no aparece en
+                el sistema, puedes invitarlo por correo y se le enviará un
+                enlace de registro.
               </p>
               <form onSubmit={handleInvite} noValidate className="space-y-3">
                 {inviteError ? <FormAlert message={inviteError} /> : null}
                 {inviteSuccess ? <FormAlert kind="success" message={inviteSuccess} /> : null}
-                <FormField
-                  label="Correo del jugador"
-                  name="email"
-                  type="email"
-                  required
-                  value={inviteEmail}
-                  onChange={(e) => setInviteEmail(e.target.value)}
-                  placeholder="vastago@dominio.com"
-                />
+                <div className="space-y-1.5">
+                  <label className="font-heading text-xs uppercase tracking-widest text-muted-foreground">
+                    Jugador
+                  </label>
+                  <UserAutocomplete
+                    value={inviteQuery}
+                    onChange={(v) => {
+                      setInviteQuery(v);
+                      if (inviteSelected) setInviteSelected(null);
+                    }}
+                    onSelect={(u) => {
+                      setInviteSelected(u);
+                      setInviteQuery(u.email);
+                    }}
+                    searchFn={inviteSearchFn}
+                    selectedLabel={
+                      inviteSelected
+                        ? `${inviteSelected.nickname} · ${inviteSelected.email}`
+                        : null
+                    }
+                    onClearSelection={() => {
+                      setInviteSelected(null);
+                      setInviteQuery("");
+                    }}
+                    placeholder="Nickname o correo..."
+                    disabled={inviteLoading}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {inviteSelected
+                      ? "Se invitará al usuario registrado seleccionado."
+                      : "Si el correo escrito no está registrado, se enviará una invitación de registro."}
+                  </p>
+                </div>
                 <Button
                   type="submit"
-                  disabled={inviteLoading}
+                  disabled={
+                    inviteLoading ||
+                    (!inviteSelected && inviteQuery.trim().length === 0)
+                  }
                   className="w-full bg-blood text-blood-foreground hover:bg-blood/90"
                 >
-                  {inviteLoading ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
-                  Enviar invitación
+                  {inviteLoading ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <Send className="size-4" />
+                  )}
+                  {inviteSelected
+                    ? "Invitar a la mesa"
+                    : "Invitar por correo"}
                 </Button>
               </form>
             </article>

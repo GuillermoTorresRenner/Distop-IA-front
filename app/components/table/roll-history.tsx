@@ -2,6 +2,7 @@ import {
   EyeOff,
   HeartCrack,
   Loader2,
+  RotateCcw,
   Star,
   Trash2,
   Zap,
@@ -109,12 +110,19 @@ function RollCard({ roll, highlight }: { roll: DiceRoll; highlight: boolean }) {
       ? "text-emerald-400"
       : "text-muted-foreground";
 
+  // Compat: rolls antiguos solo tienen `willpowerEffect`. Si no llegan los
+  // flags nuevos, los derivamos del enum legacy.
   const wp = roll.willpowerEffect;
-  const wpForSuccess = wp === "SUCCESS" || wp === "BOTH";
-  const wpForWound = wp === "WOUND" || wp === "BOTH";
-  const wpCount = wp === "BOTH" ? 2 : wp === "NONE" ? 0 : 1;
+  const wpForSuccess =
+    roll.wpForSuccess ?? (wp === "SUCCESS" || wp === "BOTH");
+  const wpForWound = roll.wpForWound ?? (wp === "WOUND" || wp === "BOTH");
+  const wpForReroll = roll.wpForReroll ?? false;
+  const wpCount =
+    (wpForSuccess ? 1 : 0) + (wpForWound ? 1 : 0) + (wpForReroll ? 1 : 0);
   const hasWound = roll.woundPenalty < 0;
   const woundAnulledByWp = hasWound && wpForWound;
+  const specialtyRerolls = roll.specialtyRerolls ?? [];
+  const willpowerRerolls = roll.willpowerRerolls ?? [];
 
   return (
     <article
@@ -152,13 +160,46 @@ function RollCard({ roll, highlight }: { roll: DiceRoll; highlight: boolean }) {
       <div className="mt-1 flex flex-wrap items-center gap-1">
         {roll.rolls.map((d, i) => (
           <Die
-            key={i}
+            key={`p-${i}`}
             value={d}
             difficulty={roll.difficulty}
             specialty={roll.specialty}
           />
         ))}
       </div>
+
+      {willpowerRerolls.length > 0 ? (
+        <div className="mt-1 flex flex-wrap items-center gap-1">
+          <span className="inline-flex items-center gap-0.5 rounded-sm bg-amber-500/15 px-1 py-0.5 font-heading text-[9px] uppercase tracking-wider text-amber-300">
+            <RotateCcw className="size-3" /> Reroll
+          </span>
+          {willpowerRerolls.map((d, i) => (
+            <Die
+              key={`r-${i}`}
+              value={d}
+              difficulty={roll.difficulty}
+              specialty={roll.specialty}
+            />
+          ))}
+        </div>
+      ) : null}
+
+      {specialtyRerolls.length > 0 ? (
+        <div className="mt-1 flex flex-wrap items-center gap-1">
+          <span className="inline-flex items-center gap-0.5 rounded-sm bg-blood/20 px-1 py-0.5 font-heading text-[9px] uppercase tracking-wider text-blood">
+            <Star className="size-3" /> Esp.
+          </span>
+          {specialtyRerolls.map((d, i) => (
+            <Die
+              key={`s-${i}`}
+              value={d}
+              difficulty={roll.difficulty}
+              specialty={false}
+              isSpecialtyExtra
+            />
+          ))}
+        </div>
+      ) : null}
 
       {/* Desglose explicativo */}
       <p className="mt-2 text-[10px] leading-snug text-muted-foreground">
@@ -175,6 +216,11 @@ function RollCard({ roll, highlight }: { roll: DiceRoll; highlight: boolean }) {
               · heridas {roll.woundPenalty} ya aplicadas al pool
             </span>
           )
+        ) : null}
+        {wpForReroll ? (
+          <span className="ml-1 text-amber-300">
+            · fallos relanzados con Voluntad
+          </span>
         ) : null}
         {wpForSuccess ? (
           <span className="ml-1 text-amber-300">
@@ -193,7 +239,7 @@ function RollCard({ roll, highlight }: { roll: DiceRoll; highlight: boolean }) {
           {roll.specialty ? (
             <Tooltip
               title="Especialidad"
-              content="Con especialidad declarada, cada 10 cuenta como 2 éxitos."
+              content="Cada 10 detona un dado extra (encadenable). 1 en el extra resta un éxito."
             >
               <span className="inline-flex items-center gap-0.5">
                 <Star className="size-3" />
@@ -217,6 +263,16 @@ function RollCard({ roll, highlight }: { roll: DiceRoll; highlight: boolean }) {
             >
               <span className="inline-flex items-center gap-0.5 text-emerald-300">
                 <HeartCrack className="size-3" />
+              </span>
+            </Tooltip>
+          ) : null}
+          {wpForReroll ? (
+            <Tooltip
+              title="Voluntad: relanzar fallos"
+              content="1 punto de Voluntad gastado para relanzar todos los dados que no fueron éxito (una vez)."
+            >
+              <span className="inline-flex items-center gap-0.5 text-amber-300">
+                <RotateCcw className="size-3" />
               </span>
             </Tooltip>
           ) : null}
@@ -245,27 +301,40 @@ function Die({
   value,
   difficulty,
   specialty,
+  isSpecialtyExtra = false,
 }: {
   value: number;
   difficulty: number;
   specialty: boolean;
+  /** Si true, este dado es un extra surgido por la regla de especialidad. */
+  isSpecialtyExtra?: boolean;
 }) {
   const isSuccess = value >= difficulty;
   const isOne = value === 1;
-  const isCrit = specialty && value === 10;
+  // Con especialidad activa, un 10 del pool inicial detona un dado extra
+  // (no dobla éxitos). Lo marcamos visualmente igual con tono ámbar para
+  // que se identifique como "dado que detonó un extra".
+  const isTenWithSpecialty = specialty && value === 10;
 
   return (
     <span
       className={cn(
         "inline-flex h-6 w-6 items-center justify-center rounded-sm border text-[11px] font-heading font-bold",
-        isCrit && "border-amber-400 bg-amber-400/20 text-amber-300",
-        !isCrit && isSuccess && "border-emerald-500 bg-emerald-500/20 text-emerald-300",
+        isTenWithSpecialty && "border-amber-400 bg-amber-400/20 text-amber-300",
+        isSpecialtyExtra && !isTenWithSpecialty &&
+          "border-amber-400/60 bg-amber-400/10 text-amber-300/90",
+        !isTenWithSpecialty && !isSpecialtyExtra && isSuccess &&
+          "border-emerald-500 bg-emerald-500/20 text-emerald-300",
         isOne && "border-blood bg-blood/20 text-blood",
-        !isCrit && !isSuccess && !isOne && "border-border bg-muted/30 text-muted-foreground"
+        !isTenWithSpecialty &&
+          !isSpecialtyExtra &&
+          !isSuccess &&
+          !isOne &&
+          "border-border bg-muted/30 text-muted-foreground"
       )}
       title={
-        isCrit
-          ? `${value} (doble éxito por specialty)`
+        isTenWithSpecialty
+          ? `${value} (éxito, detona dado extra de especialidad)`
           : isSuccess
             ? `${value} (éxito)`
             : isOne

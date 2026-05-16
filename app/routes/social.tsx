@@ -100,12 +100,19 @@ export default function SocialRoute() {
   }, []);
 
   useEffect(() => {
+    if (tab !== "discover") return;
+    const trimmed = query.trim();
+    // Sin texto: cargar sugerencias amigos-de-amigos. Con 1 char: no llamar.
+    if (trimmed.length === 1) {
+      setResults([]);
+      setSearchLoading(false);
+      return;
+    }
     let cancelled = false;
     const handle = setTimeout(async () => {
-      if (tab !== "discover") return;
       setSearchLoading(true);
       try {
-        const res = await searchUsers({ q: query.trim() || undefined });
+        const res = await searchUsers({ q: trimmed || undefined });
         if (!cancelled) setResults(res.data);
       } catch (err) {
         if (!cancelled)
@@ -221,11 +228,19 @@ export default function SocialRoute() {
             ) : null}
           </div>
 
+          {query.trim().length === 0 && results.length > 0 ? (
+            <p className="font-heading text-[0.65rem] uppercase tracking-[0.3em] text-muted-foreground">
+              Sugerencias · vástagos cercanos a tu manada
+            </p>
+          ) : null}
+
           {results.length === 0 && !searchLoading ? (
             <p className="text-muted-foreground">
-              {query
-                ? "Sin vástagos para esa búsqueda."
-                : "Comienza a escribir para descubrir vástagos."}
+              {query.trim().length === 0
+                ? "Aún no hay sugerencias. Escribe un nickname o correo para buscar."
+                : query.trim().length < 2
+                  ? "Escribe al menos 2 caracteres para buscar."
+                  : "Sin vástagos para esa búsqueda."}
             </p>
           ) : (
             <ul className="space-y-2">

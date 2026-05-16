@@ -1,4 +1,5 @@
 import { apiClient } from "~/lib/api/client";
+import type { UserSummary } from "~/lib/api/users/users.types";
 import type {
   Chronicle,
   ChronicleInvitation,
@@ -36,11 +37,22 @@ export async function deleteChronicle(id: string): Promise<{ ok: boolean }> {
 
 export async function inviteToChronicle(
   chronicleId: string,
-  email: string,
+  payload: { email?: string; userId?: string },
 ): Promise<ChronicleInvitation> {
   const { data } = await apiClient.post<ChronicleInvitation>(
     `/chronicles/${chronicleId}/invitations`,
-    { email },
+    payload,
+  );
+  return data;
+}
+
+export async function searchInvitableUsers(
+  chronicleId: string,
+  q: string,
+): Promise<UserSummary[]> {
+  const { data } = await apiClient.get<UserSummary[]>(
+    `/chronicles/${chronicleId}/invitable-users`,
+    { params: { q } },
   );
   return data;
 }

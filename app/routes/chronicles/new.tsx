@@ -3,11 +3,11 @@ import { Link, useNavigate } from "react-router";
 import { extractAuthError } from "~/components/common/auth-error";
 import { FormAlert } from "~/components/common/form-alert";
 import { FormField } from "~/components/common/form-field";
+import { MarkdownEditor } from "~/components/common/markdown-editor";
 import { PageHeader } from "~/components/common/page-header";
 import { SubmitButton } from "~/components/common/submit-button";
 import { Button } from "~/components/ui/button";
 import { Label } from "~/components/ui/label";
-import { Textarea } from "~/components/ui/textarea";
 import { createChronicle } from "~/lib/api/chronicles/chronicles.api";
 
 export function meta() {
@@ -76,20 +76,14 @@ export default function NewChronicleRoute() {
         />
 
         <div className="space-y-1.5">
-          <Label
-            htmlFor="description"
-            className="font-heading text-xs uppercase tracking-widest text-muted-foreground"
-          >
+          <Label className="font-heading text-xs uppercase tracking-widest text-muted-foreground">
             Descripción
           </Label>
-          <Textarea
-            id="description"
-            name="description"
-            rows={5}
-            maxLength={2000}
+          <MarkdownEditor
             value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="Plantea el tono, las facciones, los temas..."
+            onChange={setDescription}
+            maxLength={2000}
+            placeholder="Plantea el tono, las facciones, los temas... (soporta markdown)"
           />
         </div>
 
