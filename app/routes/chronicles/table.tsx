@@ -19,6 +19,11 @@ import { Tooltip } from "~/components/common/tooltip";
 import { CharacterSheetPanel } from "~/components/table/character-sheet-panel";
 import { CombatPanel } from "~/components/table/combat-panel";
 import { DiceRollerVtM, type RollerPrefill } from "~/components/table/dice-roller-vtm";
+import {
+  ChatFilterChips,
+  matchesChatFilters,
+  useChatFilters,
+} from "~/components/table/feed-filters";
 import { NotesModal } from "~/components/table/notes-modal";
 import { RollHistory } from "~/components/table/roll-history";
 import { WhiteboardModal } from "~/components/table/whiteboard-modal";
@@ -588,6 +593,7 @@ export default function ChronicleTableRoute() {
           <div className="flex-1 overflow-hidden">
             {rightTab === "chat" ? (
               <ChatPanel
+                chronicleId={chronicleId ?? ""}
                 feed={feed}
                 disabled={status !== "joined"}
                 onSend={sendMessage}
@@ -601,12 +607,14 @@ export default function ChronicleTableRoute() {
               />
             ) : rightTab === "dice" ? (
               <RollHistory
+                chronicleId={chronicleId ?? ""}
                 rolls={rolls}
                 latestRollId={latestRollId}
                 onDismissLatest={dismissLatestRoll}
                 canClear={myRole === "NARRATOR"}
                 onClear={handleClearRolls}
                 clearing={clearingRolls}
+                currentUserId={userId}
               />
             ) : (
               <CombatPanel
@@ -1024,6 +1032,7 @@ function labelToCharacterKey(label: string): keyof Character | null {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function ChatPanel({
+  chronicleId,
   feed,
   disabled,
   onSend,
@@ -1033,6 +1042,7 @@ function ChatPanel({
   myCharacters,
   initialSpeakerCharacterId,
 }: {
+  chronicleId: string;
   feed: FeedItem[];
   disabled: boolean;
   onSend: (
@@ -1048,6 +1058,21 @@ function ChatPanel({
   /** Si hay un PJ activo, lo pre-seleccionamos en el selector. */
   initialSpeakerCharacterId: string | null;
 }) {
+  // Filtros del feed (chips arriba). Persistidos por crónica.
+  const {
+    active: chatFilters,
+    toggle: toggleChatFilter,
+    clear: clearChatFilters,
+  } = useChatFilters(
+    chronicleId ? `mesa:${chronicleId}:chat-filters` : undefined,
+  );
+  const filteredFeed = useMemo(
+    () =>
+      feed.filter((item) =>
+        matchesChatFilters(item, chatFilters, { currentUserId, myRole }),
+      ),
+    [feed, chatFilters, currentUserId, myRole],
+  );
   const [text, setText] = useState("");
   // recipientValue es el valor del <select>:
   //   "all"           → toda la sala
@@ -1073,7 +1098,7 @@ function ChatPanel({
   useEffect(() => {
     const el = scrollerRef.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [feed.length]);
+  }, [filteredFeed.length]);
 
   // Lista de destinatarios para el selector: presentes excepto yo.
   const otherMembers = members.filter((m) => m.id !== currentUserId);
@@ -1113,18 +1138,28 @@ function ChatPanel({
     if (ok) setText("");
   }
 
+  const isFiltering = chatFilters.size > 0;
+  const emptyMessage = isFiltering
+    ? "Ningún mensaje coincide con los filtros activos."
+    : "La conversación aún no ha comenzado.";
+
   return (
     <div className="flex h-full flex-col">
+      <ChatFilterChips
+        active={chatFilters}
+        onToggle={toggleChatFilter}
+        onClear={clearChatFilters}
+      />
       <div
         ref={scrollerRef}
         className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden scrollbar-gutter-stable themed-scrollbar px-3 py-2 space-y-2"
       >
-        {feed.length === 0 ? (
+        {filteredFeed.length === 0 ? (
           <p className="text-sm italic text-muted-foreground">
-            La conversación aún no ha comenzado.
+            {emptyMessage}
           </p>
         ) : (
-          feed.map((item, i) =>
+          filteredFeed.map((item, i) =>
             item._t === "chat" ? (
               <ChatMessageRow
                 key={item.id ?? i}

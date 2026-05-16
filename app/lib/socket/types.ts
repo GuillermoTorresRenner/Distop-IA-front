@@ -25,9 +25,10 @@ export interface ChatRecipient {
  * Identidad del hablante resuelta por el server:
  *  - `self`: el usuario habla como tal (con su nickname).
  *  - `character`: el usuario habla como un PJ suyo asociado a la crónica.
+ *  - `system`: mensaje automático del sistema (ej. activación de disciplina).
  */
 export interface ChatSpeaker {
-  kind: "self" | "character";
+  kind: "self" | "character" | "system";
   name: string;
   characterId: string | null;
 }

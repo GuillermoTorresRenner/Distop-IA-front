@@ -11,13 +11,22 @@ import {
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { Tooltip } from "~/components/common/tooltip";
 import { Button } from "~/components/ui/button";
 import { cn } from "~/lib/utils";
 import type { DiceRoll } from "~/lib/socket/types";
+import {
+  RollFilterChips,
+  matchesRollFilters,
+  useRollFilters,
+} from "~/components/table/feed-filters";
 
 interface RollHistoryProps {
+  /** Llave de crónica para persistir los filtros activos. */
+  chronicleId?: string;
+  /** Id del usuario actual; usado por el filtro "Mías". */
+  currentUserId?: string | null;
   rolls: DiceRoll[];
   latestRollId: string | null;
   onDismissLatest?: () => void;
@@ -28,6 +37,8 @@ interface RollHistoryProps {
 }
 
 export function RollHistory({
+  chronicleId,
+  currentUserId = null,
   rolls,
   latestRollId,
   onDismissLatest,
@@ -36,6 +47,19 @@ export function RollHistory({
   clearing = false,
 }: RollHistoryProps) {
   const scrollerRef = useRef<HTMLDivElement | null>(null);
+
+  const {
+    active: rollFilters,
+    toggle: toggleRollFilter,
+    clear: clearRollFilters,
+  } = useRollFilters(
+    chronicleId ? `mesa:${chronicleId}:roll-filters` : undefined,
+  );
+  const filteredRolls = useMemo(
+    () =>
+      rolls.filter((r) => matchesRollFilters(r, rollFilters, { currentUserId })),
+    [rolls, rollFilters, currentUserId],
+  );
 
   // Auto-dismiss del highlight de la última tirada después de 1.5s.
   useEffect(() => {
@@ -48,7 +72,15 @@ export function RollHistory({
   useEffect(() => {
     const el = scrollerRef.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [rolls.length]);
+  }, [filteredRolls.length]);
+
+  const isFiltering = rollFilters.size > 0;
+  const emptyMessage =
+    rolls.length === 0
+      ? "Aún no hay tiradas en esta sesión."
+      : isFiltering
+        ? "Ninguna tirada coincide con los filtros activos."
+        : "Aún no hay tiradas en esta sesión.";
 
   return (
     <div className="flex h-full flex-col">
@@ -80,16 +112,21 @@ export function RollHistory({
           </Tooltip>
         ) : null}
       </div>
+      <RollFilterChips
+        active={rollFilters}
+        onToggle={toggleRollFilter}
+        onClear={clearRollFilters}
+      />
       <div
         ref={scrollerRef}
         className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden scrollbar-gutter-stable themed-scrollbar p-2 space-y-2"
       >
-        {rolls.length === 0 ? (
+        {filteredRolls.length === 0 ? (
           <p className="px-2 py-3 text-sm text-muted-foreground">
-            Aún no hay tiradas en esta sesión.
+            {emptyMessage}
           </p>
         ) : (
-          rolls.map((roll) => (
+          filteredRolls.map((roll) => (
             <RollCard
               key={roll.id}
               roll={roll}
