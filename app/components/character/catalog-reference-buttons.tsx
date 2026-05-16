@@ -51,7 +51,7 @@ export function CatalogReferenceButtons({
   );
 
   return (
-    <div className="flex flex-wrap gap-2 pt-2">
+    <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
       <Tooltip content="Catálogo de armas cuerpo a cuerpo (V20)">
         <Button
           type="button"

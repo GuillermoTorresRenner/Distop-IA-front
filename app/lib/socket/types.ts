@@ -113,6 +113,10 @@ export interface DiceRoll {
   successes: number;
   isBotch: boolean;
   isPublic: boolean;
+  /** Origen de la tirada (ej. "DISCIPLINE"). Null para tiradas manuales. */
+  sourceKind?: string | null;
+  /** Etiqueta legible del origen (ej. nombre de la disciplina). */
+  sourceName?: string | null;
   createdAt: string;
 }
 
@@ -135,6 +139,10 @@ export interface RollVtmInput {
   isPublic?: boolean;
   label?: string;
   characterId?: string;
+  /** Origen (ej. "DISCIPLINE"). */
+  sourceKind?: string;
+  /** Etiqueta legible del origen (nombre de la disciplina, etc.). */
+  sourceName?: string;
 }
 
 export interface SheetDeltaEntry {
@@ -218,6 +226,27 @@ export interface ClientToServerEvents {
   "board:update": (
     body: BoardUpdateInput,
     ack?: (resp: { ok: boolean; broadcasted?: boolean; error?: string }) => void
+  ) => void;
+  /** Activa un poder de disciplina del personaje (descuenta sangre + anuncia). */
+  "discipline:activate": (
+    body: { characterId: string; powerId: string },
+    ack?: (resp: {
+      ok: boolean;
+      error?: string;
+      power?: {
+        id: string;
+        name: string;
+        level: number;
+        description: string | null;
+        summary: string | null;
+        bloodCost: number;
+        rollAttribute: string | null;
+        rollAbility: string | null;
+        rollDifficulty: number | null;
+      };
+      discipline?: { id: string; name: string };
+      blood?: { before: number; after: number; spent: number };
+    }) => void
   ) => void;
 }
 

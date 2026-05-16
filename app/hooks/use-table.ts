@@ -320,6 +320,36 @@ export function useTable(chronicleId: string | null) {
     });
   }, []);
 
+  const activateDiscipline = useCallback(
+    (input: { characterId: string; powerId: string }) => {
+      const socket = socketRef.current;
+      if (!socket || !socket.connected)
+        return Promise.resolve({ ok: false, error: "Sin conexión" });
+      return new Promise<{
+        ok: boolean;
+        error?: string;
+        power?: {
+          id: string;
+          name: string;
+          level: number;
+          description: string | null;
+          summary: string | null;
+          bloodCost: number;
+          rollAttribute: string | null;
+          rollAbility: string | null;
+          rollDifficulty: number | null;
+        };
+        discipline?: { id: string; name: string };
+        blood?: { before: number; after: number; spent: number };
+      }>((resolve) => {
+        socket.emit("discipline:activate", input, (resp) => {
+          resolve(resp ?? { ok: false, error: "Sin respuesta" });
+        });
+      });
+    },
+    [],
+  );
+
   const announceSheet = useCallback((input: SheetAnnounceInput) => {
     const socket = socketRef.current;
     if (!socket || !socket.connected || input.deltas.length === 0) {
@@ -371,6 +401,7 @@ export function useTable(chronicleId: string | null) {
     sendMessage,
     rollVtm,
     announceSheet,
+    activateDiscipline,
     shareBoard,
     pushBoardUpdate,
     setInitialRolls,

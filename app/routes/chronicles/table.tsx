@@ -32,6 +32,7 @@ import {
 } from "~/lib/api/characters/characters.api";
 import {
   listArmors,
+  listDisciplines,
   listWeaponCategories,
   listWeapons,
 } from "~/lib/api/catalog/catalog.api";
@@ -39,6 +40,7 @@ import { getCombat } from "~/lib/api/combat/combat.api";
 import type { CombatState } from "~/lib/api/combat/combat.types";
 import type {
   Armor,
+  Discipline,
   Weapon,
   WeaponCategory,
 } from "~/lib/api/catalog/catalog.types";
@@ -85,6 +87,7 @@ export default function ChronicleTableRoute() {
     sendMessage,
     rollVtm,
     announceSheet,
+    activateDiscipline,
     shareBoard,
     pushBoardUpdate,
     setInitialRolls,
@@ -142,15 +145,22 @@ export default function ChronicleTableRoute() {
     [],
   );
   const [armors, setArmors] = useState<Armor[]>([]);
+  const [disciplinesCatalog, setDisciplinesCatalog] = useState<Discipline[]>([]);
 
   useEffect(() => {
     let mounted = true;
-    Promise.all([listWeapons(), listWeaponCategories(), listArmors()])
-      .then(([w, c, a]) => {
+    Promise.all([
+      listWeapons(),
+      listWeaponCategories(),
+      listArmors(),
+      listDisciplines(),
+    ])
+      .then(([w, c, a, d]) => {
         if (!mounted) return;
         setWeapons(w);
         setWeaponCategories(c);
         setArmors(a);
+        setDisciplinesCatalog(d);
       })
       .catch(() => {
         // Silencioso: si el catálogo falla, los botones simplemente no
@@ -256,6 +266,8 @@ export default function ChronicleTableRoute() {
     willpowerAvailable: number;
     skillRating: number;
     specialtyText?: string;
+    sourceKind?: string;
+    sourceName?: string;
   }) {
     prefillSeqRef.current += 1;
     setPrefill({
@@ -266,6 +278,8 @@ export default function ChronicleTableRoute() {
       willpowerAvailable: input.willpowerAvailable,
       skillRating: input.skillRating,
       specialtyText: input.specialtyText,
+      sourceKind: input.sourceKind,
+      sourceName: input.sourceName,
       signature: prefillSeqRef.current,
     });
     setRightTab("dice");
@@ -518,6 +532,8 @@ export default function ChronicleTableRoute() {
               weapons={weapons}
               weaponCategories={weaponCategories}
               armors={armors}
+              disciplinesCatalog={disciplinesCatalog}
+              onActivateDiscipline={activateDiscipline}
             />
           </div>
         </aside>
@@ -851,6 +867,8 @@ function SheetTab({
   weapons,
   weaponCategories,
   armors,
+  disciplinesCatalog,
+  onActivateDiscipline,
 }: {
   chronicleId: string;
   characters: CharWithOwner[];
@@ -864,6 +882,8 @@ function SheetTab({
     willpowerAvailable: number;
     skillRating: number;
     specialtyText?: string;
+    sourceKind?: string;
+    sourceName?: string;
   }) => void;
   onCharacterUpdated: (c: Character) => void;
   onAnnounceSheet: ReturnType<typeof useTable>["announceSheet"];
@@ -872,6 +892,8 @@ function SheetTab({
   weapons: Weapon[];
   weaponCategories: WeaponCategory[];
   armors: Armor[];
+  disciplinesCatalog: Discipline[];
+  onActivateDiscipline: ReturnType<typeof useTable>["activateDiscipline"];
 }) {
   if (error) {
     return <div className="p-3 text-sm italic text-blood">{error}</div>;
@@ -919,6 +941,8 @@ function SheetTab({
           onCharacterUpdated={onCharacterUpdated}
           onAnnounceSheet={onAnnounceSheet}
           canEditWillpower={isNarrator}
+          disciplinesCatalog={disciplinesCatalog}
+          onActivateDiscipline={onActivateDiscipline}
           weapons={weapons}
           weaponCategories={weaponCategories}
           armors={armors}

@@ -11,6 +11,16 @@ export interface DisciplinePower {
   level: number;
   name: string;
   description: string | null;
+  /** Resumen corto para el tooltip. */
+  summary?: string | null;
+  /** Sangre que cuesta activar. 0 = pasivo / gratuito. */
+  bloodCost?: number;
+  /** Clave del atributo en la tirada activa (formato Character). */
+  rollAttribute?: string | null;
+  /** Habilidad de la tirada activa (nombre canónico V20). */
+  rollAbility?: string | null;
+  /** Dificultad por defecto. Si null, el cliente asume 6. */
+  rollDifficulty?: number | null;
 }
 
 export interface Discipline {

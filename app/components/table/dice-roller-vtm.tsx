@@ -41,6 +41,13 @@ export interface RollerPrefill {
    * para guardarlo con la tirada como snapshot histórico.
    */
   specialtyText?: string;
+  /**
+   * Origen de la tirada. Hoy "DISCIPLINE" cuando el prefill vino de activar
+   * un poder; null/undefined para click-to-roll de atributo+habilidad.
+   */
+  sourceKind?: string;
+  /** Etiqueta legible del origen (ej. "Dominación"). */
+  sourceName?: string;
   /** Incrementa cuando cambia para forzar re-set del form aunque pool sea igual */
   signature?: number;
 }
@@ -75,6 +82,14 @@ export function DiceRollerVtM({
   const [pool, setPool] = useState(5);
   const [difficulty, setDifficulty] = useState(6);
   const [specialty, setSpecialty] = useState(false);
+  // `source` se hidrata al recibir un prefill con origen (ej. activar una
+  // disciplina) y se limpia al tirar para que tiradas manuales subsiguientes
+  // no queden etiquetadas. Live independiente del prefill por si la signature
+  // no cambia (el padre no siempre toca sourceKind/Name).
+  const [source, setSource] = useState<{
+    sourceKind?: string;
+    sourceName?: string;
+  } | null>(null);
   const [wpSuccess, setWpSuccess] = useState(false);
   const [wpWound, setWpWound] = useState(false);
   const [wpReroll, setWpReroll] = useState(false);
@@ -99,6 +114,17 @@ export function DiceRollerVtM({
     setWpReroll(false);
     setSpecialty(false);
     setWpPanelOpen(false);
+    // Si el prefill trae origen (disciplina, etc.), lo retenemos para la
+    // próxima tirada. Si viene sin origen, limpiamos: una nueva selección
+    // manual de atributo/habilidad no debe heredar la etiqueta anterior.
+    if (prefill.sourceKind) {
+      setSource({
+        sourceKind: prefill.sourceKind,
+        sourceName: prefill.sourceName,
+      });
+    } else {
+      setSource(null);
+    }
   }, [prefill?.signature]);
 
   // Si la habilidad seleccionada cae por debajo del umbral, apagamos la
@@ -156,9 +182,17 @@ export function DiceRollerVtM({
       isPublic,
       label: label.trim() || undefined,
       characterId: prefill?.characterId,
+      sourceKind: source?.sourceKind,
+      sourceName: source?.sourceName,
     });
     setBusy(false);
-    if (!resp.ok) setError(resp.error ?? "No se pudo tirar");
+    if (!resp.ok) {
+      setError(resp.error ?? "No se pudo tirar");
+    } else {
+      // Una vez consumido, limpiamos el origen: la siguiente tirada manual
+      // sale sin etiqueta a menos que el usuario active otra disciplina.
+      setSource(null);
+    }
   }
 
   const specialtyTooltip = specialtyAllowed

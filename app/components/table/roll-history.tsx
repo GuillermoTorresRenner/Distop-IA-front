@@ -6,6 +6,7 @@ import {
   RotateCcw,
   Star,
   Trash2,
+  Wand2,
   Zap,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
@@ -155,9 +156,14 @@ function RollCard({ roll, highlight }: { roll: DiceRoll; highlight: boolean }) {
           {roll.label ? (
             <p className="text-muted-foreground truncate">{roll.label}</p>
           ) : null}
-          {roll.specialty ? (
-            <SpecialtyBadge text={roll.specialtyText ?? null} />
-          ) : null}
+          <div className="mt-1 flex flex-wrap items-center gap-1">
+            {roll.sourceKind === "DISCIPLINE" && roll.sourceName ? (
+              <SourceBadge kind="DISCIPLINE" name={roll.sourceName} />
+            ) : null}
+            {roll.specialty ? (
+              <SpecialtyBadge text={roll.specialtyText ?? null} />
+            ) : null}
+          </div>
         </div>
         <span className="text-[10px] text-muted-foreground whitespace-nowrap">
           {at}
@@ -316,6 +322,34 @@ function VisibilityBadge({ isPublic }: { isPublic: boolean }) {
       </span>
     </Tooltip>
   );
+}
+
+/**
+ * Badge que marca el origen de la tirada cuando NO es un click manual.
+ * Hoy solo "DISCIPLINE": violeta con el icono de varita y el nombre.
+ */
+function SourceBadge({
+  kind,
+  name,
+}: {
+  kind: "DISCIPLINE";
+  name: string;
+}) {
+  if (kind === "DISCIPLINE") {
+    return (
+      <Tooltip
+        title="Tirada de disciplina"
+        content={`Esta tirada se originó al activar un poder de ${name}.`}
+        side="top"
+      >
+        <span className="inline-flex items-center gap-1 rounded-full border border-purple-500/60 bg-purple-500/15 px-1.5 py-0.5 font-heading text-[0.55rem] uppercase tracking-widest text-purple-300">
+          <Wand2 className="size-3" />
+          Disciplina · {name}
+        </span>
+      </Tooltip>
+    );
+  }
+  return null;
 }
 
 /**

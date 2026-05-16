@@ -1,14 +1,28 @@
-import { Check, Droplet, Heart, Loader2, Sparkles, Star, X, Zap } from "lucide-react";
+import {
+  Check,
+  Droplet,
+  Heart,
+  Loader2,
+  Sparkles,
+  Star,
+  Wand2,
+  X,
+  Zap,
+} from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
 import { CatalogReferenceButtons } from "~/components/character/catalog-reference-buttons";
+import { CollapsibleSection } from "~/components/common/collapsible-section";
 import { Tooltip } from "~/components/common/tooltip";
 import { Button } from "~/components/ui/button";
+import { useConfirm } from "~/hooks/use-confirm";
 import { updateCharacterInChronicle } from "~/lib/api/characters/characters.api";
 import type {
   Armor,
+  Discipline,
+  DisciplinePower,
   Weapon,
   WeaponCategory,
 } from "~/lib/api/catalog/catalog.types";
@@ -57,6 +71,10 @@ interface CharacterSheetPanelProps {
     skillRating: number;
     /** Texto (markdown) de la especialidad de la habilidad seleccionada. */
     specialtyText?: string;
+    /** Origen de la tirada cuando el prefill no es un click-to-roll
+     *  manual (ej. activar una disciplina ⇒ sourceKind="DISCIPLINE"). */
+    sourceKind?: string;
+    sourceName?: string;
   }) => void;
   /** Cuando se hace PATCH exitoso al back. */
   onCharacterUpdated?: (updated: Character) => void;
@@ -77,6 +95,38 @@ interface CharacterSheetPanelProps {
   weapons?: Weapon[];
   weaponCategories?: WeaponCategory[];
   armors?: Armor[];
+  /**
+   * Catálogo de disciplinas con sus poderes (incluye metadata mecánica).
+   * Necesario para renderizar la sección de Disciplinas con tooltip y
+   * activar poderes desde la mesa.
+   */
+  disciplinesCatalog?: Discipline[];
+  /**
+   * Activa un poder de disciplina. El callback usa el WS para descontar
+   * sangre + anunciar en chat; resuelve con el resultado del back, que
+   * incluye el shape del poder (para que la UI sepa si debe preparar el
+   * roller a continuación).
+   */
+  onActivateDiscipline?: (input: {
+    characterId: string;
+    powerId: string;
+  }) => Promise<{
+    ok: boolean;
+    error?: string;
+    power?: {
+      id: string;
+      name: string;
+      level: number;
+      description: string | null;
+      summary: string | null;
+      bloodCost: number;
+      rollAttribute: string | null;
+      rollAbility: string | null;
+      rollDifficulty: number | null;
+    };
+    discipline?: { id: string; name: string };
+    blood?: { before: number; after: number; spent: number };
+  }>;
 }
 
 const HEALTH_LEVELS: Array<{
@@ -158,6 +208,8 @@ export function CharacterSheetPanel({
   weapons,
   weaponCategories,
   armors,
+  disciplinesCatalog,
+  onActivateDiscipline,
 }: CharacterSheetPanelProps) {
   // ── Selección click-to-roll ─────────────────────────────────
   const [selection, setSelection] = useState<RollSelection>({});
@@ -168,6 +220,11 @@ export function CharacterSheetPanel({
   }, [character.id]);
 
   const valueOf = (key: AttributeKey) => character[key] as number;
+
+  // Llave de persistencia para los collapsibles. Por personaje + crónica
+  // para que cada combinación recuerde su preferencia por separado.
+  const collapseKey = (section: string) =>
+    `mesa:${chronicleId}:${character.id}:${section}`;
 
   function toggleAttribute(key: AttributeKey) {
     setSelection((s) => ({
@@ -320,22 +377,29 @@ export function CharacterSheetPanel({
       ) : null}
 
       <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden scrollbar-gutter-stable themed-scrollbar p-3 space-y-4">
-        {/* Estado editable (autosave) */}
+        {/* Estado editable (autosave) — colapsable, default cerrado. */}
         <StateSection
           character={character}
           chronicleId={chronicleId}
           onCharacterUpdated={onCharacterUpdated}
           onAnnounceSheet={onAnnounceSheet}
           canEditWillpower={canEditWillpower}
+          collapseStorageKey={collapseKey("estado")}
         />
 
-        {/* Atributos: 3 columnas (Físicos / Sociales / Mentales) en pantallas grandes */}
-        <section>
-          <SectionTitle>Atributos</SectionTitle>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3 *:min-w-0">
+        {/* Atributos: cada grupo (Físicos / Sociales / Mentales) en su propia
+            card con borde, dentro de un collapsible. */}
+        <CollapsibleSection
+          title="Atributos"
+          storageKey={collapseKey("atributos")}
+        >
+          <div className="grid grid-cols-1 gap-2 md:grid-cols-3 *:min-w-0 pt-1">
             {(["physical", "social", "mental"] as const).map((group) => (
-              <div key={group}>
-                <p className="mb-1 text-[10px] font-heading uppercase tracking-wider text-muted-foreground">
+              <article
+                key={group}
+                className="rounded-md border border-border/60 bg-background/30 p-2"
+              >
+                <p className="mb-1.5 text-[10px] font-heading uppercase tracking-wider text-muted-foreground">
                   {ATTR_GROUP_LABEL[group]}
                 </p>
                 <div className="grid grid-cols-3 gap-1.5">
@@ -349,22 +413,27 @@ export function CharacterSheetPanel({
                     />
                   ))}
                 </div>
-              </div>
+              </article>
             ))}
           </div>
-        </section>
+        </CollapsibleSection>
 
-        {/* Habilidades: 3 columnas (Talentos / Técnicas / Conocimientos) en pantallas grandes */}
-        <section>
-          <SectionTitle>Habilidades</SectionTitle>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3 *:min-w-0">
+        {/* Habilidades: card por categoría (Talentos / Técnicas / Conocimientos). */}
+        <CollapsibleSection
+          title="Habilidades"
+          storageKey={collapseKey("habilidades")}
+        >
+          <div className="grid grid-cols-1 gap-2 md:grid-cols-3 *:min-w-0 pt-1">
             {(["TALENT", "SKILL", "KNOWLEDGE"] as AbilityCategory[]).map((cat) => {
               const items = character.abilities
                 .filter((a) => a.category === cat)
                 .sort((a, b) => a.name.localeCompare(b.name));
               return (
-                <div key={cat}>
-                  <p className="mb-1 text-[10px] font-heading uppercase tracking-wider text-muted-foreground">
+                <article
+                  key={cat}
+                  className="rounded-md border border-border/60 bg-background/30 p-2"
+                >
+                  <p className="mb-1.5 text-[10px] font-heading uppercase tracking-wider text-muted-foreground">
                     {categoryLabel(cat)}
                   </p>
                   {items.length === 0 ? (
@@ -388,11 +457,11 @@ export function CharacterSheetPanel({
                       ))}
                     </div>
                   )}
-                </div>
+                </article>
               );
             })}
           </div>
-        </section>
+        </CollapsibleSection>
 
         {/* Consulta rápida de catálogos V20 */}
         {weapons && weaponCategories && armors ? (
@@ -400,6 +469,19 @@ export function CharacterSheetPanel({
             weapons={weapons}
             weaponCategories={weaponCategories}
             armors={armors}
+          />
+        ) : null}
+
+        {/* Disciplinas del personaje con acción rápida de activación */}
+        {disciplinesCatalog && onActivateDiscipline ? (
+          <DisciplinesSection
+            character={character}
+            catalog={disciplinesCatalog}
+            collapseStorageKey={collapseKey("disciplinas")}
+            onActivate={(powerId) =>
+              onActivateDiscipline({ characterId: character.id, powerId })
+            }
+            onPrefillRoll={(prefill) => onPrefillRoll(prefill)}
           />
         ) : null}
 
@@ -569,12 +651,16 @@ function StateSection({
   onCharacterUpdated,
   onAnnounceSheet,
   canEditWillpower,
+  collapseStorageKey,
 }: {
   character: Character;
   chronicleId: string;
   onCharacterUpdated?: (c: Character) => void;
   onAnnounceSheet?: (input: SheetAnnounceInput) => Promise<unknown>;
   canEditWillpower: boolean;
+  /** Si se pasa, el bloque se envuelve en un CollapsibleSection y persiste
+   *  su estado con esta llave (uno por personaje). */
+  collapseStorageKey?: string;
 }) {
   const [draft, setDraft] = useState<Character>(character);
   const [saving, setSaving] = useState(false);
@@ -686,27 +772,22 @@ function StateSection({
     }
   }
 
-  return (
-    <section className="space-y-3 rounded-md border border-border bg-card/50 p-2">
-      <div className="flex items-center justify-between gap-2">
-        <h4 className="font-heading text-xs uppercase tracking-wider text-blood">
-          Estado
-        </h4>
-        <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
-          {saving ? (
-            <>
-              <Loader2 className="size-3 animate-spin" />
-              Guardando...
-            </>
-          ) : (
-            <span className="opacity-60">Cambios automáticos</span>
-          )}
-        </span>
-      </div>
+  const autosaveBadge = (
+    <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+      {saving ? (
+        <>
+          <Loader2 className="size-3 animate-spin" />
+          Guardando...
+        </>
+      ) : (
+        <span className="opacity-60">Cambios automáticos</span>
+      )}
+    </span>
+  );
 
-      {error ? (
-        <p className="text-xs italic text-blood">{error}</p>
-      ) : null}
+  const content = (
+    <div className="space-y-3 pt-1">
+      {error ? <p className="text-xs italic text-blood">{error}</p> : null}
 
       <StateField
         icon={<Droplet className="size-3.5 text-blood" />}
@@ -774,6 +855,30 @@ function StateSection({
           ))}
         </div>
       </div>
+    </div>
+  );
+
+  if (collapseStorageKey) {
+    return (
+      <CollapsibleSection
+        title="Estado"
+        storageKey={collapseStorageKey}
+        rightSlot={autosaveBadge}
+      >
+        {content}
+      </CollapsibleSection>
+    );
+  }
+
+  return (
+    <section className="space-y-3 rounded-md border border-border bg-card/50 p-2">
+      <div className="flex items-center justify-between gap-2">
+        <h4 className="font-heading text-xs uppercase tracking-wider text-blood">
+          Estado
+        </h4>
+        {autosaveBadge}
+      </div>
+      {content}
     </section>
   );
 }
@@ -905,4 +1010,327 @@ function formatState(key: StateKey, value: number): string {
     return HEALTH_GLYPH[value] ?? String(value);
   }
   return String(value);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Disciplinas del personaje
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Resuelve el valor de un atributo del personaje a partir de la clave del back
+ * (ej. "manipulation" → character.manipulation). Si la clave no existe en el
+ * modelo devuelve 0.
+ */
+function readAttribute(character: Character, key: string): number {
+  // El modelo Character expone los atributos como propiedades planas con la
+  // misma clave; un cast a Record<string, unknown> nos evita una unión enorme.
+  const raw = (character as unknown as Record<string, unknown>)[key];
+  return typeof raw === "number" ? raw : 0;
+}
+
+/** Busca el valor de una habilidad por nombre exacto. 0 si no existe. */
+function readAbility(character: Character, name: string): number {
+  return (
+    character.abilities.find(
+      (a) => a.name.toLowerCase() === name.toLowerCase(),
+    )?.value ?? 0
+  );
+}
+
+/** Devuelve la specialty (markdown) de la habilidad si existe. */
+function readAbilitySpecialty(
+  character: Character,
+  name: string,
+): string | undefined {
+  const ab = character.abilities.find(
+    (a) => a.name.toLowerCase() === name.toLowerCase(),
+  );
+  return ab?.specialty ?? undefined;
+}
+
+function DisciplinesSection({
+  character,
+  catalog,
+  collapseStorageKey,
+  onActivate,
+  onPrefillRoll,
+}: {
+  character: Character;
+  catalog: Discipline[];
+  collapseStorageKey?: string;
+  onActivate: (powerId: string) => Promise<{
+    ok: boolean;
+    error?: string;
+    power?: {
+      id: string;
+      name: string;
+      level: number;
+      description: string | null;
+      summary: string | null;
+      bloodCost: number;
+      rollAttribute: string | null;
+      rollAbility: string | null;
+      rollDifficulty: number | null;
+    };
+    discipline?: { id: string; name: string };
+  }>;
+  onPrefillRoll: (input: {
+    pool: number;
+    label: string;
+    characterId: string;
+    woundPenalty: number;
+    willpowerAvailable: number;
+    skillRating: number;
+    specialtyText?: string;
+    sourceKind?: string;
+    sourceName?: string;
+  }) => void;
+}) {
+  const { confirm, dialog } = useConfirm();
+  const [busyPowerId, setBusyPowerId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  // Solo mostramos disciplinas que el personaje ha aprendido (level >= 1).
+  // Por cada disciplina, los poderes hasta el nivel aprendido.
+  const learned = useMemo(() => {
+    const byId = new Map(catalog.map((d) => [d.id, d]));
+    return character.disciplines
+      .map((cd) => {
+        const d = byId.get(cd.disciplineId);
+        if (!d || cd.level < 1) return null;
+        const powers = d.powers
+          .filter((p) => p.level <= cd.level)
+          .sort((a, b) => a.level - b.level);
+        return { discipline: d, level: cd.level, powers };
+      })
+      .filter(
+        (x): x is { discipline: Discipline; level: number; powers: DisciplinePower[] } =>
+          x !== null,
+      )
+      .sort((a, b) => a.discipline.name.localeCompare(b.discipline.name));
+  }, [catalog, character.disciplines]);
+
+  if (learned.length === 0) return null;
+
+  async function handleActivate(power: DisciplinePower, disciplineName: string) {
+    setError(null);
+    const cost = power.bloodCost ?? 0;
+    const hasRoll = !!power.rollAttribute;
+    const lines: string[] = [];
+    if (cost > 0) {
+      lines.push(
+        `Cuesta **${cost}** ${cost === 1 ? "punto" : "puntos"} de sangre (tienes ${character.bloodPool}).`,
+      );
+    } else {
+      lines.push("No tiene coste de sangre.");
+    }
+    if (hasRoll) {
+      const atKey = power.rollAttribute ?? "";
+      const abilityName = power.rollAbility ?? "";
+      const atVal = readAttribute(character, atKey);
+      const abVal = abilityName ? readAbility(character, abilityName) : 0;
+      const pool = atVal + abVal;
+      const diff = power.rollDifficulty ?? 6;
+      lines.push(
+        `Tras activar, se preparará la tirada **${pool}d10 vs dif ${diff}**${abilityName ? ` (${atKey} + ${abilityName})` : ` (${atKey})`}.`,
+      );
+    } else {
+      lines.push("Es un poder pasivo o sin tirada activa.");
+    }
+
+    const ok = await confirm({
+      title: `Activar ${disciplineName} ${power.level}: ${power.name}`,
+      description: (
+        <div className="space-y-1.5 text-sm">
+          {lines.map((l, i) => (
+            <p key={i} dangerouslySetInnerHTML={{ __html: l.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>") }} />
+          ))}
+        </div>
+      ),
+      confirmLabel: "Activar",
+      cancelLabel: "Cancelar",
+      tone: cost > 0 ? "danger" : "default",
+    });
+    if (!ok) return;
+
+    setBusyPowerId(power.id);
+    const resp = await onActivate(power.id);
+    setBusyPowerId(null);
+    if (!resp.ok) {
+      setError(resp.error ?? "No se pudo activar el poder.");
+      return;
+    }
+    if (hasRoll && resp.power) {
+      const atKey = resp.power.rollAttribute ?? "";
+      const abilityName = resp.power.rollAbility ?? "";
+      const atVal = readAttribute(character, atKey);
+      const abVal = abilityName ? readAbility(character, abilityName) : 0;
+      const pool = atVal + abVal;
+      const label = abilityName
+        ? `${disciplineName} ${resp.power.level}: ${atKey} + ${abilityName}`
+        : `${disciplineName} ${resp.power.level}: ${atKey}`;
+      onPrefillRoll({
+        pool,
+        label,
+        characterId: character.id,
+        woundPenalty: computeWoundPenaltyLocal(character),
+        willpowerAvailable: character.willpowerCurrent,
+        skillRating: abVal,
+        specialtyText: abilityName
+          ? readAbilitySpecialty(character, abilityName)
+          : undefined,
+        sourceKind: "DISCIPLINE",
+        sourceName: disciplineName,
+      });
+    }
+  }
+
+  const body = (
+    <div className="space-y-2 pt-1">
+      {error ? <p className="mb-2 text-xs text-blood">{error}</p> : null}
+      {learned.map(({ discipline, level, powers }) => (
+        <article
+          key={discipline.id}
+          className="rounded-md border border-border/60 bg-background/30 p-2"
+        >
+          <header className="mb-1.5 flex items-baseline justify-between text-[10px] font-heading uppercase tracking-wider text-muted-foreground">
+            <span className="text-foreground/90">{discipline.name}</span>
+            <span className="text-blood">Nivel {level}</span>
+          </header>
+          <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+            {powers.map((p) => (
+              <DisciplinePowerButton
+                key={p.id}
+                power={p}
+                disciplineName={discipline.name}
+                characterBlood={character.bloodPool}
+                busy={busyPowerId === p.id}
+                onClick={() => void handleActivate(p, discipline.name)}
+              />
+            ))}
+          </div>
+        </article>
+      ))}
+    </div>
+  );
+
+  if (collapseStorageKey) {
+    return (
+      <>
+        <CollapsibleSection
+          title="Disciplinas"
+          storageKey={collapseStorageKey}
+        >
+          {body}
+        </CollapsibleSection>
+        {dialog}
+      </>
+    );
+  }
+
+  return (
+    <section>
+      <SectionTitle>Disciplinas</SectionTitle>
+      {body}
+      {dialog}
+    </section>
+  );
+}
+
+function DisciplinePowerButton({
+  power,
+  disciplineName,
+  characterBlood,
+  busy,
+  onClick,
+}: {
+  power: DisciplinePower;
+  disciplineName: string;
+  characterBlood: number;
+  busy: boolean;
+  onClick: () => void;
+}) {
+  const cost = power.bloodCost ?? 0;
+  const insufficient = cost > 0 && characterBlood < cost;
+  const hasRoll = !!power.rollAttribute;
+  const tooltipBody = (
+    <span className="block space-y-1">
+      {power.summary ? (
+        <span className="block text-foreground/90">{power.summary}</span>
+      ) : null}
+      {power.description ? (
+        <span className="block text-[11px] italic text-muted-foreground">
+          {power.description}
+        </span>
+      ) : null}
+      <span className="block text-[10px] uppercase tracking-widest text-muted-foreground">
+        {cost > 0 ? `Cuesta ${cost} sangre · ` : "Sin coste · "}
+        {hasRoll ? "Con tirada" : "Sin tirada"}
+      </span>
+    </span>
+  );
+  return (
+    <Tooltip
+      title={`${disciplineName} ${power.level}: ${power.name}`}
+      content={tooltipBody}
+      side="top"
+      className="w-full"
+    >
+      <button
+        type="button"
+        disabled={busy || insufficient}
+        onClick={onClick}
+        className={cn(
+          "flex w-full items-center justify-between gap-2 rounded-md border px-2 py-1.5 text-left text-xs transition",
+          "border-blood/40 bg-card/50 hover:border-blood hover:bg-blood/15",
+          (busy || insufficient) &&
+            "opacity-50 cursor-not-allowed hover:border-blood/40 hover:bg-card/50",
+        )}
+      >
+        <span className="flex min-w-0 flex-1 items-center gap-1.5">
+          <Wand2 className="size-3.5 shrink-0 text-blood" />
+          <span className="min-w-0 flex-1">
+            <span className="block truncate font-heading text-[11px] uppercase tracking-wider text-foreground">
+              {power.name}
+            </span>
+            <span className="block truncate text-[10px] italic text-muted-foreground">
+              {power.summary ?? "Sin resumen"}
+            </span>
+          </span>
+        </span>
+        <span className="flex shrink-0 items-center gap-1">
+          {cost > 0 ? (
+            <span
+              className={cn(
+                "inline-flex items-center gap-0.5 rounded-sm px-1 py-0.5 font-heading text-[9px] uppercase tracking-wider",
+                insufficient
+                  ? "bg-destructive/20 text-destructive"
+                  : "bg-blood/15 text-blood",
+              )}
+            >
+              <Droplet className="size-2.5" />
+              {cost}
+            </span>
+          ) : null}
+          {busy ? <Loader2 className="size-3.5 animate-spin" /> : null}
+        </span>
+      </button>
+    </Tooltip>
+  );
+}
+
+/**
+ * Local wrapper a `computeWoundPenalty` para no exportarla. Usamos el mismo
+ * cálculo que el resto del panel.
+ */
+function computeWoundPenaltyLocal(character: Character): number {
+  // -1 a partir de Magullado, -2 desde Lesionado, -5 en Tullido (V20).
+  // Como el panel ya tiene una helper interna, lo replicamos aquí basándonos
+  // en la jerarquía de salud. Si el modelo cambia, ajustar en un solo lugar.
+  if ((character.healthCrippled ?? 0) > 0) return -5;
+  if ((character.healthMauled ?? 0) > 0) return -2;
+  if ((character.healthWounded ?? 0) > 0) return -2;
+  if ((character.healthInjured ?? 0) > 0) return -1;
+  if ((character.healthHurt ?? 0) > 0) return -1;
+  return 0;
 }
