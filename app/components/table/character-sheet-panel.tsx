@@ -1,4 +1,6 @@
-import { Check, Droplet, Heart, Loader2, Sparkles, X, Zap } from "lucide-react";
+import { Check, Droplet, Heart, Loader2, Sparkles, Star, X, Zap } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
 import { CatalogReferenceButtons } from "~/components/character/catalog-reference-buttons";
@@ -53,6 +55,8 @@ interface CharacterSheetPanelProps {
     willpowerAvailable: number;
     /** Valor de la habilidad seleccionada (0..5). 0 si no hay habilidad. */
     skillRating: number;
+    /** Texto (markdown) de la especialidad de la habilidad seleccionada. */
+    specialtyText?: string;
   }) => void;
   /** Cuando se hace PATCH exitoso al back. */
   onCharacterUpdated?: (updated: Character) => void;
@@ -180,16 +184,18 @@ export function CharacterSheetPanel({
     );
   }
 
-  const abilityValue = useMemo(() => {
-    if (!selection.abilityName || !selection.abilityCategory) return 0;
+  const selectedAbility = useMemo(() => {
+    if (!selection.abilityName || !selection.abilityCategory) return null;
     return (
       character.abilities.find(
         (a) =>
           a.name === selection.abilityName &&
           a.category === selection.abilityCategory
-      )?.value ?? 0
+      ) ?? null
     );
   }, [character, selection.abilityName, selection.abilityCategory]);
+  const abilityValue = selectedAbility?.value ?? 0;
+  const abilitySpecialty = selectedAbility?.specialty ?? null;
 
   const attrValue = selection.attributeKey ? valueOf(selection.attributeKey) : 0;
   const woundPenalty = useMemo(() => computeWoundPenalty(character), [character]);
@@ -219,6 +225,7 @@ export function CharacterSheetPanel({
       woundPenalty,
       willpowerAvailable: character.willpowerCurrent,
       skillRating: abilityValue,
+      specialtyText: abilitySpecialty ?? undefined,
     });
   }
 
@@ -351,7 +358,7 @@ export function CharacterSheetPanel({
                         <DotRow
                           key={`${ab.category}-${ab.name}`}
                           label={ab.name}
-                          sublabel={ab.specialty || undefined}
+                          specialty={ab.specialty || undefined}
                           value={ab.value}
                           max={5}
                           active={
@@ -418,20 +425,26 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 
 function DotRow({
   label,
-  sublabel,
+  specialty,
   value,
   max,
   active,
   onClick,
 }: {
   label: string;
-  sublabel?: string;
+  /**
+   * Texto (markdown) de la especialidad declarada para esta habilidad, si la
+   * hay. No se muestra inline en el botón: el chip cambia de color y el texto
+   * se renderiza en el tooltip para no contaminar el listado.
+   */
+  specialty?: string;
   value: number;
   max: number;
   active: boolean;
   onClick: () => void;
 }) {
   const disabled = value <= 0;
+  const hasSpecialty = !!specialty && specialty.trim().length > 0;
   const button = (
     <button
       type="button"
@@ -444,12 +457,13 @@ function DotRow({
           : "hover:bg-blood/10 disabled:opacity-50 disabled:hover:bg-transparent disabled:cursor-not-allowed"
       )}
     >
-      <span className="min-w-0 flex-1 truncate">
-        <span>{label}</span>
-        {sublabel ? (
-          <span className="ml-1 text-[10px] text-muted-foreground">
-            ({sublabel})
-          </span>
+      <span className="flex min-w-0 flex-1 items-center gap-1 truncate">
+        <span className="truncate">{label}</span>
+        {hasSpecialty ? (
+          <Star
+            className="size-3 shrink-0 text-emerald-400"
+            aria-label="Tiene especialidad declarada"
+          />
         ) : null}
       </span>
       <span className="flex shrink-0 items-center gap-1">
@@ -473,14 +487,60 @@ function DotRow({
     </button>
   );
 
+  const tooltipContent = (
+    <span className="block space-y-1.5">
+      <span className="block">
+        {disabled
+          ? "Sin puntos. Súbelo desde la hoja completa para poder añadirlo a una tirada."
+          : `Click para añadirlo a la tirada (${value} ${value === 1 ? "punto" : "puntos"}).`}
+      </span>
+      {hasSpecialty ? (
+        <span className="block rounded-sm border border-emerald-500/40 bg-emerald-500/10 px-2 py-1">
+          <span className="mb-0.5 flex items-center gap-1 font-heading text-[0.6rem] uppercase tracking-widest text-emerald-300">
+            <Star className="size-3" /> Especialidad
+          </span>
+          <span className="markdown-content block text-[11px] leading-snug text-foreground/90">
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              urlTransform={(url) => url}
+              // El tooltip envuelve el content en <span> (inline), así que
+              // remapeamos los bloques de markdown a <span> con display:block
+              // para mantener HTML válido (un <p> dentro de <span> es inválido
+              // y React se queja en consola).
+              components={{
+                p: ({ children }) => <span className="block">{children}</span>,
+                h1: ({ children }) => (
+                  <span className="block font-heading">{children}</span>
+                ),
+                h2: ({ children }) => (
+                  <span className="block font-heading">{children}</span>
+                ),
+                h3: ({ children }) => (
+                  <span className="block font-heading">{children}</span>
+                ),
+                ul: ({ children }) => (
+                  <span className="block pl-3">{children}</span>
+                ),
+                ol: ({ children }) => (
+                  <span className="block pl-3">{children}</span>
+                ),
+                li: ({ children }) => (
+                  <span className="block">• {children}</span>
+                ),
+              }}
+            >
+              {specialty!}
+            </ReactMarkdown>
+          </span>
+        </span>
+      ) : null}
+    </span>
+  );
+
   return (
     <Tooltip
       title={label}
-      content={
-        disabled
-          ? "Sin puntos. Súbelo desde la hoja completa para poder añadirlo a una tirada."
-          : `Click para añadirlo a la tirada (${value} ${value === 1 ? "punto" : "puntos"}).`
-      }
+      content={tooltipContent}
       // `top` evita la colisión con el divisor central entre la hoja y el
       // panel derecho de chat/dados que se daba con `side="right"`.
       side="top"

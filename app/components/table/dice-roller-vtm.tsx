@@ -35,6 +35,12 @@ export interface RollerPrefill {
    * 0 / undefined ⇒ tirada sin habilidad (especialidad bloqueada).
    */
   skillRating?: number;
+  /**
+   * Texto (markdown) de la especialidad declarada en la habilidad
+   * seleccionada. Se envía al back cuando el roller marca specialty=true,
+   * para guardarlo con la tirada como snapshot histórico.
+   */
+  specialtyText?: string;
   /** Incrementa cuando cambia para forzar re-set del form aunque pool sea igual */
   signature?: number;
 }
@@ -137,6 +143,12 @@ export function DiceRollerVtM({
       difficulty,
       specialty,
       skillRating: skillRating || undefined,
+      // Sólo enviamos el texto si la tirada realmente declaró especialidad.
+      // El back además lo guarda solo cuando specialty=true.
+      specialtyText:
+        specialty && prefill?.specialtyText
+          ? prefill.specialtyText
+          : undefined,
       willpowerForSuccess: wpSuccess,
       willpowerForWound: wpWound,
       willpowerForReroll: wpReroll,

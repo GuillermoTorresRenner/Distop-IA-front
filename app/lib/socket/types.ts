@@ -91,6 +91,9 @@ export interface DiceRoll {
   specialty: boolean;
   /** Nivel declarado de la habilidad al momento de la tirada (1..5) o null. */
   skillRating: number | null;
+  /** Snapshot del texto de la especialidad usada (markdown). Null si la
+   * tirada no usó especialidad o si el cliente no envió el texto. */
+  specialtyText: string | null;
   /** Compatibilidad: true si se gastó voluntad por cualquier motivo. */
   willpowerSpent: boolean;
   /** Efecto legacy: solo refleja éxito/heridas (no reroll). */
@@ -119,6 +122,8 @@ export interface RollVtmInput {
   specialty?: boolean;
   /** Nivel de la habilidad (1..5). Obligatorio si specialty=true. */
   skillRating?: number;
+  /** Texto (markdown) de la especialidad activa al momento de la tirada. */
+  specialtyText?: string;
   /** +1 éxito automático, no removible por 1s. */
   willpowerForSuccess?: boolean;
   /** Anula el penalizador por heridas en esta tirada. */

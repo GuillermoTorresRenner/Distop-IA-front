@@ -7,6 +7,8 @@ import {
   Trash2,
   Zap,
 } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { useEffect, useRef } from "react";
 import { Tooltip } from "~/components/common/tooltip";
 import { Button } from "~/components/ui/button";
@@ -151,6 +153,9 @@ function RollCard({ roll, highlight }: { roll: DiceRoll; highlight: boolean }) {
           {roll.label ? (
             <p className="text-muted-foreground truncate">{roll.label}</p>
           ) : null}
+          {roll.specialty ? (
+            <SpecialtyBadge text={roll.specialtyText ?? null} />
+          ) : null}
         </div>
         <span className="text-[10px] text-muted-foreground whitespace-nowrap">
           {at}
@@ -236,16 +241,6 @@ function RollCard({ roll, highlight }: { roll: DiceRoll; highlight: boolean }) {
 
       <footer className="mt-2 flex items-center justify-between gap-2 text-xs">
         <div className="flex items-center gap-2 text-muted-foreground">
-          {roll.specialty ? (
-            <Tooltip
-              title="Especialidad"
-              content="Cada 10 detona un dado extra (encadenable). 1 en el extra resta un éxito."
-            >
-              <span className="inline-flex items-center gap-0.5">
-                <Star className="size-3" />
-              </span>
-            </Tooltip>
-          ) : null}
           {wpForSuccess ? (
             <Tooltip
               title="Voluntad: éxito"
@@ -294,6 +289,63 @@ function RollCard({ roll, highlight }: { roll: DiceRoll; highlight: boolean }) {
         </strong>
       </footer>
     </article>
+  );
+}
+
+/**
+ * Badge que aparece en la cabecera de la tirada cuando se usó especialidad.
+ * Sólo muestra el texto "Especialidad" en verde. Al hacer hover, el tooltip
+ * incluye el snapshot del texto declarado (markdown). Si la tirada no trae
+ * texto (compat con tiradas antiguas), el tooltip explica la regla genérica.
+ */
+function SpecialtyBadge({ text }: { text: string | null }) {
+  const hasText = !!text && text.trim().length > 0;
+  const content = hasText ? (
+    <span className="block space-y-1">
+      <span className="block font-heading text-[0.6rem] uppercase tracking-widest text-emerald-300">
+        Especialidad usada
+      </span>
+      <span className="markdown-content block text-[11px] leading-snug text-foreground/90">
+        <ReactMarkdown
+          remarkPlugins={[remarkGfm]}
+          urlTransform={(url) => url}
+          components={{
+            p: ({ children }) => <span className="block">{children}</span>,
+            h1: ({ children }) => (
+              <span className="block font-heading">{children}</span>
+            ),
+            h2: ({ children }) => (
+              <span className="block font-heading">{children}</span>
+            ),
+            h3: ({ children }) => (
+              <span className="block font-heading">{children}</span>
+            ),
+            ul: ({ children }) => (
+              <span className="block pl-3">{children}</span>
+            ),
+            ol: ({ children }) => (
+              <span className="block pl-3">{children}</span>
+            ),
+            li: ({ children }) => (
+              <span className="block">• {children}</span>
+            ),
+          }}
+        >
+          {text!}
+        </ReactMarkdown>
+      </span>
+    </span>
+  ) : (
+    "Especialidad declarada en la habilidad. Cada 10 detona un dado extra; si ese extra es 1, anula un éxito."
+  );
+
+  return (
+    <Tooltip title="Especialidad" content={content} side="top">
+      <span className="mt-1 inline-flex items-center gap-1 rounded-full border border-emerald-500/60 bg-emerald-500/15 px-1.5 py-0.5 font-heading text-[0.55rem] uppercase tracking-widest text-emerald-300">
+        <Star className="size-3" />
+        Especialidad
+      </span>
+    </Tooltip>
   );
 }
 
