@@ -117,32 +117,32 @@ export function playMessage(): void {
 }
 
 /**
- * Tirada de dados: un único "click" corto y descendente, hermano del sonido
- * de mensaje pero más oscuro (660→440Hz, una octava por debajo) para que se
- * diferencien claramente al oído.
+ * Tirada de dados: reproduce `/sounds/dados.mp3` (sample real de dados
+ * rodando), servido desde `front/public/sounds/`.
  *
- * El `diceCount` no afecta el sonido — el feedback es "se hizo una tirada",
- * no "se tiraron N dados". Igual lo dejamos como parámetro por si más
- * adelante queremos volver al rattle.
+ * Usa un `HTMLAudioElement` precargado y clonado por disparo para permitir
+ * tiradas solapadas sin cortar el sample anterior. El `diceCount` se mantiene
+ * en la firma por compatibilidad pero no afecta el sonido.
  */
+const DICE_SOUND_URL = "/sounds/dados.mp3";
+const DICE_SOUND_VOLUME = 0.6;
+let dicePrototype: HTMLAudioElement | null = null;
+
+function getDicePrototype(): HTMLAudioElement | null {
+  if (typeof window === "undefined") return null;
+  if (dicePrototype) return dicePrototype;
+  dicePrototype = new Audio(DICE_SOUND_URL);
+  dicePrototype.preload = "auto";
+  return dicePrototype;
+}
+
 export function playDiceRoll(_diceCount = 5): void {
   if (isMuted()) return;
-  const c = getContext();
-  if (!c || !masterGain) return;
-  void ensureRunning(c);
-
-  const now = c.currentTime;
-  const osc = c.createOscillator();
-  const gain = c.createGain();
-  osc.type = "triangle";
-  osc.frequency.setValueAtTime(660, now);
-  osc.frequency.exponentialRampToValueAtTime(440, now + 0.06);
-
-  gain.gain.setValueAtTime(0, now);
-  gain.gain.linearRampToValueAtTime(0.28, now + 0.005);
-  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.13);
-
-  osc.connect(gain).connect(masterGain);
-  osc.start(now);
-  osc.stop(now + 0.14);
+  const proto = getDicePrototype();
+  if (!proto) return;
+  const a = proto.cloneNode(true) as HTMLAudioElement;
+  a.volume = DICE_SOUND_VOLUME;
+  void a.play().catch(() => {
+    /* el browser puede negarlo si no hay gesto previo del usuario */
+  });
 }
