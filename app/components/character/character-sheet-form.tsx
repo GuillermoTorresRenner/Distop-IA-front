@@ -1,7 +1,8 @@
-import { Plus, Trash2 } from "lucide-react";
-import { useMemo, type ReactNode } from "react";
+import { Plus, Star, Trash2 } from "lucide-react";
+import { useMemo, useState, type ReactNode } from "react";
 import { DotRating } from "~/components/character/dot-rating";
 import { HealthToggle, type DamageState } from "~/components/character/health-toggle";
+import { SpecialtyDialog } from "~/components/character/specialty-dialog";
 import { FormField } from "~/components/common/form-field";
 import { MarkdownEditor } from "~/components/common/markdown-editor";
 import { Tooltip } from "~/components/common/tooltip";
@@ -81,6 +82,11 @@ export function CharacterSheetForm({
   readOnly,
   playerName,
 }: Props) {
+  // Especialidad abierta en el modal (si hay). Vacía mientras el modal está cerrado.
+  const [specialtyEditing, setSpecialtyEditing] = useState<
+    { category: CharacterAbility["category"]; name: string } | null
+  >(null);
+
   function patch(p: Partial<CharacterInput>) {
     onChange({ ...value, ...p });
   }
@@ -97,6 +103,33 @@ export function CharacterSheetForm({
 
   function getAbility(category: CharacterAbility["category"], name: string): number {
     return value.abilities?.find((a) => a.category === category && a.name === name)?.value ?? 0;
+  }
+
+  function getAbilitySpecialty(
+    category: CharacterAbility["category"],
+    name: string,
+  ): string {
+    return (
+      value.abilities?.find((a) => a.category === category && a.name === name)
+        ?.specialty ?? ""
+    );
+  }
+
+  function setAbilitySpecialty(
+    category: CharacterAbility["category"],
+    name: string,
+    specialty: string | null,
+  ) {
+    const abilities = (value.abilities ?? []).map((a) =>
+      a.category === category && a.name === name ? { ...a, specialty } : a,
+    );
+    if (!abilities.find((a) => a.category === category && a.name === name)) {
+      // Si la habilidad aún no estaba persistida (value=0), no permitimos
+      // declarar especialidad. El botón solo aparece con value>=4, así que
+      // este caso solo ocurre por defensa.
+      return;
+    }
+    onChange({ ...value, abilities });
   }
 
   function addBackground() {
@@ -425,6 +458,10 @@ export function CharacterSheetForm({
               max={5}
               onChange={(v) => setAbility("TALENT", name, v)}
               readOnly={readOnly}
+              specialty={getAbilitySpecialty("TALENT", name)}
+              onOpenSpecialty={() =>
+                setSpecialtyEditing({ category: "TALENT", name })
+              }
             />
           ))}
         </AttrBlock>
@@ -439,6 +476,10 @@ export function CharacterSheetForm({
               max={5}
               onChange={(v) => setAbility("SKILL", name, v)}
               readOnly={readOnly}
+              specialty={getAbilitySpecialty("SKILL", name)}
+              onOpenSpecialty={() =>
+                setSpecialtyEditing({ category: "SKILL", name })
+              }
             />
           ))}
         </AttrBlock>
@@ -453,6 +494,10 @@ export function CharacterSheetForm({
               max={5}
               onChange={(v) => setAbility("KNOWLEDGE", name, v)}
               readOnly={readOnly}
+              specialty={getAbilitySpecialty("KNOWLEDGE", name)}
+              onOpenSpecialty={() =>
+                setSpecialtyEditing({ category: "KNOWLEDGE", name })
+              }
             />
           ))}
         </AttrBlock>
@@ -871,6 +916,34 @@ export function CharacterSheetForm({
           </>
         )}
       </Tabs>
+
+      <SpecialtyDialog
+        open={specialtyEditing !== null}
+        abilityName={specialtyEditing?.name ?? ""}
+        initialValue={
+          specialtyEditing
+            ? getAbilitySpecialty(specialtyEditing.category, specialtyEditing.name)
+            : ""
+        }
+        readOnly={readOnly}
+        onClose={() => setSpecialtyEditing(null)}
+        onSave={(next) => {
+          if (!specialtyEditing) return;
+          setAbilitySpecialty(
+            specialtyEditing.category,
+            specialtyEditing.name,
+            next.length > 0 ? next : null,
+          );
+        }}
+        onClear={() => {
+          if (!specialtyEditing) return;
+          setAbilitySpecialty(
+            specialtyEditing.category,
+            specialtyEditing.name,
+            null,
+          );
+        }}
+      />
     </div>
   );
 }
@@ -915,6 +988,8 @@ function DotRow({
   max,
   onChange,
   readOnly,
+  specialty,
+  onOpenSpecialty,
 }: {
   label: string;
   tooltip?: string;
@@ -923,21 +998,64 @@ function DotRow({
   max: number;
   onChange: (v: number) => void;
   readOnly?: boolean;
+  /** Texto actual de la especialidad (puede ser markdown). Activa el botón. */
+  specialty?: string | null;
+  /** Si está definido, se muestra el botón de especialidad cuando value>=4. */
+  onOpenSpecialty?: () => void;
 }) {
+  const canHaveSpecialty = value >= 4 && !!onOpenSpecialty;
+  const hasSpecialty = !!specialty && specialty.trim().length > 0;
+
   return (
     <div className="flex items-center justify-between gap-2">
       <Tooltip title={label} content={tooltip}>
         <span className="font-serif text-sm">{label}</span>
       </Tooltip>
-      <DotRating
-        value={value}
-        min={min}
-        max={max}
-        onChange={onChange}
-        readOnly={readOnly}
-        size="sm"
-        ariaLabel={label}
-      />
+      <div className="flex items-center gap-1.5">
+        {canHaveSpecialty ? (
+          <Tooltip
+            title={hasSpecialty ? "Editar especialidad" : "Declarar especialidad"}
+            content={
+              hasSpecialty
+                ? "Especialidad declarada — click para ver / editar."
+                : "Habilidad ≥ 4: puedes declarar una especialidad."
+            }
+          >
+            <button
+              type="button"
+              onClick={(e) => {
+                // Evita cualquier propagación a controles padres que pudieran
+                // mal interpretarlo como submit del form externo.
+                e.preventDefault();
+                e.stopPropagation();
+                onOpenSpecialty();
+              }}
+              aria-label={
+                hasSpecialty
+                  ? `Editar especialidad de ${label}`
+                  : `Declarar especialidad de ${label}`
+              }
+              className={
+                hasSpecialty
+                  ? "inline-flex items-center gap-1 rounded-full border border-emerald-500 bg-emerald-500/20 px-2 py-0.5 font-heading text-[0.6rem] uppercase tracking-widest text-emerald-300 transition hover:bg-emerald-500/30"
+                  : "inline-flex items-center gap-1 rounded-full border border-blood/40 px-2 py-0.5 font-heading text-[0.6rem] uppercase tracking-widest text-blood/80 transition hover:bg-blood/10"
+              }
+            >
+              <Star className="size-3" />
+              Esp.
+            </button>
+          </Tooltip>
+        ) : null}
+        <DotRating
+          value={value}
+          min={min}
+          max={max}
+          onChange={onChange}
+          readOnly={readOnly}
+          size="sm"
+          ariaLabel={label}
+        />
+      </div>
     </div>
   );
 }
