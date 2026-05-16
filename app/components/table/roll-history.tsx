@@ -1,4 +1,5 @@
 import {
+  Eye,
   EyeOff,
   HeartCrack,
   Loader2,
@@ -139,6 +140,7 @@ function RollCard({ roll, highlight }: { roll: DiceRoll; highlight: boolean }) {
             <span className="font-heading uppercase tracking-wider text-blood">
               {authorName}
             </span>
+            <VisibilityBadge isPublic={roll.isPublic} />
             {roll.character ? (
               <span className="text-muted-foreground">
                 · {roll.character.name}
@@ -171,40 +173,40 @@ function RollCard({ roll, highlight }: { roll: DiceRoll; highlight: boolean }) {
             specialty={roll.specialty}
           />
         ))}
+
+        {willpowerRerolls.length > 0 ? (
+          <>
+            <span className="inline-flex items-center gap-0.5 rounded-sm bg-amber-500/15 px-1 py-0.5 font-heading text-[9px] uppercase tracking-wider text-amber-300">
+              <RotateCcw className="size-3" /> Reroll
+            </span>
+            {willpowerRerolls.map((d, i) => (
+              <Die
+                key={`r-${i}`}
+                value={d}
+                difficulty={roll.difficulty}
+                specialty={roll.specialty}
+              />
+            ))}
+          </>
+        ) : null}
+
+        {specialtyRerolls.length > 0 ? (
+          <>
+            <span className="inline-flex items-center gap-0.5 rounded-sm bg-blood/20 px-1 py-0.5 font-heading text-[9px] uppercase tracking-wider text-blood">
+              <Star className="size-3" /> Esp.
+            </span>
+            {specialtyRerolls.map((d, i) => (
+              <Die
+                key={`s-${i}`}
+                value={d}
+                difficulty={roll.difficulty}
+                specialty={false}
+                isSpecialtyExtra
+              />
+            ))}
+          </>
+        ) : null}
       </div>
-
-      {willpowerRerolls.length > 0 ? (
-        <div className="mt-1 flex flex-wrap items-center gap-1">
-          <span className="inline-flex items-center gap-0.5 rounded-sm bg-amber-500/15 px-1 py-0.5 font-heading text-[9px] uppercase tracking-wider text-amber-300">
-            <RotateCcw className="size-3" /> Reroll
-          </span>
-          {willpowerRerolls.map((d, i) => (
-            <Die
-              key={`r-${i}`}
-              value={d}
-              difficulty={roll.difficulty}
-              specialty={roll.specialty}
-            />
-          ))}
-        </div>
-      ) : null}
-
-      {specialtyRerolls.length > 0 ? (
-        <div className="mt-1 flex flex-wrap items-center gap-1">
-          <span className="inline-flex items-center gap-0.5 rounded-sm bg-blood/20 px-1 py-0.5 font-heading text-[9px] uppercase tracking-wider text-blood">
-            <Star className="size-3" /> Esp.
-          </span>
-          {specialtyRerolls.map((d, i) => (
-            <Die
-              key={`s-${i}`}
-              value={d}
-              difficulty={roll.difficulty}
-              specialty={false}
-              isSpecialtyExtra
-            />
-          ))}
-        </div>
-      ) : null}
 
       {/* Desglose explicativo */}
       <p className="mt-2 text-[10px] leading-snug text-muted-foreground">
@@ -271,16 +273,6 @@ function RollCard({ roll, highlight }: { roll: DiceRoll; highlight: boolean }) {
               </span>
             </Tooltip>
           ) : null}
-          {!roll.isPublic ? (
-            <Tooltip
-              title="Tirada privada"
-              content="Sólo el narrador y quien tiró ven el resultado. Queda registrada para auditoría."
-            >
-              <span className="inline-flex items-center gap-0.5 text-blood">
-                <EyeOff className="size-3" />
-              </span>
-            </Tooltip>
-          ) : null}
         </div>
         <strong className={cn("font-heading uppercase tracking-wider", resultColor)}>
           {roll.isBotch
@@ -289,6 +281,40 @@ function RollCard({ roll, highlight }: { roll: DiceRoll; highlight: boolean }) {
         </strong>
       </footer>
     </article>
+  );
+}
+
+/**
+ * Badge de visibilidad de la tirada. Cada card lo lleva siempre.
+ *   - Pública (morado): la ven todos los miembros de la mesa.
+ *   - Secreta (azul): sólo la ve el autor; ni el narrador la recibe.
+ */
+function VisibilityBadge({ isPublic }: { isPublic: boolean }) {
+  if (isPublic) {
+    return (
+      <Tooltip
+        title="Tirada pública"
+        content="Todos los miembros de la mesa ven el resultado."
+        side="top"
+      >
+        <span className="inline-flex items-center gap-1 rounded-full border border-purple-500/60 bg-purple-500/15 px-1.5 py-0.5 font-heading text-[0.55rem] uppercase tracking-widest text-purple-300">
+          <Eye className="size-3" />
+          Pública
+        </span>
+      </Tooltip>
+    );
+  }
+  return (
+    <Tooltip
+      title="Tirada secreta"
+      content="Sólo tú ves esta tirada. El narrador no recibe el resultado ni el detalle. Queda registrada para auditoría."
+      side="top"
+    >
+      <span className="inline-flex items-center gap-1 rounded-full border border-sky-500/60 bg-sky-500/15 px-1.5 py-0.5 font-heading text-[0.55rem] uppercase tracking-widest text-sky-300">
+        <EyeOff className="size-3" />
+        Secreta
+      </span>
+    </Tooltip>
   );
 }
 

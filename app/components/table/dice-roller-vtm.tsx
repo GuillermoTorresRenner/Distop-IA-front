@@ -234,8 +234,8 @@ export function DiceRollerVtM({
             active={!isPublic}
             onToggle={() => setIsPublic((v) => !v)}
             icon={<EyeOff className="size-3.5" />}
-            label="Privada"
-            tooltip="Tirada privada: solo el narrador y tú veréis el resultado. Queda registrada para auditoría."
+            label="Secreta"
+            tooltip="Tirada secreta: sólo tú verás el resultado. Ni siquiera el narrador ve el detalle ni el gasto de Voluntad asociado. Queda registrada para auditoría."
           />
         ) : null}
       </div>

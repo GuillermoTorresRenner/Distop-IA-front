@@ -611,7 +611,7 @@ export default function ChronicleTableRoute() {
             <>
               <div className="hidden border-t border-border bg-background/30 lg:block">
                 <DiceRollerVtM
-                  canTryPrivate={myRole !== "NARRATOR"}
+                  canTryPrivate={true}
                   prefill={prefill}
                   onRoll={async (input) => {
                     const resp = await rollVtm(input);
@@ -658,7 +658,7 @@ export default function ChronicleTableRoute() {
           </div>
           <div className="flex-1 overflow-y-auto themed-scrollbar">
             <DiceRollerVtM
-              canTryPrivate={myRole !== "NARRATOR"}
+              canTryPrivate={true}
               prefill={prefill}
               onRoll={async (input) => {
                 const resp = await rollVtm(input);
