@@ -203,7 +203,10 @@ export function CharacterSheetPanel({
   // Pool BASE (atributo + habilidad). El roller aplica el penalizador.
   // El preview muestra ambos: el base y cómo quedaría tras heridas.
   const basePool = attrValue + abilityValue;
-  const effectivePoolAfterWounds = basePool > 0
+  // Para tirar se exige siempre un atributo (puede ir sólo o atributo+habilidad).
+  // Una habilidad por sí sola no produce una tirada válida en V20.
+  const canRoll = !!selection.attributeKey && basePool > 0;
+  const effectivePoolAfterWounds = canRoll
     ? Math.max(1, basePool + woundPenalty)
     : 0;
 
@@ -217,7 +220,7 @@ export function CharacterSheetPanel({
   }
 
   function commitRoll() {
-    if (basePool === 0) return;
+    if (!canRoll) return;
     onPrefillRoll({
       pool: basePool,
       label,
@@ -248,8 +251,9 @@ export function CharacterSheetPanel({
         ) : null}
       </header>
 
-      {/* Preview de selección click-to-roll */}
-      {basePool > 0 ? (
+      {/* Preview de selección click-to-roll. Si sólo hay habilidad (sin atributo)
+          mostramos un hint para guiar al usuario; V20 exige siempre un atributo. */}
+      {canRoll ? (
         <div className="border-b border-blood bg-blood/10 px-3 py-2 text-sm">
           <div className="flex items-center justify-between gap-2">
             <div className="min-w-0 flex-1">
@@ -297,6 +301,22 @@ export function CharacterSheetPanel({
             </div>
           </div>
         </div>
+      ) : selection.abilityName ? (
+        <div className="flex items-center justify-between gap-2 border-b border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+          <span>
+            Selecciona un <strong className="font-heading">atributo</strong>{" "}
+            para completar la tirada. Una habilidad por sí sola no se tira.
+          </span>
+          <Button
+            type="button"
+            size="icon"
+            variant="ghost"
+            onClick={clearSelection}
+            aria-label="Limpiar selección"
+          >
+            <X className="size-3.5" />
+          </Button>
+        </div>
       ) : null}
 
       <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden scrollbar-gutter-stable themed-scrollbar p-3 space-y-4">
@@ -318,13 +338,12 @@ export function CharacterSheetPanel({
                 <p className="mb-1 text-[10px] font-heading uppercase tracking-wider text-muted-foreground">
                   {ATTR_GROUP_LABEL[group]}
                 </p>
-                <div className="grid grid-cols-1 gap-1">
+                <div className="grid grid-cols-3 gap-1.5">
                   {ATTRIBUTES.filter((a) => a.group === group).map((a) => (
-                    <DotRow
+                    <StatCard
                       key={a.key}
                       label={a.label}
                       value={valueOf(a.key)}
-                      max={5}
                       active={selection.attributeKey === a.key}
                       onClick={() => toggleAttribute(a.key)}
                     />
@@ -353,14 +372,13 @@ export function CharacterSheetPanel({
                       Sin entradas. Añade habilidades desde la hoja completa.
                     </p>
                   ) : (
-                    <div className="grid grid-cols-1 gap-1">
+                    <div className="grid grid-cols-2 gap-1.5">
                       {items.map((ab) => (
-                        <DotRow
+                        <StatCard
                           key={`${ab.category}-${ab.name}`}
                           label={ab.name}
                           specialty={ab.specialty || undefined}
                           value={ab.value}
-                          max={5}
                           active={
                             selection.abilityName === ab.name &&
                             selection.abilityCategory === ab.category
@@ -423,23 +441,21 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
   );
 }
 
-function DotRow({
+function StatCard({
   label,
   specialty,
   value,
-  max,
   active,
   onClick,
 }: {
   label: string;
   /**
    * Texto (markdown) de la especialidad declarada para esta habilidad, si la
-   * hay. No se muestra inline en el botón: el chip cambia de color y el texto
-   * se renderiza en el tooltip para no contaminar el listado.
+   * hay. No se muestra inline en la card: una estrella verde en la esquina
+   * indica que existe y el texto vive en el tooltip al hacer hover.
    */
   specialty?: string;
   value: number;
-  max: number;
   active: boolean;
   onClick: () => void;
 }) {
@@ -451,39 +467,31 @@ function DotRow({
       onClick={onClick}
       disabled={disabled}
       className={cn(
-        "flex w-full items-center justify-between gap-2 rounded-sm px-2 py-1 text-left text-sm transition-colors",
+        "relative flex w-full flex-col items-center justify-center gap-0.5 rounded-md border px-1.5 py-1.5 text-center transition-colors",
         active
-          ? "bg-blood/30 ring-1 ring-blood"
-          : "hover:bg-blood/10 disabled:opacity-50 disabled:hover:bg-transparent disabled:cursor-not-allowed"
+          ? "border-blood bg-blood/25 ring-1 ring-blood"
+          : "border-border/60 bg-card/40 hover:border-blood/60 hover:bg-blood/10",
+        disabled &&
+          "opacity-40 hover:border-border/60 hover:bg-card/40 cursor-not-allowed"
       )}
     >
-      <span className="flex min-w-0 flex-1 items-center gap-1 truncate">
-        <span className="truncate">{label}</span>
-        {hasSpecialty ? (
-          <Star
-            className="size-3 shrink-0 text-emerald-400"
-            aria-label="Tiene especialidad declarada"
-          />
-        ) : null}
+      <span className="block w-full truncate font-heading text-[9px] uppercase tracking-wider text-muted-foreground">
+        {label}
       </span>
-      <span className="flex shrink-0 items-center gap-1">
-        <span className="w-3 text-right font-heading text-xs text-muted-foreground tabular-nums">
-          {value}
-        </span>
-        <span className="flex items-center gap-0.5">
-          {Array.from({ length: max }, (_, i) => (
-            <span
-              key={i}
-              className={cn(
-                "size-2 rounded-full border",
-                i < value
-                  ? "border-blood bg-blood"
-                  : "border-muted-foreground/40"
-              )}
-            />
-          ))}
-        </span>
+      <span
+        className={cn(
+          "font-heading text-lg leading-none tabular-nums",
+          value > 0 ? "text-foreground" : "text-muted-foreground/50"
+        )}
+      >
+        {value}
       </span>
+      {hasSpecialty ? (
+        <Star
+          className="absolute right-1 top-1 size-3 text-emerald-400"
+          aria-label="Tiene especialidad declarada"
+        />
+      ) : null}
     </button>
   );
 
@@ -575,11 +583,53 @@ function StateSection({
   const lastSavedRef = useRef<Character>(character);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Si el server pisa el character (otro guardó, llegó WS, etc.) sincronizamos.
+  // Resincronización completa cuando cambia de personaje o el server emite
+  // un nuevo updatedAt (PATCH explícito).
   useEffect(() => {
     setDraft(character);
     lastSavedRef.current = character;
   }, [character.id, character.updatedAt]);
+
+  // Sincronización fina por campo: cuando un evento WS (sheet:announce, por
+  // ejemplo gasto de Voluntad en una tirada) parchea el `character` SIN
+  // tocar `updatedAt`, el effect de arriba no se dispara. Recorremos los
+  // campos numéricos de STATE_KEYS y, si el server cambió uno y el usuario
+  // no tiene un edit local pendiente sobre ese campo, lo adoptamos en draft.
+  //
+  // Adopt si: draft[key] === lastSavedRef[key]  →  no había borrador local.
+  useEffect(() => {
+    let changed = false;
+    setDraft((d) => {
+      const next = { ...d } as Character;
+      for (const key of STATE_KEYS) {
+        const serverVal = character[key] as number;
+        const lastVal = lastSavedRef.current[key] as number;
+        const draftVal = d[key] as number;
+        if (serverVal !== lastVal && draftVal === lastVal) {
+          (next[key] as unknown as number) = serverVal;
+          changed = true;
+        }
+      }
+      return changed ? next : d;
+    });
+    if (changed) {
+      // Actualizamos el "último confirmado" para no re-aplicar el mismo delta.
+      lastSavedRef.current = character;
+    }
+  }, [
+    character.bloodPool,
+    character.willpowerCurrent,
+    character.willpowerMax,
+    character.humanity,
+    character.experience,
+    character.healthBruised,
+    character.healthHurt,
+    character.healthInjured,
+    character.healthWounded,
+    character.healthMauled,
+    character.healthCrippled,
+    character.healthIncapacitated,
+  ]);
 
   // Cleanup del timer al desmontar / cambiar de personaje.
   useEffect(() => {
@@ -666,27 +716,6 @@ function StateSection({
         min={0}
         max={20}
         onChange={(v) => setField("bloodPool", v, 0, 20)}
-      />
-      <StateField
-        icon={<Zap className="size-3.5 text-amber-400" />}
-        label="Voluntad permanente"
-        tooltip={
-          canEditWillpower
-            ? "Tu atributo de Fuerza de Voluntad (1-10). Es el techo de la Voluntad actual; sólo cambia con experiencia."
-            : "Tu atributo de Fuerza de Voluntad (1-10). Solo el narrador puede modificarla desde la mesa."
-        }
-        value={draft.willpowerMax}
-        min={1}
-        max={10}
-        readOnly={!canEditWillpower}
-        onChange={(v) => {
-          // Si bajamos el techo, recortamos la actual para que no quede por encima.
-          const nextCurrent = Math.min(draft.willpowerCurrent, v);
-          setField("willpowerMax", v, 1, 10);
-          if (nextCurrent !== draft.willpowerCurrent) {
-            setField("willpowerCurrent", nextCurrent, 0, v);
-          }
-        }}
       />
       <StateField
         icon={<Zap className="size-3.5 text-amber-300" />}

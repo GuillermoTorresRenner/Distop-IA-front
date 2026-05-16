@@ -1,6 +1,7 @@
 import {
   Check,
   Loader2,
+  MessageSquare,
   Search,
   Send,
   UserMinus,
@@ -12,9 +13,11 @@ import { useEffect, useMemo, useState } from "react";
 import { extractAuthError } from "~/components/common/auth-error";
 import { FormAlert } from "~/components/common/form-alert";
 import { PageHeader } from "~/components/common/page-header";
+import { MessagesTab } from "~/components/social/messages-tab";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { useConfirm } from "~/hooks/use-confirm";
+import { useMessages } from "~/hooks/use-messages";
 import {
   acceptFriendship,
   declineFriendship,
@@ -67,9 +70,10 @@ function UserCell({
 export default function SocialRoute() {
   const currentUser = useUserStore((s) => s.user);
   const { confirm, dialog } = useConfirm();
-  const [tab, setTab] = useState<"discover" | "friends" | "requests">(
-    "discover",
-  );
+  const [tab, setTab] = useState<
+    "discover" | "friends" | "requests" | "messages"
+  >("discover");
+  const { unread: unreadMessages } = useMessages();
 
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchableUser[]>([]);
@@ -208,6 +212,14 @@ export default function SocialRoute() {
         </TabBtn>
         <TabBtn active={tab === "requests"} onClick={() => setTab("requests")}>
           <UserPlus className="size-4" /> Solicitudes · {counts.incoming + counts.outgoing}
+        </TabBtn>
+        <TabBtn active={tab === "messages"} onClick={() => setTab("messages")}>
+          <MessageSquare className="size-4" /> Mensajes
+          {unreadMessages > 0 ? (
+            <span className="ml-1 rounded-full bg-blood px-1.5 text-[10px] font-semibold leading-4 text-blood-foreground">
+              {unreadMessages}
+            </span>
+          ) : null}
         </TabBtn>
       </nav>
 
@@ -373,6 +385,11 @@ export default function SocialRoute() {
           </article>
         </div>
       ) : null}
+
+      {tab === "messages" && currentUser ? (
+        <MessagesTab currentUserId={currentUser.id} />
+      ) : null}
+
       {dialog}
     </section>
   );

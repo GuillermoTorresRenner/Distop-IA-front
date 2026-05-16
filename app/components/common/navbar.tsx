@@ -9,6 +9,7 @@ import {
   Users,
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router";
+import { useMessages } from "~/hooks/use-messages";
 import type { User } from "~/lib/api/users/users.types";
 import { cn } from "~/lib/utils";
 import { UserMenu } from "./user-menu";
@@ -16,6 +17,8 @@ import { UserMenu } from "./user-menu";
 interface NavbarProps {
   user: User;
   invitationCount?: number;
+  /** Mensajes directos no leídos. Si >0, se muestra un dot sobre el tab Social. */
+  messageCount?: number;
 }
 
 interface NavTab {
@@ -34,8 +37,12 @@ const tabs: NavTab[] = [
   { to: "/table", label: "Mesa Virtual", icon: Dice5 },
 ];
 
-export function Navbar({ user, invitationCount = 0 }: NavbarProps) {
+export function Navbar({ user, invitationCount = 0, messageCount }: NavbarProps) {
   const location = useLocation();
+  // Si el caller no lo pasa, leemos el conteo en vivo del hook de mensajes
+  // (que mantiene la conexión WS y actualiza el badge en tiempo real).
+  const { unread: liveUnread } = useMessages();
+  const effectiveMessageCount = messageCount ?? liveUnread;
   // La ruta de la mesa vive bajo /chronicles/:id/table, así que sin tratamiento
   // especial el tab "Crónicas" matchea por prefijo. Forzamos el tab activo:
   //   - /chronicles/:id/table  →  Mesa Virtual
@@ -100,7 +107,17 @@ export function Navbar({ user, invitationCount = 0 }: NavbarProps) {
                   aria-label={tab.label}
                   title={tab.label}
                 >
-                  <tab.icon className="size-4 opacity-80 group-hover:opacity-100" />
+                  <span className="relative inline-flex">
+                    <tab.icon className="size-4 opacity-80 group-hover:opacity-100" />
+                    {tab.to === "/social" && effectiveMessageCount > 0 ? (
+                      <span
+                        className="absolute -right-1 -top-1 inline-flex min-w-[0.85rem] items-center justify-center rounded-full bg-amber-400 px-1 text-[9px] font-bold leading-3 text-black"
+                        aria-label={`${effectiveMessageCount} mensajes sin leer`}
+                      >
+                        {effectiveMessageCount > 99 ? "99+" : effectiveMessageCount}
+                      </span>
+                    ) : null}
+                  </span>
                   <span className="hidden sm:inline">{tab.label}</span>
                 </NavLink>
               </li>
