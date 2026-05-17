@@ -114,11 +114,11 @@ export default function RoadmapRoute() {
       <footer className="rounded-lg border border-blood/30 bg-blood/5 p-5">
         <p className="flex items-center gap-2 font-heading text-sm uppercase tracking-wider text-blood">
           <Sparkles className="size-4" />
-          ¿Querés ayudar a que llegue antes?
+          ¿Quieres ayudar a que llegue antes?
         </p>
         <p className="mt-2 max-w-2xl font-serif text-sm italic text-muted-foreground">
           Tu aporte —ya sea un café, código o feedback— acorta los tiempos.
-          Volvé al inicio para encontrar las opciones de apoyo.
+          Vuelve al inicio para encontrar las opciones de apoyo.
         </p>
       </footer>
     </section>

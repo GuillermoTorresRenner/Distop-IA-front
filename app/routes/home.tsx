@@ -4,8 +4,12 @@ import {
   Code2,
   Coffee,
   Dice5,
+  Globe,
+  Heart,
   Mail,
   Map,
+  Receipt,
+  Server,
   Skull,
 } from "lucide-react";
 import { Link } from "react-router";
@@ -98,21 +102,46 @@ export default function Home() {
           Apoyo y colaboración
         </p>
         <h2 className="mt-2 font-heading text-2xl text-foreground sm:text-3xl">
-          Distop-IA crece gracias a la sangre que la mesa le ofrenda
+          Una carta a quienes alguna vez fotocopiaron manuales prestados
         </h2>
-        <p className="mt-3 max-w-3xl font-serif text-sm italic text-muted-foreground sm:text-base">
-          Este VTT se mantiene de forma independiente. Si te resulta útil para
-          tus mesas y querés colaborar, hay tres formas igual de valiosas:
-          invitarme un café, sumarte al desarrollo o escribirme con feedback.
-          Cualquier aporte se nota.
-        </p>
+        <div className="mt-4 max-w-3xl space-y-3 font-serif text-sm leading-relaxed text-muted-foreground sm:text-base">
+          <p className="italic">
+            Recuerdo la primera vez que jugué juegos de rol{" "}
+            <span className="not-italic text-foreground/80">(AD&amp;D)</span>;
+            los manuales estaban fotocopiados del amigo del amigo del amigo que
+            los había conseguido en el extranjero…
+          </p>
+          <p className="italic">
+            Cuántas veces fotocopié ansiosamente manuales de distintos juegos
+            sólo para dar rienda suelta a la imaginación.
+          </p>
+          <p className="italic text-foreground/90">
+            Ya es hora de retribuir algo de todo eso que me ha llegado.
+          </p>
+          <p>
+            Estoy feliz de iniciar{" "}
+            <strong className="font-semibold text-blood">Distop-IA</strong>,
+            mi primer proyecto open source: una plataforma VTT para jugar{" "}
+            <em>Vampiro: la Mascarada</em> en esta primera instancia, a la que
+            irán sumándose más manuales y lore del{" "}
+            <em>Mundo de Tinieblas</em>.
+          </p>
+          <p>
+            Espero que todas las personas que todavía tienen tiempo de volver a
+            la adolescencia con amigos a jugar —aunque sea a la distancia— la
+            disfruten tanto como yo he disfrutado cada línea de código.
+          </p>
+          <p className="not-italic text-foreground/85">
+            Toda colaboración para mejorar el proyecto es bienvenida.
+          </p>
+        </div>
 
         <div className="mt-5 grid gap-3 lg:grid-cols-3">
           {/* Cafecito */}
           <article className="flex flex-col gap-3 rounded-lg border border-border/60 bg-card/70 p-4">
             <Coffee className="size-5 text-blood" />
             <h3 className="font-heading text-sm uppercase tracking-widest text-foreground">
-              Invitame un café
+              Invítame un café
             </h3>
             <p className="font-serif text-sm italic text-muted-foreground">
               La forma más simple de empujar el proyecto. Va directo a horas de
@@ -135,11 +164,11 @@ export default function Home() {
           <article className="flex flex-col gap-3 rounded-lg border border-border/60 bg-card/70 p-4">
             <Code2 className="size-5 text-blood" />
             <h3 className="font-heading text-sm uppercase tracking-widest text-foreground">
-              Sumate al desarrollo
+              Súmate al desarrollo
             </h3>
             <p className="font-serif text-sm italic text-muted-foreground">
-              ¿Programás? ¿Diseñás? ¿Probás mesas y encontrás bugs? Hay sitio
-              para más manos. Escribime y armamos juntos cómo encarar tu aporte.
+              ¿Programas? ¿Diseñas? ¿Pruebas mesas y encuentras bugs? Hay sitio
+              para más manos. Escríbeme y vemos juntos cómo enfocar tu aporte.
             </p>
             <div className="mt-auto flex flex-col gap-2">
               <a
@@ -181,7 +210,7 @@ export default function Home() {
               Próximos features
             </h3>
             <p className="font-serif text-sm italic text-muted-foreground">
-              Mirá lo que se viene: integraciones con otras líneas del Mundo de
+              Mira lo que se viene: integraciones con otras líneas del Mundo de
               Tinieblas y mejoras a la mesa. Tu aporte agiliza cada hito.
             </p>
             <Link
@@ -192,8 +221,78 @@ export default function Home() {
             </Link>
           </article>
         </div>
+
+        {/* Costos transparentes que cubre la comunidad */}
+        <div className="mt-6 rounded-lg border border-border/60 bg-card/60 p-4 sm:p-5">
+          <header className="mb-3 flex items-center gap-2">
+            <Receipt className="size-4 text-blood" />
+            <h3 className="font-heading text-sm uppercase tracking-widest text-foreground">
+              Costos que cubrir
+            </h3>
+          </header>
+          <p className="mb-4 max-w-3xl font-serif text-xs italic text-muted-foreground sm:text-sm">
+            Mantener la mesa abierta tiene un costo concreto. Acá está el
+            desglose anual estimado, en USD, para que sepas exactamente a dónde
+            va cualquier aporte.
+          </p>
+          <ul className="grid gap-2 sm:grid-cols-2">
+            <CostItem
+              icon={<Server className="size-4" />}
+              label="VPS (Hostinger)"
+              amount="100 USD / año"
+              hint="Donde corre el back, la base de datos y los WebSockets de la mesa."
+            />
+            <CostItem
+              icon={<Globe className="size-4" />}
+              label="Dominio"
+              amount="10 USD / año"
+              hint="distop-ia.com: para que la mesa tenga una dirección estable."
+            />
+            <CostItem
+              icon={<Mail className="size-4" />}
+              label="Correo transaccional"
+              amount="5 USD / año"
+              hint="Invitaciones a crónicas, recuperación de contraseña, avisos."
+            />
+            <CostItem
+              icon={<Heart className="size-4" />}
+              label="Mantenedor"
+              amount="incalculable"
+              hint="Horas robadas al sueño, cafés a las 2am y un poquito de alma. Pagar con un mensaje lindo siempre alcanza ❤️"
+            />
+          </ul>
+        </div>
       </section>
     </section>
+  );
+}
+
+function CostItem({
+  icon,
+  label,
+  amount,
+  hint,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  amount: string;
+  hint: string;
+}) {
+  return (
+    <li className="flex items-start gap-3 rounded-md border border-border/40 bg-background/40 p-3">
+      <span className="mt-0.5 shrink-0 text-blood">{icon}</span>
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <span className="font-heading text-xs uppercase tracking-widest text-foreground">
+            {label}
+          </span>
+          <span className="font-mono text-xs text-blood">{amount}</span>
+        </div>
+        <p className="mt-1 font-serif text-xs italic text-muted-foreground">
+          {hint}
+        </p>
+      </div>
+    </li>
   );
 }
 
