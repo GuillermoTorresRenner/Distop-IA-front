@@ -4,6 +4,7 @@ import { Link, useNavigate, useParams } from "react-router";
 import { CharacterSheetForm } from "~/components/character/character-sheet-form";
 import { CustomArmorDialog } from "~/components/character/custom-armor-dialog";
 import { CustomWeaponDialog } from "~/components/character/custom-weapon-dialog";
+import { ExportCharacterButton } from "~/components/character/export-character-button";
 import { QuickGuideButton } from "~/components/character/quick-guide-button";
 import { ReferenceTablesButton } from "~/components/character/reference-tables-button";
 import { extractAuthError } from "~/components/common/auth-error";
@@ -230,9 +231,10 @@ export default function CharacterDetailRoute() {
         title={character.name}
         description={character.concept ?? undefined}
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <ReferenceTablesButton />
             <QuickGuideButton />
+            <ExportCharacterButton character={character} />
             <Button
               variant="ghost"
               onClick={handleDelete}

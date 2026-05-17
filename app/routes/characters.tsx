@@ -1,6 +1,8 @@
 import { Copy, Loader2, Plus, Search, Skull, Trash2, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router";
+import { CharacterFab } from "~/components/character/character-fab";
+import { ExportCharacterButton } from "~/components/character/export-character-button";
 import { extractAuthError } from "~/components/common/auth-error";
 import { FormAlert } from "~/components/common/form-alert";
 import { PageHeader } from "~/components/common/page-header";
@@ -124,13 +126,6 @@ export default function CharactersListRoute() {
         eyebrow="Vástagos"
         title="Mis personajes"
         description="Fichas de Vampiro: la Mascarada. Crea, edita y asocia a tus crónicas."
-        actions={
-          <Link to="/characters/new">
-            <Button className="bg-blood text-blood-foreground hover:bg-blood/90">
-              <Plus className="size-4" /> Nuevo personaje
-            </Button>
-          </Link>
-        }
       />
 
       {error ? <FormAlert message={error} /> : null}
@@ -221,6 +216,7 @@ export default function CharactersListRoute() {
           )}
         </>
       )}
+      <CharacterFab onCreated={() => void reload()} />
       {dialog}
     </section>
   );
@@ -275,6 +271,7 @@ function CharacterCard({
           )}
         </div>
         <div className="flex items-center gap-1">
+          <ExportCharacterButton character={c} compact />
           <Button
             type="button"
             size="icon-sm"
