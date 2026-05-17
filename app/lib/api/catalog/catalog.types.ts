@@ -5,6 +5,36 @@ export interface Archetype {
   order: number;
 }
 
+export type AttributeCategoryInfo = "PHYSICAL" | "SOCIAL" | "MENTAL";
+export type AbilityCategoryInfo = "TALENT" | "SKILL" | "KNOWLEDGE";
+
+export interface AttributeInfo {
+  id: string;
+  key: string;
+  name: string;
+  category: AttributeCategoryInfo;
+  description: string | null;
+  order: number;
+}
+
+export interface AbilityInfo {
+  id: string;
+  key: string;
+  name: string;
+  category: AbilityCategoryInfo;
+  description: string | null;
+  order: number;
+}
+
+export interface HealthLevelInfo {
+  id: string;
+  key: string;
+  name: string;
+  penalty: number;
+  description: string | null;
+  order: number;
+}
+
 export interface DisciplinePower {
   id: string;
   disciplineId: string;

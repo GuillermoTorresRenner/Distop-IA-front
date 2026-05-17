@@ -1,9 +1,12 @@
 import { apiClient } from "~/lib/api/client";
 import type {
+  AbilityInfo,
   Archetype,
   Armor,
+  AttributeInfo,
   Clan,
   Discipline,
+  HealthLevelInfo,
   MeritFlaw,
   Weapon,
   WeaponCategory,
@@ -13,6 +16,23 @@ import type {
 
 export async function listArchetypes(): Promise<Archetype[]> {
   const { data } = await apiClient.get<Archetype[]>("/catalog/archetypes");
+  return data;
+}
+
+export async function listAttributesInfo(): Promise<AttributeInfo[]> {
+  const { data } = await apiClient.get<AttributeInfo[]>("/catalog/attributes");
+  return data;
+}
+
+export async function listAbilitiesInfo(): Promise<AbilityInfo[]> {
+  const { data } = await apiClient.get<AbilityInfo[]>("/catalog/abilities");
+  return data;
+}
+
+export async function listHealthLevelsInfo(): Promise<HealthLevelInfo[]> {
+  const { data } = await apiClient.get<HealthLevelInfo[]>(
+    "/catalog/health-levels",
+  );
   return data;
 }
 

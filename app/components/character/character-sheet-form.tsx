@@ -4,6 +4,7 @@ import { DotRating } from "~/components/character/dot-rating";
 import { HealthToggle, type DamageState } from "~/components/character/health-toggle";
 import { SpecialtyDialog } from "~/components/character/specialty-dialog";
 import { FormField } from "~/components/common/form-field";
+import { useInfoModal } from "~/components/common/info-modal";
 import { MarkdownEditor } from "~/components/common/markdown-editor";
 import { Tooltip } from "~/components/common/tooltip";
 import { Button } from "~/components/ui/button";
@@ -231,6 +232,9 @@ export function CharacterSheetForm({
   const social = ATTRIBUTES.filter((a) => a.group === "social");
   const mental = ATTRIBUTES.filter((a) => a.group === "mental");
 
+  // Modal de información enriquecida — alimentado por el vault de catálogo.
+  const infoModal = useInfoModal();
+
   const selectedClan = clans.find((c) => c.id === value.clanId);
   const selectedNature = archetypes.find((a) => a.id === value.natureId);
   const selectedDemeanor = archetypes.find((a) => a.id === value.demeanorId);
@@ -329,38 +333,53 @@ export function CharacterSheetForm({
           pero NO se muestra ni edita aquí.
         */}
 
-        <SelectField
-          label="Clan"
-          tooltipTitle={selectedClan?.name ?? "Clan"}
-          tooltipContent={
-            selectedClan ? (
-              <span>
-                <span className="block">{selectedClan.description}</span>
-                {selectedClan.disciplines ? (
-                  <span className="mt-1 block text-foreground/80">
-                    Disciplinas: {selectedClan.disciplines}
-                  </span>
-                ) : null}
-                {selectedClan.weakness ? (
-                  <span className="mt-1 block text-blood/80">
-                    Debilidad: {selectedClan.weakness}
-                  </span>
-                ) : null}
-              </span>
-            ) : (
-              IDENTITY_TOOLTIPS.clan
-            )
-          }
-          value={value.clanId ?? ""}
-          disabled={readOnly}
-          onChange={(v) => patch({ clanId: v || undefined })}
-          options={clansSorted.map((c) => ({
-            value: c.id,
-            label: c.sect ? `${c.name} · ${c.sect}` : c.name,
-            description: c.description,
-          }))}
-          placeholder="—"
-        />
+        <div className="space-y-1">
+          <SelectField
+            label="Clan"
+            tooltipTitle={selectedClan?.name ?? "Clan"}
+            tooltipContent={
+              selectedClan ? (
+                <span>
+                  <span className="block">{selectedClan.description}</span>
+                  {selectedClan.disciplines ? (
+                    <span className="mt-1 block text-foreground/80">
+                      Disciplinas: {selectedClan.disciplines}
+                    </span>
+                  ) : null}
+                  {selectedClan.weakness ? (
+                    <span className="mt-1 block text-blood/80">
+                      Debilidad: {selectedClan.weakness}
+                    </span>
+                  ) : null}
+                </span>
+              ) : (
+                IDENTITY_TOOLTIPS.clan
+              )
+            }
+            value={value.clanId ?? ""}
+            disabled={readOnly}
+            onChange={(v) => patch({ clanId: v || undefined })}
+            options={clansSorted.map((c) => ({
+              value: c.id,
+              label: c.sect ? `${c.name} · ${c.sect}` : c.name,
+              description: c.description,
+            }))}
+            placeholder="—"
+          />
+          {selectedClan ? (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                infoModal.open("clan", selectedClan.name, selectedClan.name);
+              }}
+              className="font-heading text-[0.55rem] uppercase tracking-widest text-muted-foreground underline decoration-dotted decoration-blood/30 underline-offset-2 transition-colors hover:text-blood hover:decoration-blood focus:outline-none focus:text-blood"
+            >
+              Ver detalle de clan
+            </button>
+          ) : null}
+        </div>
 
         <Tooltip content={IDENTITY_TOOLTIPS.concept} title="Concepto">
           <FormField
@@ -411,6 +430,7 @@ export function CharacterSheetForm({
               max={5}
               onChange={(v) => patch({ [a.key]: v })}
               readOnly={readOnly}
+              onInfo={() => infoModal.open("attribute", a.key, a.label)}
             />
           ))}
         </AttrBlock>
@@ -425,6 +445,7 @@ export function CharacterSheetForm({
               max={5}
               onChange={(v) => patch({ [a.key]: v })}
               readOnly={readOnly}
+              onInfo={() => infoModal.open("attribute", a.key, a.label)}
             />
           ))}
         </AttrBlock>
@@ -439,6 +460,7 @@ export function CharacterSheetForm({
               max={5}
               onChange={(v) => patch({ [a.key]: v })}
               readOnly={readOnly}
+              onInfo={() => infoModal.open("attribute", a.key, a.label)}
             />
           ))}
         </AttrBlock>
@@ -462,6 +484,7 @@ export function CharacterSheetForm({
               onOpenSpecialty={() =>
                 setSpecialtyEditing({ category: "TALENT", name })
               }
+              onInfo={() => infoModal.open("ability", name, name)}
             />
           ))}
         </AttrBlock>
@@ -480,6 +503,7 @@ export function CharacterSheetForm({
               onOpenSpecialty={() =>
                 setSpecialtyEditing({ category: "SKILL", name })
               }
+              onInfo={() => infoModal.open("ability", name, name)}
             />
           ))}
         </AttrBlock>
@@ -498,6 +522,7 @@ export function CharacterSheetForm({
               onOpenSpecialty={() =>
                 setSpecialtyEditing({ category: "KNOWLEDGE", name })
               }
+              onInfo={() => infoModal.open("ability", name, name)}
             />
           ))}
         </AttrBlock>
@@ -624,15 +649,44 @@ export function CharacterSheetForm({
                         .map((p) => (
                           <li key={p.id} className="text-foreground/80">
                             <Tooltip title={`Nivel ${p.level} · ${p.name}`} content={p.description ?? ""}>
-                              <span>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  if (disc) {
+                                    infoModal.open(
+                                      "discipline-power",
+                                      `${disc.name}|${p.level}`,
+                                      p.name,
+                                    );
+                                  }
+                                }}
+                                className="underline decoration-dotted decoration-blood/30 underline-offset-2 transition-colors hover:text-blood hover:decoration-blood focus:outline-none focus:text-blood"
+                              >
                                 <span className="font-semibold text-blood">·{p.level}·</span>{" "}
                                 {p.name}
-                              </span>
+                              </button>
                             </Tooltip>
                           </li>
                         ))}
                     </ul>
                   )}
+                  {disc ? (
+                    <div className="flex justify-end">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          infoModal.open("discipline", disc.name, disc.name);
+                        }}
+                        className="font-heading text-[0.55rem] uppercase tracking-widest text-muted-foreground underline decoration-dotted decoration-blood/30 underline-offset-2 transition-colors hover:text-blood hover:decoration-blood focus:outline-none focus:text-blood"
+                      >
+                        Ver disciplina
+                      </button>
+                    </div>
+                  ) : null}
                 </div>
               );
             })
@@ -751,6 +805,25 @@ export function CharacterSheetForm({
                         ))}
                       </select>
                     </Tooltip>
+                    {cat ? (
+                      <Button
+                        type="button"
+                        size="icon-sm"
+                        variant="ghost"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          infoModal.open("merit-flaw", cat.name, cat.name);
+                        }}
+                        aria-label={`Ver detalle de ${cat.name}`}
+                        title="Ver detalle"
+                        className="text-muted-foreground hover:text-blood"
+                      >
+                        <span aria-hidden className="font-heading text-[0.6rem] uppercase tracking-widest">
+                          ?
+                        </span>
+                      </Button>
+                    ) : null}
                     {!readOnly && (
                       <Button
                         type="button"
@@ -856,24 +929,36 @@ export function CharacterSheetForm({
             </Tooltip>
           }
         >
-          {HEALTH_LEVELS.map((h) => (
-            <div key={h.key} className="flex items-center justify-between gap-2">
-              <Tooltip title={h.label} content={HEALTH_TOOLTIPS[h.label]}>
-                <span className="flex flex-1 items-center justify-between font-serif text-sm">
-                  {h.label}
-                  <span className="ml-2 text-xs text-muted-foreground">
-                    {h.penalty}
-                  </span>
-                </span>
-              </Tooltip>
-              <HealthToggle
-                value={value[h.key] ?? 0}
-                onChange={(v: DamageState) => patch({ [h.key]: v })}
-                readOnly={readOnly}
-                ariaLabel={`Daño ${h.label}`}
-              />
-            </div>
-          ))}
+          {HEALTH_LEVELS.map((h) => {
+            // h.key = "healthBruised", "healthHurt", ... → mapear a "bruised", "hurt", ...
+            const vaultKey = h.key.replace(/^health/, "").toLowerCase();
+            return (
+              <div key={h.key} className="flex items-center justify-between gap-2">
+                <Tooltip title={h.label} content={HEALTH_TOOLTIPS[h.label]}>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      infoModal.open("health-level", vaultKey, h.label);
+                    }}
+                    className="flex flex-1 items-center justify-between font-serif text-sm underline decoration-dotted decoration-blood/30 underline-offset-2 transition-colors hover:text-blood hover:decoration-blood focus:outline-none focus:text-blood"
+                  >
+                    {h.label}
+                    <span className="ml-2 text-xs text-muted-foreground">
+                      {h.penalty}
+                    </span>
+                  </button>
+                </Tooltip>
+                <HealthToggle
+                  value={value[h.key] ?? 0}
+                  onChange={(v: DamageState) => patch({ [h.key]: v })}
+                  readOnly={readOnly}
+                  ariaLabel={`Daño ${h.label}`}
+                />
+              </div>
+            );
+          })}
         </AttrBlock>
       </div>
               </div>
@@ -894,6 +979,12 @@ export function CharacterSheetForm({
                 removeArmorRow={removeArmorRow}
                 onCreateWeapon={onCreateWeapon}
                 onCreateArmor={onCreateArmor}
+                onInfoWeapon={(id, fallback) =>
+                  infoModal.open("weapon", id, fallback)
+                }
+                onInfoArmor={(id, fallback) =>
+                  infoModal.open("armor", id, fallback)
+                }
               />
             ) : null}
 
@@ -944,6 +1035,8 @@ export function CharacterSheetForm({
           );
         }}
       />
+
+      {infoModal.modal}
     </div>
   );
 }
@@ -990,6 +1083,7 @@ function DotRow({
   readOnly,
   specialty,
   onOpenSpecialty,
+  onInfo,
 }: {
   label: string;
   tooltip?: string;
@@ -1002,14 +1096,32 @@ function DotRow({
   specialty?: string | null;
   /** Si está definido, se muestra el botón de especialidad cuando value>=4. */
   onOpenSpecialty?: () => void;
+  /** Si está definido, el label es clicable y abre el InfoModal. */
+  onInfo?: () => void;
 }) {
   const canHaveSpecialty = value >= 4 && !!onOpenSpecialty;
   const hasSpecialty = !!specialty && specialty.trim().length > 0;
 
+  const labelNode = onInfo ? (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        onInfo();
+      }}
+      className="font-serif text-sm underline decoration-dotted decoration-blood/30 underline-offset-2 transition-colors hover:text-blood hover:decoration-blood focus:outline-none focus:text-blood"
+    >
+      {label}
+    </button>
+  ) : (
+    <span className="font-serif text-sm">{label}</span>
+  );
+
   return (
     <div className="flex items-center justify-between gap-2">
       <Tooltip title={label} content={tooltip}>
-        <span className="font-serif text-sm">{label}</span>
+        {labelNode}
       </Tooltip>
       <div className="flex items-center gap-1.5">
         {canHaveSpecialty ? (
@@ -1127,6 +1239,10 @@ interface EquipmentTabProps {
   removeArmorRow: (i: number) => void;
   onCreateWeapon?: () => void;
   onCreateArmor?: () => void;
+  /** Abre el InfoModal para un arma del catálogo (por id o name). */
+  onInfoWeapon?: (id: string, fallbackTitle?: string) => void;
+  /** Abre el InfoModal para una armadura del catálogo. */
+  onInfoArmor?: (id: string, fallbackTitle?: string) => void;
 }
 
 function EquipmentTab({
@@ -1143,6 +1259,8 @@ function EquipmentTab({
   removeArmorRow,
   onCreateWeapon,
   onCreateArmor,
+  onInfoWeapon,
+  onInfoArmor,
 }: EquipmentTabProps) {
   const meleeWeapons = useMemo(
     () => weapons.filter((w) => w.kind === "MELEE"),
@@ -1194,6 +1312,7 @@ function EquipmentTab({
         updateWeaponRow={updateWeaponRow}
         removeWeaponRow={removeWeaponRow}
         onCreateWeapon={onCreateWeapon}
+        onInfoWeapon={onInfoWeapon}
       />
 
       <WeaponSection
@@ -1209,6 +1328,7 @@ function EquipmentTab({
         updateWeaponRow={updateWeaponRow}
         removeWeaponRow={removeWeaponRow}
         onCreateWeapon={onCreateWeapon}
+        onInfoWeapon={onInfoWeapon}
       />
 
       <ArmorSection
@@ -1220,6 +1340,7 @@ function EquipmentTab({
         updateArmorRow={updateArmorRow}
         removeArmorRow={removeArmorRow}
         onCreateArmor={onCreateArmor}
+        onInfoArmor={onInfoArmor}
       />
     </div>
   );
@@ -1238,6 +1359,7 @@ interface WeaponSectionProps {
   updateWeaponRow: (i: number, p: Partial<CharacterWeapon>) => void;
   removeWeaponRow: (i: number) => void;
   onCreateWeapon?: () => void;
+  onInfoWeapon?: (id: string, fallbackTitle?: string) => void;
 }
 
 function WeaponSection({
@@ -1253,6 +1375,7 @@ function WeaponSection({
   updateWeaponRow,
   removeWeaponRow,
   onCreateWeapon,
+  onInfoWeapon,
 }: WeaponSectionProps) {
   // Agrupado por categoría para el <select>
   const grouped = useMemo(() => {
@@ -1337,7 +1460,21 @@ function WeaponSection({
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
                     <p className="font-heading text-sm uppercase tracking-wide text-foreground">
-                      {w?.name ?? "Arma desconocida"}
+                      {w && onInfoWeapon ? (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            onInfoWeapon(w.id, w.name);
+                          }}
+                          className="underline decoration-dotted decoration-blood/30 underline-offset-2 transition-colors hover:text-blood hover:decoration-blood focus:outline-none focus:text-blood"
+                        >
+                          {w.name}
+                        </button>
+                      ) : (
+                        w?.name ?? "Arma desconocida"
+                      )}
                       {w?.system === false ? (
                         <span className="ml-2 rounded border border-blood/40 px-1.5 py-0.5 align-middle font-mono text-[0.55rem] uppercase tracking-widest text-blood">
                           Custom
@@ -1413,6 +1550,7 @@ interface ArmorSectionProps {
   updateArmorRow: (i: number, p: Partial<CharacterArmor>) => void;
   removeArmorRow: (i: number) => void;
   onCreateArmor?: () => void;
+  onInfoArmor?: (id: string, fallbackTitle?: string) => void;
 }
 
 function ArmorSection({
@@ -1424,6 +1562,7 @@ function ArmorSection({
   updateArmorRow,
   removeArmorRow,
   onCreateArmor,
+  onInfoArmor,
 }: ArmorSectionProps) {
   return (
     <section className="space-y-3">
@@ -1489,7 +1628,21 @@ function ArmorSection({
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
                     <p className="font-heading text-sm uppercase tracking-wide text-foreground">
-                      {a?.name ?? "Armadura desconocida"}
+                      {a && onInfoArmor ? (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            onInfoArmor(a.id, a.name);
+                          }}
+                          className="underline decoration-dotted decoration-blood/30 underline-offset-2 transition-colors hover:text-blood hover:decoration-blood focus:outline-none focus:text-blood"
+                        >
+                          {a.name}
+                        </button>
+                      ) : (
+                        a?.name ?? "Armadura desconocida"
+                      )}
                       {a?.system === false ? (
                         <span className="ml-2 rounded border border-blood/40 px-1.5 py-0.5 align-middle font-mono text-[0.55rem] uppercase tracking-widest text-blood">
                           Custom
