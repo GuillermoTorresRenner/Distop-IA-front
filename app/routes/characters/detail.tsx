@@ -16,22 +16,28 @@ import { useConfirm } from "~/hooks/use-confirm";
 import { useUnsavedChangesGuard } from "~/hooks/use-unsaved-changes-guard";
 import { isCharacterInputDirty } from "~/lib/character-sheet";
 import {
+  listAbilitiesInfo,
   listArchetypes,
   listArmors,
+  listAttributesInfo,
   listBackgrounds,
   listClans,
   listDisciplines,
   listMeritsFlaws,
+  listVirtues,
   listWeaponCategories,
   listWeapons,
 } from "~/lib/api/catalog/catalog.api";
 import type {
+  AbilityInfo,
   Archetype,
   Armor,
+  AttributeInfo,
   Background,
   Clan,
   Discipline,
   MeritFlaw,
+  Virtue,
   Weapon,
   WeaponCategory,
 } from "~/lib/api/catalog/catalog.types";
@@ -133,6 +139,9 @@ export default function CharacterDetailRoute() {
   const [disciplines, setDisciplines] = useState<Discipline[]>([]);
   const [meritsFlaws, setMeritsFlaws] = useState<MeritFlaw[]>([]);
   const [backgroundsCatalog, setBackgroundsCatalog] = useState<Background[]>([]);
+  const [attributes, setAttributes] = useState<AttributeInfo[]>([]);
+  const [abilities, setAbilities] = useState<AbilityInfo[]>([]);
+  const [virtues, setVirtues] = useState<Virtue[]>([]);
   const [weapons, setWeapons] = useState<Weapon[]>([]);
   const [weaponCategories, setWeaponCategories] = useState<WeaponCategory[]>([]);
   const [armors, setArmors] = useState<Armor[]>([]);
@@ -164,11 +173,14 @@ export default function CharacterDetailRoute() {
       listDisciplines(),
       listMeritsFlaws(),
       listBackgrounds(),
+      listAttributesInfo(),
+      listAbilitiesInfo(),
+      listVirtues(),
       listWeapons(),
       listWeaponCategories(),
       listArmors(),
     ])
-      .then(([c, a, cl, d, m, b, w, wc, ar]) => {
+      .then(([c, a, cl, d, m, b, attrs, abil, virt, w, wc, ar]) => {
         setCharacter(c);
         setValue(toInput(c));
         setArchetypes(a);
@@ -176,6 +188,9 @@ export default function CharacterDetailRoute() {
         setDisciplines(d);
         setMeritsFlaws(m);
         setBackgroundsCatalog(b);
+        setAttributes(attrs);
+        setAbilities(abil);
+        setVirtues(virt);
         setWeapons(w);
         setWeaponCategories(wc);
         setArmors(ar);
@@ -307,6 +322,9 @@ export default function CharacterDetailRoute() {
           disciplines={disciplines}
           meritsFlaws={meritsFlaws}
           backgrounds={backgroundsCatalog}
+          attributes={attributes}
+          abilities={abilities}
+          virtues={virtues}
           weapons={weapons}
           weaponCategories={weaponCategories}
           armors={armors}

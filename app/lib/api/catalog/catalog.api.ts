@@ -9,6 +9,7 @@ import type {
   Discipline,
   HealthLevelInfo,
   MeritFlaw,
+  Virtue,
   Weapon,
   WeaponCategory,
   WeaponDamageBase,
@@ -54,6 +55,11 @@ export async function listBackgrounds(): Promise<Background[]> {
 
 export async function listClans(): Promise<Clan[]> {
   const { data } = await apiClient.get<Clan[]>("/catalog/clans");
+  return data;
+}
+
+export async function listVirtues(): Promise<Virtue[]> {
+  const { data } = await apiClient.get<Virtue[]>("/catalog/virtues");
   return data;
 }
 

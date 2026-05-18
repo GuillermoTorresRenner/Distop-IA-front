@@ -8,32 +8,32 @@ export type AbilityCategory = "TALENT" | "SKILL" | "KNOWLEDGE";
 export const TALENTS = [
   "Alerta",
   "Atletismo",
-  "Conocimiento de la Calle",
+  "Callejeo",
   "Empatía",
   "Esquivar",
   "Expresión",
   "Intimidación",
   "Liderazgo",
-  "Pelea Callejera",
+  "Pelea",
   "Subterfugio",
 ] as const;
 
 export const SKILLS = [
-  "Animales",
-  "Armas Cuerpo a Cuerpo",
-  "Artesanía",
+  "Armas C. C.",
+  "Armas de Fuego",
   "Conducir",
   "Etiqueta",
   "Interpretación",
-  "Pelea con Armas",
+  "Pericias",
+  "Seguridad",
   "Sigilo",
   "Supervivencia",
-  "Tiroteo",
+  "Trato con Animales",
 ] as const;
 
 export const KNOWLEDGES = [
   "Academicismo",
-  "Ciencias",
+  "Ciencia",
   "Finanzas",
   "Informática",
   "Investigación",

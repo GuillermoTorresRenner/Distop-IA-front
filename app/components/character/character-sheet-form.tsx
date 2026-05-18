@@ -12,12 +12,15 @@ import { Input } from "~/components/ui/input";
 import { Tabs } from "~/components/common/tabs";
 import { Textarea } from "~/components/ui/textarea";
 import type {
+  AbilityInfo,
   Archetype,
   Armor,
+  AttributeInfo,
   Background,
   Clan,
   Discipline,
   MeritFlaw,
+  Virtue,
   Weapon,
   WeaponCategory,
 } from "~/lib/api/catalog/catalog.types";
@@ -61,6 +64,12 @@ interface Props {
   /** Catálogo de Trasfondos V20 para el dropdown. Si no llega, la UI cae a
    *  input libre (compat con consumidores antiguos). */
   backgrounds?: Background[];
+  /** Catálogo de Atributos con tooltips del backend (opcional). */
+  attributes?: AttributeInfo[];
+  /** Catálogo de Habilidades con tooltips del backend (opcional). */
+  abilities?: AbilityInfo[];
+  /** Catálogo de Virtudes con tooltips del backend (opcional). */
+  virtues?: Virtue[];
   weapons: Weapon[];
   weaponCategories: WeaponCategory[];
   armors: Armor[];
@@ -82,6 +91,9 @@ export function CharacterSheetForm({
   disciplines,
   meritsFlaws,
   backgrounds,
+  attributes,
+  abilities,
+  virtues,
   weapons,
   weaponCategories,
   armors,
@@ -91,11 +103,33 @@ export function CharacterSheetForm({
   playerName,
 }: Props) {
   const backgroundCatalog = backgrounds ?? [];
+  const attributesCatalog = attributes ?? [];
+  const abilitiesCatalog = abilities ?? [];
+  const virtuesCatalog = virtues ?? [];
+
   const backgroundsByName = useMemo(() => {
     const m = new Map<string, Background>();
     for (const b of backgroundCatalog) m.set(b.name, b);
     return m;
   }, [backgroundCatalog]);
+
+  const attributesByLabel = useMemo(() => {
+    const m = new Map<string, AttributeInfo>();
+    for (const a of attributesCatalog) m.set(a.name, a);
+    return m;
+  }, [attributesCatalog]);
+
+  const abilitiesByName = useMemo(() => {
+    const m = new Map<string, AbilityInfo>();
+    for (const a of abilitiesCatalog) m.set(a.name, a);
+    return m;
+  }, [abilitiesCatalog]);
+
+  const virtuesByName = useMemo(() => {
+    const m = new Map<string, Virtue>();
+    for (const v of virtuesCatalog) m.set(v.name, v);
+    return m;
+  }, [virtuesCatalog]);
   // Especialidad abierta en el modal (si hay). Vacía mientras el modal está cerrado.
   const [specialtyEditing, setSpecialtyEditing] = useState<
     { category: CharacterAbility["category"]; name: string } | null
@@ -258,6 +292,25 @@ export function CharacterSheetForm({
   const selectedClan = clans.find((c) => c.id === value.clanId);
   const selectedNature = archetypes.find((a) => a.id === value.natureId);
   const selectedDemeanor = archetypes.find((a) => a.id === value.demeanorId);
+
+  /**
+   * Resuelve un tooltip de catálogo o usa el fallback hardcoded.
+   * Prefiere el backend (si no está vacío) sobre el fallback.
+   */
+  function tooltipForAttribute(name: string): string | undefined {
+    const catalogEntry = attributesByLabel.get(name);
+    return catalogEntry?.tooltip ?? ATTR_TOOLTIPS[name as keyof typeof ATTR_TOOLTIPS];
+  }
+
+  function tooltipForAbility(name: string): string | undefined {
+    const catalogEntry = abilitiesByName.get(name);
+    return catalogEntry?.tooltip ?? ABILITY_TOOLTIPS[name as keyof typeof ABILITY_TOOLTIPS];
+  }
+
+  function tooltipForVirtue(name: string): string | undefined {
+    const catalogEntry = virtuesByName.get(name);
+    return catalogEntry?.tooltip ?? VIRTUE_TOOLTIPS[name as keyof typeof VIRTUE_TOOLTIPS];
+  }
 
   return (
     <div className="space-y-8">
@@ -444,7 +497,7 @@ export function CharacterSheetForm({
             <DotRow
               key={a.key}
               label={a.label}
-              tooltip={ATTR_TOOLTIPS[a.label]}
+              tooltip={tooltipForAttribute(a.label)}
               value={value[a.key] ?? 1}
               min={1}
               max={5}
@@ -459,7 +512,7 @@ export function CharacterSheetForm({
             <DotRow
               key={a.key}
               label={a.label}
-              tooltip={ATTR_TOOLTIPS[a.label]}
+              tooltip={tooltipForAttribute(a.label)}
               value={value[a.key] ?? 1}
               min={1}
               max={5}
@@ -474,7 +527,7 @@ export function CharacterSheetForm({
             <DotRow
               key={a.key}
               label={a.label}
-              tooltip={ATTR_TOOLTIPS[a.label]}
+              tooltip={tooltipForAttribute(a.label)}
               value={value[a.key] ?? 1}
               min={1}
               max={5}
@@ -494,7 +547,7 @@ export function CharacterSheetForm({
             <DotRow
               key={name}
               label={name}
-              tooltip={ABILITY_TOOLTIPS[name]}
+              tooltip={tooltipForAbility(name)}
               value={getAbility("TALENT", name)}
               min={0}
               max={5}
@@ -513,7 +566,7 @@ export function CharacterSheetForm({
             <DotRow
               key={name}
               label={name}
-              tooltip={ABILITY_TOOLTIPS[name]}
+              tooltip={tooltipForAbility(name)}
               value={getAbility("SKILL", name)}
               min={0}
               max={5}
@@ -532,7 +585,7 @@ export function CharacterSheetForm({
             <DotRow
               key={name}
               label={name}
-              tooltip={ABILITY_TOOLTIPS[name]}
+              tooltip={tooltipForAbility(name)}
               value={getAbility("KNOWLEDGE", name)}
               min={0}
               max={5}
@@ -728,8 +781,8 @@ export function CharacterSheetForm({
             label={value.virtueScheme === "PATH" ? "Convicción" : "Conciencia"}
             tooltip={
               value.virtueScheme === "PATH"
-                ? VIRTUE_TOOLTIPS.Convicción
-                : VIRTUE_TOOLTIPS.Conciencia
+                ? tooltipForVirtue("Convicción")
+                : tooltipForVirtue("Conciencia")
             }
             value={value.conscience ?? 1}
             min={1}
@@ -741,8 +794,8 @@ export function CharacterSheetForm({
             label={value.virtueScheme === "PATH" ? "Instintos" : "Autocontrol"}
             tooltip={
               value.virtueScheme === "PATH"
-                ? VIRTUE_TOOLTIPS.Instintos
-                : VIRTUE_TOOLTIPS.Autocontrol
+                ? tooltipForVirtue("Instintos")
+                : tooltipForVirtue("Autocontrol")
             }
             value={value.selfControl ?? 1}
             min={1}
@@ -752,7 +805,7 @@ export function CharacterSheetForm({
           />
           <DotRow
             label="Coraje"
-            tooltip={VIRTUE_TOOLTIPS.Coraje}
+            tooltip={tooltipForVirtue("Coraje")}
             value={value.courage ?? 1}
             min={1}
             max={5}

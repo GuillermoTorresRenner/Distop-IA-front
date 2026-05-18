@@ -17,6 +17,7 @@ import {
   listDisciplines,
   listHealthLevelsInfo,
   listMeritsFlaws,
+  listVirtues,
   listWeapons,
 } from "~/lib/api/catalog/catalog.api";
 import type {
@@ -28,12 +29,14 @@ import type {
   Discipline,
   HealthLevelInfo,
   MeritFlaw,
+  Virtue,
   Weapon,
 } from "~/lib/api/catalog/catalog.types";
 
 interface Bundle {
   attributes: AttributeInfo[];
   abilities: AbilityInfo[];
+  virtues: Virtue[];
   healthLevels: HealthLevelInfo[];
   disciplines: Discipline[];
   meritsFlaws: MeritFlaw[];
@@ -53,6 +56,7 @@ export async function loadCatalogBundle(): Promise<Bundle> {
     const [
       attributes,
       abilities,
+      virtues,
       healthLevels,
       disciplines,
       meritsFlaws,
@@ -63,6 +67,7 @@ export async function loadCatalogBundle(): Promise<Bundle> {
     ] = await Promise.all([
       listAttributesInfo(),
       listAbilitiesInfo(),
+      listVirtues(),
       listHealthLevelsInfo(),
       listDisciplines(),
       listMeritsFlaws(),
@@ -74,6 +79,7 @@ export async function loadCatalogBundle(): Promise<Bundle> {
     cache = {
       attributes,
       abilities,
+      virtues,
       healthLevels,
       disciplines,
       meritsFlaws,

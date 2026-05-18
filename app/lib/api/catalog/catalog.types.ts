@@ -2,6 +2,7 @@ export interface Archetype {
   id: string;
   name: string;
   description: string | null;
+  tooltip: string | null;
   order: number;
 }
 
@@ -14,6 +15,7 @@ export interface AttributeInfo {
   name: string;
   category: AttributeCategoryInfo;
   description: string | null;
+  tooltip: string | null;
   order: number;
 }
 
@@ -23,6 +25,7 @@ export interface AbilityInfo {
   name: string;
   category: AbilityCategoryInfo;
   description: string | null;
+  tooltip: string | null;
   order: number;
 }
 
@@ -32,6 +35,7 @@ export interface HealthLevelInfo {
   name: string;
   penalty: number;
   description: string | null;
+  tooltip: string | null;
   order: number;
 }
 
@@ -43,6 +47,8 @@ export interface DisciplinePower {
   description: string | null;
   /** Resumen corto para el tooltip. */
   summary?: string | null;
+  /** Tooltip adicional para catálogo. */
+  tooltip?: string | null;
   /** Sangre que cuesta activar. 0 = pasivo / gratuito. */
   bloodCost?: number;
   /** Clave del atributo en la tirada activa (formato Character). */
@@ -57,6 +63,7 @@ export interface Discipline {
   id: string;
   name: string;
   description: string | null;
+  tooltip: string | null;
   order: number;
   powers: DisciplinePower[];
 }
@@ -70,6 +77,7 @@ export interface MeritFlaw {
   value: number;
   category: string | null;
   description: string | null;
+  tooltip: string | null;
   order: number;
 }
 
@@ -87,6 +95,7 @@ export interface Background {
   /** Agrupador opcional para la UI (Social, Sobrenatural, Material). */
   category: string | null;
   description: string | null;
+  tooltip: string | null;
   order: number;
 }
 
@@ -95,6 +104,7 @@ export interface Clan {
   name: string;
   sect: string | null;
   description: string | null;
+  tooltip: string | null;
   disciplines: string | null;
   weakness: string | null;
   order: number;
@@ -125,6 +135,8 @@ export interface Weapon {
   rate: string | null;
   magazine: number | null;
   concealment: string | null;
+  description: string | null;
+  tooltip: string | null;
   notes: string | null;
   order: number;
   system: boolean;
@@ -137,7 +149,17 @@ export interface Armor {
   rating: number;
   penalty: number;
   description: string | null;
+  tooltip: string | null;
   order: number;
   system: boolean;
   userId: string | null;
+}
+
+export interface Virtue {
+  id: string;
+  key: string;
+  name: string;
+  description: string | null;
+  tooltip: string | null;
+  order: number;
 }

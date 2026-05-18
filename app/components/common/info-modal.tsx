@@ -149,7 +149,7 @@ export function InfoModal({
                 </ul>
               ) : null}
               {hasContent ? (
-                <div className="prose prose-sm prose-invert max-w-none font-serif text-sm leading-relaxed text-foreground/90">
+                <div className="markdown-content">
                   <ReactMarkdown
                     remarkPlugins={[remarkGfm]}
                     urlTransform={(url) => url}

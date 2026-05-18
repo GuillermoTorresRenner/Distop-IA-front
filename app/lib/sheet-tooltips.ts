@@ -1,6 +1,11 @@
 /**
  * Descripciones cortas para cada elemento de la hoja de personaje (V20).
  * Curadas a partir del manual; mantenemos 1-2 frases por entrada.
+ *
+ * NOTA: Estos son FALLBACKS para cuando el catálogo del backend no está cargado.
+ * En la hoja de personaje (`CharacterSheetForm`), primero se intenta usar los
+ * tooltips del backend (`AttributeInfo.tooltip`, `AbilityInfo.tooltip`, etc.);
+ * si están vacíos, se caen a estas constantes hardcoded.
  */
 
 export const ATTR_TOOLTIPS: Record<string, string> = {

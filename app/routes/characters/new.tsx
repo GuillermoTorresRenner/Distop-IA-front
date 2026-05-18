@@ -11,22 +11,28 @@ import { FormAlert } from "~/components/common/form-alert";
 import { PageHeader } from "~/components/common/page-header";
 import { Button } from "~/components/ui/button";
 import {
+  listAbilitiesInfo,
   listArchetypes,
   listArmors,
+  listAttributesInfo,
   listBackgrounds,
   listClans,
   listDisciplines,
   listMeritsFlaws,
+  listVirtues,
   listWeaponCategories,
   listWeapons,
 } from "~/lib/api/catalog/catalog.api";
 import type {
+  AbilityInfo,
   Archetype,
   Armor,
+  AttributeInfo,
   Background,
   Clan,
   Discipline,
   MeritFlaw,
+  Virtue,
   Weapon,
   WeaponCategory,
 } from "~/lib/api/catalog/catalog.types";
@@ -69,6 +75,9 @@ export default function NewCharacterRoute() {
   const [disciplines, setDisciplines] = useState<Discipline[]>([]);
   const [meritsFlaws, setMeritsFlaws] = useState<MeritFlaw[]>([]);
   const [backgroundsCatalog, setBackgroundsCatalog] = useState<Background[]>([]);
+  const [attributes, setAttributes] = useState<AttributeInfo[]>([]);
+  const [abilities, setAbilities] = useState<AbilityInfo[]>([]);
+  const [virtues, setVirtues] = useState<Virtue[]>([]);
   const [weapons, setWeapons] = useState<Weapon[]>([]);
   const [weaponCategories, setWeaponCategories] = useState<WeaponCategory[]>([]);
   const [armors, setArmors] = useState<Armor[]>([]);
@@ -99,6 +108,9 @@ export default function NewCharacterRoute() {
       listDisciplines(),
       listMeritsFlaws(),
       listBackgrounds(),
+      listAttributesInfo(),
+      listAbilitiesInfo(),
+      listVirtues(),
       listWeapons(),
       listWeaponCategories(),
       listArmors(),
@@ -107,12 +119,15 @@ export default function NewCharacterRoute() {
 
     Promise.all(tasks)
       .then((results) => {
-        const [a, c, d, m, bg, w, wc, ar, ch] = results as [
+        const [a, c, d, m, bg, attrs, abil, virt, w, wc, ar, ch] = results as [
           Archetype[],
           Clan[],
           Discipline[],
           MeritFlaw[],
           Background[],
+          AttributeInfo[],
+          AbilityInfo[],
+          Virtue[],
           Weapon[],
           WeaponCategory[],
           Armor[],
@@ -123,6 +138,9 @@ export default function NewCharacterRoute() {
         setDisciplines(d);
         setMeritsFlaws(m);
         setBackgroundsCatalog(bg);
+        setAttributes(attrs);
+        setAbilities(abil);
+        setVirtues(virt);
         setWeapons(w);
         setWeaponCategories(wc);
         setArmors(ar);
@@ -225,6 +243,9 @@ export default function NewCharacterRoute() {
           disciplines={disciplines}
           meritsFlaws={meritsFlaws}
           backgrounds={backgroundsCatalog}
+          attributes={attributes}
+          abilities={abilities}
+          virtues={virtues}
           weapons={weapons}
           weaponCategories={weaponCategories}
           armors={armors}
