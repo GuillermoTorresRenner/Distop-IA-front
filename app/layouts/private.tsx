@@ -40,7 +40,10 @@ export default function PrivateLayout() {
   return (
     <div className="flex min-h-svh flex-col bg-background">
       <Navbar user={user} invitationCount={invitationCount} />
-      <main className="mx-auto w-full max-w-7xl flex-1 px-3 py-4 sm:px-6 sm:py-8">
+      {/* Viewport unificado: 90vw útil (padding 5vw a cada lado) en todos
+          los anchos. En mobile (<sm) se relaja a `px-3` para no comprimir
+          demasiado el contenido. */}
+      <main className="w-full flex-1 px-3 py-4 sm:py-8 sm:px-[5vw]">
         <Outlet />
       </main>
     </div>

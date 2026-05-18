@@ -265,8 +265,8 @@ export function DiceRollerVtM({
       : `La especialidad requiere habilidad ≥ ${MIN_SKILL_FOR_SPECIALTY}. La habilidad seleccionada tiene ${skillRating}.`;
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-3 p-3">
-      <div className="grid grid-cols-2 gap-3">
+    <form onSubmit={handleSubmit} className="space-y-2 p-2">
+      <div className="grid grid-cols-2 gap-2">
         <NumberStepper
           label="Pool (d10)"
           value={pool}

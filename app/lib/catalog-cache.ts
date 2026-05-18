@@ -12,6 +12,7 @@ import {
   listAbilitiesInfo,
   listArmors,
   listAttributesInfo,
+  listBackgrounds,
   listClans,
   listDisciplines,
   listHealthLevelsInfo,
@@ -22,6 +23,7 @@ import type {
   AbilityInfo,
   Armor,
   AttributeInfo,
+  Background,
   Clan,
   Discipline,
   HealthLevelInfo,
@@ -35,6 +37,7 @@ interface Bundle {
   healthLevels: HealthLevelInfo[];
   disciplines: Discipline[];
   meritsFlaws: MeritFlaw[];
+  backgrounds: Background[];
   clans: Clan[];
   weapons: Weapon[];
   armors: Armor[];
@@ -53,6 +56,7 @@ export async function loadCatalogBundle(): Promise<Bundle> {
       healthLevels,
       disciplines,
       meritsFlaws,
+      backgrounds,
       clans,
       weapons,
       armors,
@@ -62,6 +66,7 @@ export async function loadCatalogBundle(): Promise<Bundle> {
       listHealthLevelsInfo(),
       listDisciplines(),
       listMeritsFlaws(),
+      listBackgrounds(),
       listClans(),
       listWeapons(),
       listArmors(),
@@ -72,6 +77,7 @@ export async function loadCatalogBundle(): Promise<Bundle> {
       healthLevels,
       disciplines,
       meritsFlaws,
+      backgrounds,
       clans,
       weapons,
       armors,
@@ -95,6 +101,7 @@ export type InfoKind =
   | "discipline"
   | "discipline-power"
   | "merit-flaw"
+  | "background"
   | "clan"
   | "weapon"
   | "armor"
@@ -187,6 +194,17 @@ export function resolveInfoEntry(
         subtitle: `${m.kind === "MERIT" ? "Mérito" : "Defecto"}${m.category ? ` · ${m.category}` : ""}`,
         body: m.description,
         chips: [`${sign}${m.value} pts`],
+      };
+    }
+    case "background": {
+      const b =
+        bundle.backgrounds.find((x) => x.name === identifier) ??
+        bundle.backgrounds.find((x) => x.key === identifier);
+      if (!b) return null;
+      return {
+        title: b.name,
+        subtitle: `Trasfondo${b.category ? ` · ${b.category}` : ""}`,
+        body: b.description,
       };
     }
     case "clan": {

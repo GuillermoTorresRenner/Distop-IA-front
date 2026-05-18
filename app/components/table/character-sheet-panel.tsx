@@ -292,7 +292,7 @@ export function CharacterSheetPanel({
   return (
     <div className="flex h-full flex-col overflow-hidden">
       {/* Identidad */}
-      <header className="border-b border-border px-3 py-2">
+      <header className="border-b border-border px-2 py-1.5">
         <h3 className="truncate font-heading text-base uppercase tracking-wider">
           {character.name}
         </h3>
@@ -311,7 +311,7 @@ export function CharacterSheetPanel({
       {/* Preview de selección click-to-roll. Si sólo hay habilidad (sin atributo)
           mostramos un hint para guiar al usuario; V20 exige siempre un atributo. */}
       {canRoll ? (
-        <div className="border-b border-blood bg-blood/10 px-3 py-2 text-sm">
+        <div className="border-b border-blood bg-blood/10 px-2 py-1.5 text-sm">
           <div className="flex items-center justify-between gap-2">
             <div className="min-w-0 flex-1">
               <p className="text-muted-foreground">{label}</p>
@@ -359,7 +359,7 @@ export function CharacterSheetPanel({
           </div>
         </div>
       ) : selection.abilityName ? (
-        <div className="flex items-center justify-between gap-2 border-b border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+        <div className="flex items-center justify-between gap-2 border-b border-amber-500/30 bg-amber-500/10 px-2 py-1.5 text-xs text-amber-200">
           <span>
             Selecciona un <strong className="font-heading">atributo</strong>{" "}
             para completar la tirada. Una habilidad por sí sola no se tira.
@@ -376,7 +376,7 @@ export function CharacterSheetPanel({
         </div>
       ) : null}
 
-      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden scrollbar-gutter-stable themed-scrollbar p-3 space-y-4">
+      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden scrollbar-gutter-stable themed-scrollbar p-2 space-y-2">
         {/* Estado editable (autosave) — colapsable, default cerrado. */}
         <StateSection
           character={character}
@@ -393,11 +393,11 @@ export function CharacterSheetPanel({
           title="Atributos"
           storageKey={collapseKey("atributos")}
         >
-          <div className="grid grid-cols-1 gap-2 md:grid-cols-3 *:min-w-0 pt-1">
+          <div className="grid grid-cols-1 gap-1.5 md:grid-cols-3 *:min-w-0 pt-0.5">
             {(["physical", "social", "mental"] as const).map((group) => (
               <article
                 key={group}
-                className="rounded-md border border-border/60 bg-background/30 p-2"
+                className="rounded-md border border-border/60 bg-background/30 p-1.5"
               >
                 <p className="mb-1.5 text-[10px] font-heading uppercase tracking-wider text-muted-foreground">
                   {ATTR_GROUP_LABEL[group]}
@@ -423,7 +423,7 @@ export function CharacterSheetPanel({
           title="Habilidades"
           storageKey={collapseKey("habilidades")}
         >
-          <div className="grid grid-cols-1 gap-2 md:grid-cols-3 *:min-w-0 pt-1">
+          <div className="grid grid-cols-1 gap-1.5 md:grid-cols-3 *:min-w-0 pt-0.5">
             {(["TALENT", "SKILL", "KNOWLEDGE"] as AbilityCategory[]).map((cat) => {
               const items = character.abilities
                 .filter((a) => a.category === cat)
@@ -431,7 +431,7 @@ export function CharacterSheetPanel({
               return (
                 <article
                   key={cat}
-                  className="rounded-md border border-border/60 bg-background/30 p-2"
+                  className="rounded-md border border-border/60 bg-background/30 p-1.5"
                 >
                   <p className="mb-1.5 text-[10px] font-heading uppercase tracking-wider text-muted-foreground">
                     {categoryLabel(cat)}
@@ -786,7 +786,7 @@ function StateSection({
   );
 
   const content = (
-    <div className="space-y-3 pt-1">
+    <div className="space-y-2 pt-0.5">
       {error ? <p className="text-xs italic text-blood">{error}</p> : null}
 
       <StateField
@@ -871,7 +871,7 @@ function StateSection({
   }
 
   return (
-    <section className="space-y-3 rounded-md border border-border bg-card/50 p-2">
+    <section className="space-y-2 rounded-md border border-border bg-card/50 p-1.5">
       <div className="flex items-center justify-between gap-2">
         <h4 className="font-heading text-xs uppercase tracking-wider text-blood">
           Estado
@@ -1186,12 +1186,12 @@ function DisciplinesSection({
   }
 
   const body = (
-    <div className="space-y-2 pt-1">
+    <div className="space-y-1.5 pt-0.5">
       {error ? <p className="mb-2 text-xs text-blood">{error}</p> : null}
       {learned.map(({ discipline, level, powers }) => (
         <article
           key={discipline.id}
-          className="rounded-md border border-border/60 bg-background/30 p-2"
+          className="rounded-md border border-border/60 bg-background/30 p-1.5"
         >
           <header className="mb-1.5 flex items-baseline justify-between text-[10px] font-heading uppercase tracking-wider text-muted-foreground">
             <span className="text-foreground/90">{discipline.name}</span>

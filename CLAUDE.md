@@ -194,11 +194,143 @@ Flujo de invitación a usuarios existentes:
 3. Si la cookie sigue activa, layout privado deja entrar; si no, redirige a `/login` y luego a la ruta. (Se puede mejorar con `?next=` desde el guard.)
 4. `/invitations/:token` muestra preview y permite aceptar. Backend valida que `email del invite === email del user` antes de añadir al `ChronicleMember`.
 
+## Personajes — hoja con pestañas, autocálculos V20 y guard de cambios
+
+**Hoja** (`app/components/character/character-sheet-form.tsx`):
+
+Usa el componente `Tabs` de `~/components/common/tabs.tsx` con cinco pestañas:
+
+1. **Rasgos** — Atributos (Físicos/Sociales/Mentales) + Habilidades (Talentos/Técnicas/Conocimientos).
+2. **Ventajas** — Trasfondos (`BackgroundRow`: select cerrado + personalizado), Disciplinas, Virtudes, Méritos/Defectos (`MeritFlawRow`: select de 3 niveles + personalizado).
+3. **Estado y salud** — Humanidad/Senda (auto-calculada = Conciencia + Autocontrol), Voluntad permanente (auto-calculada = Coraje), Voluntad actual (`DotRating` con `slots=10`), Reserva de sangre (`BloodPoolRow`: stepper hasta 50, auto-calculada por Generación), Experiencia, niveles de Salud.
+4. **Equipo** — Armas cuerpo a cuerpo, Armas a distancia, Armaduras (con dialogs para crear customs).
+5. **Notas** — Textarea libre (max 8000 chars).
+
+Sección **Identidad** fija arriba (fuera de las pestañas). Botones header: **Tablas** (experiencia, maniobras combate, armaduras) y **Guía rápida** (V20).
+
+**Autocálculos V20** (`app/lib/character-sheet.ts`):
+
+Helpers para aplicar reglas canon del V20:
+- `bloodPoolForGeneration(gen)` — reserva máxima por Generación (4ª=50, 5ª=40, ..., 13ª+=10).
+- `maxTraitForGeneration(gen)` — techo de rasgo permanente.
+- `defaultWillpowerMaxFor(courage)` — Voluntad permanente = Coraje.
+- `defaultHumanityFor(conscience, selfControl)` — Humanidad = suma.
+- `applyAutoStats(prev, patch)` — aplica cálculos **solo si los valores derivados aún coinciden con la fórmula previa** (respeta ediciones manuales). Si nueva generación impone techo menor que sangre actual, recorta.
+- `emptyCharacterInput()` arranca con gen 13ª, virtudes 1/1/1 → Humanidad=2, Voluntad=1, Reserva=10.
+- `patch()` del form pasa cambios por `applyAutoStats` antes de propagar.
+
+Nuevo componente `BloodPoolRow` (stepper numérico) en lugar de `DotRating` para soportar max 50.
+`DotRating` ahora acepta prop `slots?: number` — si > max, renderiza puntos extra deshabilitados con borde punteado (preserva alineación).
+Tooltips en `sheet-tooltips.ts` actualizados: Conciencia, Autocontrol, Coraje, Convicción, Instintos, Humanidad, Voluntad permanente, Reserva de Sangre, Generación.
+
+**Guard de cambios sin guardar** (`app/hooks/use-unsaved-changes-guard.tsx`):
+
+Hook que combina:
+- `useBlocker` (React Router) — intercepta navegaciones internas.
+- `beforeunload` (browser) — intercepta cierre/recarga de pestaña.
+
+Para navegaciones internas muestra `ConfirmDialog` con paleta sangrienta: "Cambios sin guardar — Salir sin guardar / Seguir editando".
+Helper `isCharacterInputDirty(a, b)` compara dos `CharacterInput` con orden estable, omitiendo `undefined`.
+
+Integrado en:
+- `app/routes/characters/new.tsx` — compara contra snapshot tras aplicar params/template iniciales. Flag `skipGuard` se activa antes de navegar post-create.
+- `app/routes/characters/detail.tsx` — compara `value` vs snapshot `pristine` cargado. Pre-navegación, limpian `character` y `value`.
+
+**Componente `BackgroundRow`**:
+
+Select cerrado con 10 trasfondos V20 (Aliados, Contactos, Criados, Fama, Generación, Influencia, Mentor, Posición, Rebaño, Recursos).
+Opción `+ Personalizado…` cambia a input libre.
+Botón `≡` vuelve al select. Botón `i` abre `InfoModal` cuando hay match en catálogo.
+
+**Componente `MeritFlawRow` y `CustomMeritFlawInputs`**:
+
+Select con 3 niveles visuales diferenciados:
+1. **Categoría** (Físico/Mental/Social/Sobrenatural): `<option disabled>` formato `━━━ FÍSICO ━━━` (encabezado de sección, no seleccionable).
+2. **Tipo**: `<optgroup label="  ▸ Méritos">` / `<optgroup label="  ▸ Defectos">` (browser renderiza en negrita).
+3. **Item**: `    · [+1] Nombre` (indentación 4 espacios, bullet).
+
+Tras todos los grupos aparece separador `━━━━━━━━━━━━━━━` y opción `+ Personalizado…`.
+
+Modo custom: inputs inline para nombre, categoría libre, toggle Mérito/Defecto, stepper coste 1..7 (signo auto-ajustado).
+Botón `≡` vuelve al catálogo. Botón `?` abre `InfoModal`.
+
+Orden canónico: Físico → Mental → Social → Sobrenatural → otras. Dentro de cada bucket: méritos ascendentes, defectos descendentes (menos severo primero).
+
+**Catálogos propios** (capa API `app/lib/api/catalog/`):
+
+- Archetypes, Disciplines, Clans, MeritsFlaws (preexistentes).
+- **Backgrounds** (nuevo) — `listBackgrounds()` en `catalog.api.ts`, `Background[]` en `catalog.types.ts`.
+- Cache en `catalog-cache.ts` incluye backgrounds. `InfoKind = "background"` con resolver → `{ title, subtitle: "Trasfondo · <categoría>", body }`.
+
+Routes `/characters/new` y `/characters/detail` cargan y propagan el catálogo de backgrounds a la hoja.
+
 ## Navbar privado
 
 `app/components/common/navbar.tsx` — banda superior roja (logo, notificaciones, badge de invitaciones, menú de usuario con avatar + dropdown) y banda inferior oscura con tabs (`Inicio`, `Mis personajes`, `Crónicas`, `Social`, `Bitácora`, `Mesa Virtual`). El badge consume `invitationCount` del loader del layout privado (que llama `GET /api/invitations`).
 
 `app/components/common/user-menu.tsx` — avatar circular con dot verde de presencia, dropdown con `Mi santuario` y `Salir`. Cierra al clickear fuera; usa `useUserStore.clear()` + `logout()` antes de navegar a `/login`.
+
+## Mesa Virtual — Tirada de Iniciativa V20
+
+**Componente `DiceRollerVtM`** (`app/components/table/dice-roller-vtm.tsx`):
+
+- Prop opcional `onRollInitiative?` para delegar tirada a consumidor.
+- Botón **Iniciativa** ubicado como **primer item** en fila central de toggles (junto a Especialidad, Voluntad, Secreta). Al click despliega panel ámbar con:
+  - Stepper de modificador circunstancial `[-20..+20]`.
+  - Breakdown: `Base: 1d10 + Destreza (X) + Astucia (Y) + N circunstancial`.
+  - Botón `Tirar · 1d10 + N` con icono espadas.
+  - Cuando panel está abierto, **se oculta el botón estándar** `Tirar Xd10 vs Y` para evitar duplicidad.
+- Modificador se resetea al cambiar personaje y tras tirar.
+- Prefill base con `characterId/dexterity/wits/willpowerAvailable` del personaje seleccionado (incluso sin click-to-roll previo).
+
+**Hook `useTable`**:
+
+Expone nueva función `rollInitiative(input)` con la misma firma que `rollVtm`. Envía evento WS `roll:initiative` al gateway backend.
+
+**Tipo `RollInitiativeInput`** (`front/app/lib/socket/types.ts`):
+
+Body `{ characterId, label?, isPublic?, modifier? }`. Agregado a `ClientToServerEvents`. Campo `metadata?: Record<string, unknown> | null` agregado a tipo `DiceRoll`.
+
+**Componente `InitiativeRollCard`** (`roll-history.tsx`):
+
+Cuando `roll.sourceKind === "INITIATIVE"` renderiza con:
+- Paleta ámbar destacada.
+- Badge "Iniciativa".
+- d10 grande en centro.
+- Modificadores desglosados: `Dex (X)` verde + `Ast (Y)` verde + `mod (±N)` según signo (verde/sangre).
+- Total grande a la derecha.
+- Nota: "Inscrito en el orden de turnos con iniciativa N".
+
+**Backend (gateway WebSocket)** (`back/src/table/table.gateway.ts`):
+
+Evento `roll:initiative` (client→server):
+- Body: `{ characterId, label?, isPublic?, modifier? }`.
+- Valida permisos: PC = dueño O narrador; NPC/Antagonista = solo narrador.
+- Tira `1d10` server-side vía `randomInt(1, 10)`.
+- Calcula total: d10 + Destreza + Astucia + modificador.
+- Persiste en `DiceRoll` con `sourceKind='INITIATIVE'`, `metadata={ d10, dexterity, wits, modifier, total }`.
+- Emite `roll:result` (visibilidad: PC público → broadcast; secreta/NPC → autor + narrador).
+- Luego inscribe/actualiza personaje en tracker combate vía `CombatService.addOrUpdateForInitiative()` (distinto de `addParticipant`: no requiere narrador, solo dueño legítimo).
+- Emite `combat:state` (actualizado tracker).
+
+**DTO `RollInitiativeDto`** (`back/src/table/dto/roll-initiative.dto.ts`):
+
+- `characterId: string` (uuid, requerido).
+- `label?: string` (opcional, descripción visual de la tirada).
+- `isPublic?: boolean` (optional, por defecto false = secreta).
+- `modifier?: number` (rango `-20..+20`, validado).
+
+**DiceService.rollInitiative()**:
+
+Nuevo método. Genera d10, calcula total, retorna `{ d10, total, metadata: { d10, dexterity, wits, modifier, total } }`.
+
+**CombatService.addOrUpdateForInitiative()**:
+
+Nuevo método. A diferencia de `addParticipant`, no requiere ser narrador. Solo valida que personaje pertenece a crónica. Si ya en tracker, actualiza iniciativa; si no, lo añade.
+
+**Migraciones Prisma**:
+
+- `20260518020826_add_dice_roll_metadata` — columna `metadata Json?` en `DiceRoll` para guardar desglose.
 
 ## Estado actual
 
@@ -208,8 +340,10 @@ Flujo de invitación a usuarios existentes:
 - ✅ Navbar estilo _nivel20_ con dropdown de usuario, badge de invitaciones y tabs.
 - ✅ Crónicas: CRUD + invitar usuarios (existentes y no registrados) + aceptar / cancelar / expulsar.
 - ✅ Templates hbs Distop-IA VtM (welcome, password-recovery, chronicle-invite-existing, chronicle-invite-new).
+- ✅ Personajes: CRUD con hoja 5 pestañas, autocálculos V20, guard cambios sin guardar, trasfondos catálogo + custom, méritos/defectos 3-niveles + custom.
+- ✅ Mesa Virtual: tirada de iniciativa V20 (d10 + Dex + Ast + modificador), inscripción tracker combate.
 - ⏳ Toggle dark/light (paleta lista, falta UI).
-- ⏳ Personajes, Social, Bitácora, Mesa Virtual (stubs visuales con `ComingSoon`).
+- ⏳ Social, Bitácora (stubs visuales con `ComingSoon`).
 - ⏳ Avatar uploader (endpoint `POST /api/users/:id/avatar` ya existe en el backend).
 
 ## Convenciones (reactender-agent)

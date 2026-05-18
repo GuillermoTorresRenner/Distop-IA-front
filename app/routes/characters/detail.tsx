@@ -1,5 +1,5 @@
 import { Loader2, Save, Trash2 } from "lucide-react";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { CharacterSheetForm } from "~/components/character/character-sheet-form";
 import { CustomArmorDialog } from "~/components/character/custom-armor-dialog";
@@ -13,9 +13,12 @@ import { PageHeader } from "~/components/common/page-header";
 import { useToast } from "~/components/common/toast";
 import { Button } from "~/components/ui/button";
 import { useConfirm } from "~/hooks/use-confirm";
+import { useUnsavedChangesGuard } from "~/hooks/use-unsaved-changes-guard";
+import { isCharacterInputDirty } from "~/lib/character-sheet";
 import {
   listArchetypes,
   listArmors,
+  listBackgrounds,
   listClans,
   listDisciplines,
   listMeritsFlaws,
@@ -25,6 +28,7 @@ import {
 import type {
   Archetype,
   Armor,
+  Background,
   Clan,
   Discipline,
   MeritFlaw,
@@ -98,6 +102,10 @@ function toInput(c: Character): CharacterInput {
     })),
     meritsFlaws: c.meritsFlaws.map((m) => ({
       meritFlawId: m.meritFlawId,
+      customName: m.customName,
+      customKind: m.customKind,
+      customValue: m.customValue,
+      customCategory: m.customCategory,
       notes: m.notes,
     })),
     weapons: c.weapons.map((w) => ({
@@ -124,6 +132,7 @@ export default function CharacterDetailRoute() {
   const [clans, setClans] = useState<Clan[]>([]);
   const [disciplines, setDisciplines] = useState<Discipline[]>([]);
   const [meritsFlaws, setMeritsFlaws] = useState<MeritFlaw[]>([]);
+  const [backgroundsCatalog, setBackgroundsCatalog] = useState<Background[]>([]);
   const [weapons, setWeapons] = useState<Weapon[]>([]);
   const [weaponCategories, setWeaponCategories] = useState<WeaponCategory[]>([]);
   const [armors, setArmors] = useState<Armor[]>([]);
@@ -136,6 +145,16 @@ export default function CharacterDetailRoute() {
   const [weaponDialogOpen, setWeaponDialogOpen] = useState(false);
   const [armorDialogOpen, setArmorDialogOpen] = useState(false);
 
+  // Snapshot del personaje persistido, para comparar contra `value` y saber
+  // si hay cambios sin guardar. Se recalcula cuando `character` cambia (carga
+  // inicial y tras cada PATCH exitoso).
+  const pristine = useMemo(
+    () => (character ? toInput(character) : null),
+    [character],
+  );
+  const dirty = !!(value && pristine && isCharacterInputDirty(value, pristine));
+  const { dialog: unsavedDialog } = useUnsavedChangesGuard({ dirty });
+
   useEffect(() => {
     if (!id) return;
     Promise.all([
@@ -144,17 +163,19 @@ export default function CharacterDetailRoute() {
       listClans(),
       listDisciplines(),
       listMeritsFlaws(),
+      listBackgrounds(),
       listWeapons(),
       listWeaponCategories(),
       listArmors(),
     ])
-      .then(([c, a, cl, d, m, w, wc, ar]) => {
+      .then(([c, a, cl, d, m, b, w, wc, ar]) => {
         setCharacter(c);
         setValue(toInput(c));
         setArchetypes(a);
         setClans(cl);
         setDisciplines(d);
         setMeritsFlaws(m);
+        setBackgroundsCatalog(b);
         setWeapons(w);
         setWeaponCategories(wc);
         setArmors(ar);
@@ -204,6 +225,11 @@ export default function CharacterDetailRoute() {
     if (!ok) return;
     try {
       await deleteCharacter(id);
+      // Limpia el snapshot y los valores antes de navegar: si el jugador
+      // estaba editando, el guard de "cambios sin guardar" se desactiva
+      // porque ya no hay personaje al que comparar.
+      setCharacter(null);
+      setValue(null);
       navigate("/characters", { replace: true });
     } catch (err) {
       setError(extractAuthError(err, "No se pudo eliminar"));
@@ -280,6 +306,7 @@ export default function CharacterDetailRoute() {
           clans={clans}
           disciplines={disciplines}
           meritsFlaws={meritsFlaws}
+          backgrounds={backgroundsCatalog}
           weapons={weapons}
           weaponCategories={weaponCategories}
           armors={armors}
@@ -332,6 +359,7 @@ export default function CharacterDetailRoute() {
       />
 
       {dialog}
+      {unsavedDialog}
     </section>
   );
 }

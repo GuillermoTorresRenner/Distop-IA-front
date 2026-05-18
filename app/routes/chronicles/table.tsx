@@ -445,8 +445,8 @@ export default function ChronicleTableRoute() {
 
   return (
     <section className="flex h-[calc(100dvh-7rem)] min-h-125 flex-col lg:h-[calc(100dvh-8rem)]">
-      <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-1 flex-wrap items-center gap-3">
+      <header className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-1 flex-wrap items-center gap-2">
           <Link
             to={`/chronicles/${chronicleId}`}
             className="text-sm text-muted-foreground hover:text-foreground"
@@ -529,7 +529,7 @@ export default function ChronicleTableRoute() {
       </header>
 
       {/* ─── Tabs mobile (<lg): alterna entre hoja y chat ─── */}
-      <nav className="mb-3 flex rounded-lg border border-border bg-card p-1 lg:hidden">
+      <nav className="mb-2 flex rounded-lg border border-border bg-card p-0.5 lg:hidden">
         <MobileTabButton
           active={mobileTab === "sheet"}
           onClick={() => setMobileTab("sheet")}
@@ -686,7 +686,7 @@ export default function ChronicleTableRoute() {
                   onRollInitiative={rollInitiative}
                 />
               </div>
-              <div className="border-t border-border bg-background/30 p-2 lg:hidden">
+              <div className="border-t border-border bg-background/30 p-1.5 lg:hidden">
                 <Button
                   type="button"
                   onClick={() => setMobileDiceOpen(true)}
@@ -709,7 +709,7 @@ export default function ChronicleTableRoute() {
           aria-label="Lanzador de dados"
           className="fixed inset-0 z-50 flex flex-col bg-background lg:hidden"
         >
-          <div className="flex items-center justify-between border-b border-border px-4 py-3">
+          <div className="flex items-center justify-between border-b border-border px-3 py-2">
             <h2 className="font-heading text-sm uppercase tracking-widest text-foreground">
               Lanzar dados
             </h2>
@@ -828,7 +828,7 @@ function TabButton({
       type="button"
       onClick={onClick}
       className={cn(
-        "flex flex-1 items-center justify-center gap-1.5 px-3 py-2 text-xs font-heading uppercase tracking-wider transition-colors",
+        "flex flex-1 items-center justify-center gap-1.5 px-2 py-1.5 text-xs font-heading uppercase tracking-wider transition-colors",
         active
           ? "bg-blood/20 text-blood-foreground border-b-2 border-blood"
           : "text-muted-foreground hover:bg-blood/10"
@@ -857,7 +857,7 @@ function MobileTabButton({
       onClick={onClick}
       aria-pressed={active}
       className={cn(
-        "flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-heading uppercase tracking-wider transition-colors",
+        "flex flex-1 items-center justify-center gap-2 rounded-md px-2 py-1.5 text-sm font-heading uppercase tracking-wider transition-colors",
         active
           ? "bg-blood text-blood-foreground shadow-sm shadow-blood/40"
           : "text-muted-foreground hover:bg-blood/10"
@@ -978,7 +978,7 @@ function SheetTab({
   return (
     <div className="flex h-full flex-col overflow-hidden">
       {characters.length > 1 ? (
-        <div className="border-b border-border p-2">
+        <div className="border-b border-border p-1.5">
           <select
             value={selectedChar?.id ?? ""}
             onChange={(e) => onSelectChar(e.target.value)}
@@ -1203,7 +1203,7 @@ function ChatPanel({
       />
       <div
         ref={scrollerRef}
-        className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden scrollbar-gutter-stable themed-scrollbar px-3 py-2 space-y-2"
+        className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden scrollbar-gutter-stable themed-scrollbar px-2 py-1.5 space-y-1.5"
       >
         {filteredFeed.length === 0 ? (
           <p className="text-sm italic text-muted-foreground">
@@ -1226,7 +1226,7 @@ function ChatPanel({
       </div>
       <form
         onSubmit={handleSubmit}
-        className="flex flex-col gap-2 border-t border-border bg-background/30 p-2"
+        className="flex flex-col gap-1.5 border-t border-border bg-background/30 p-1.5"
       >
         <div className="flex items-center gap-2">
           <input

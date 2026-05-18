@@ -96,7 +96,7 @@ function PlayerCombatView({
 
   return (
     <div className="flex h-full flex-col">
-      <header className="border-b border-border bg-background/30 px-3 py-2">
+      <header className="border-b border-border bg-background/30 px-2 py-1.5">
         <div className="flex items-center justify-between gap-2">
           <h3 className="font-heading text-sm uppercase tracking-wider text-blood">
             Orden de turnos
@@ -114,7 +114,7 @@ function PlayerCombatView({
         ) : null}
       </header>
 
-      <div className="flex-1 min-h-0 overflow-y-auto themed-scrollbar p-2">
+      <div className="flex-1 min-h-0 overflow-y-auto themed-scrollbar p-1.5">
         {isEmpty ? (
           <p className="px-2 py-4 text-center text-sm italic text-muted-foreground">
             El narrador aún no inició el combate.
@@ -288,7 +288,7 @@ function NarratorCombatView({
   return (
     <div className="flex h-full flex-col">
       {dialog}
-      <header className="space-y-2 border-b border-border bg-background/30 px-3 py-2">
+      <header className="space-y-1.5 border-b border-border bg-background/30 px-2 py-1.5">
         <div className="flex items-center justify-between gap-2">
           <div>
             <h3 className="font-heading text-sm uppercase tracking-wider text-blood">
@@ -343,7 +343,7 @@ function NarratorCombatView({
         ) : null}
       </header>
 
-      <div className="flex-1 min-h-0 overflow-y-auto themed-scrollbar p-2">
+      <div className="flex-1 min-h-0 overflow-y-auto themed-scrollbar p-1.5">
         {isEmpty ? (
           <p className="px-2 py-4 text-center text-sm italic text-muted-foreground">
             Aún no hay participantes. Agrega jugadores, PNJs o antagonistas
@@ -361,7 +361,7 @@ function NarratorCombatView({
         )}
       </div>
 
-      <footer className="border-t border-border bg-background/30 p-2">
+      <footer className="border-t border-border bg-background/30 p-1.5">
         {showAdd ? (
           <AddParticipantForm
             associable={associableAvailable}

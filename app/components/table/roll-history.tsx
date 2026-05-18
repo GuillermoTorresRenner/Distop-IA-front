@@ -85,7 +85,7 @@ export function RollHistory({
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-1.5">
+      <div className="flex items-center justify-between gap-2 border-b border-border px-2 py-1">
         <span className="text-sm font-heading uppercase tracking-wider text-muted-foreground">
           Historial de tiradas
         </span>
@@ -120,7 +120,7 @@ export function RollHistory({
       />
       <div
         ref={scrollerRef}
-        className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden scrollbar-gutter-stable themed-scrollbar p-2 space-y-2"
+        className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden scrollbar-gutter-stable themed-scrollbar p-1.5 space-y-1.5"
       >
         {filteredRolls.length === 0 ? (
           <p className="px-2 py-3 text-sm text-muted-foreground">

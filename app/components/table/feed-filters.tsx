@@ -227,7 +227,7 @@ function FilterChipsBase<T extends string>({
 }) {
   const hasActive = active.size > 0;
   return (
-    <div className="flex flex-wrap items-center gap-1 border-b border-border/40 px-3 py-1.5">
+    <div className="flex flex-wrap items-center gap-1 border-b border-border/40 px-2 py-1">
       <Filter className="size-3 shrink-0 text-muted-foreground" />
       {options.map((opt) => {
         const isOn = active.has(opt.key);

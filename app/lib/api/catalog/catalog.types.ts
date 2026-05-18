@@ -73,6 +73,23 @@ export interface MeritFlaw {
   order: number;
 }
 
+/**
+ * Trasfondo del catálogo V20. La lista cerrada que ofrece el dropdown en
+ * la hoja de personaje. El jugador igualmente puede escribir un trasfondo
+ * customizado (texto libre); en ese caso no hay vínculo con este catálogo.
+ */
+export interface Background {
+  id: string;
+  /** Slug interno en kebab-case (ej. "aliados"). */
+  key: string;
+  /** Nombre canónico (ej. "Aliados"). */
+  name: string;
+  /** Agrupador opcional para la UI (Social, Sobrenatural, Material). */
+  category: string | null;
+  description: string | null;
+  order: number;
+}
+
 export interface Clan {
   id: string;
   name: string;

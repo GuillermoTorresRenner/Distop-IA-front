@@ -35,7 +35,19 @@ export interface CharacterDiscipline {
 
 export interface CharacterMeritFlaw {
   id?: string;
-  meritFlawId: string;
+  /**
+   * Modo catálogo: id del MeritFlaw del catálogo seedeado. Mutuamente
+   * excluyente con los campos `customX`.
+   */
+  meritFlawId?: string | null;
+  /** Modo custom: nombre libre del mérito/defecto. */
+  customName?: string | null;
+  /** Modo custom: si es mérito o defecto. */
+  customKind?: "MERIT" | "FLAW" | null;
+  /** Modo custom: coste; positivo para méritos, negativo para defectos. */
+  customValue?: number | null;
+  /** Modo custom: categoría libre (Físico, Mental, Social, Sobrenatural). */
+  customCategory?: string | null;
   notes?: string | null;
   meritFlaw?: MeritFlaw;
 }

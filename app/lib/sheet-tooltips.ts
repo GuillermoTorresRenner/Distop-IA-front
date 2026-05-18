@@ -56,28 +56,28 @@ export const ABILITY_TOOLTIPS: Record<string, string> = {
 
 export const VIRTUE_TOOLTIPS: Record<string, string> = {
   Conciencia:
-    "Reconocer el bien y el mal. Base de la Humanidad: cae cuando cometes actos atroces.",
+    "Reconocer el bien y el mal. Base de la Humanidad: cae cuando cometes actos atroces. Al crear el personaje, Conciencia + Autocontrol fijan la Humanidad inicial.",
   Convicción:
-    "Versión de Sendas no humanas: certeza moral basada en un código alternativo.",
+    "Versión de Sendas no humanas: certeza moral basada en un código alternativo. Junto con Instintos fija el valor inicial de Senda.",
   Autocontrol:
-    "Resistir la Bestia en momentos de hambre, miedo o ira. Evita el frenesí.",
+    "Resistir la Bestia en momentos de hambre, miedo o ira. Evita el frenesí. Al crear el personaje, Conciencia + Autocontrol fijan la Humanidad inicial.",
   Instintos:
-    "Versión de Sendas: dejarse guiar por la Bestia sin perder el control.",
+    "Versión de Sendas: dejarse guiar por la Bestia sin perder el control. Junto con Convicción fija el valor inicial de Senda.",
   Coraje:
-    "Resistir el Rötschreck (terror) ante fuego, luz solar o lo verdaderamente espantoso.",
+    "Resistir el Rötschreck (terror) ante fuego, luz solar o lo verdaderamente espantoso. Al crear el personaje, Coraje fija el valor inicial de Voluntad permanente.",
 };
 
 export const STATE_TOOLTIPS = {
   humanity:
-    "Tu vínculo con la moral humana (0-10). A menos Humanidad, más cerca estás de la Bestia.",
+    "Tu vínculo con la moral humana (0-10). A menos Humanidad, más cerca estás de la Bestia. Al crear el personaje se calcula automáticamente como Conciencia + Autocontrol; luego puedes ajustarla.",
   path:
-    "Nivel de tu Senda alternativa (Senda de la Sangre, Honor, etc.). Sustituye a la Humanidad.",
+    "Nivel de tu Senda alternativa (Senda de la Sangre, Honor, etc.). Sustituye a la Humanidad. Por defecto = Convicción + Instintos; el jugador puede modificarla.",
   willpowerMax:
-    "Voluntad permanente (1-10): tu firmeza mental como atributo. Es el techo de la Voluntad actual y solo cambia con experiencia.",
+    "Voluntad permanente (1-10): tu firmeza mental como atributo. Es el techo de la Voluntad actual. Al crear el personaje arranca igual a Coraje; sube con experiencia o ajuste manual.",
   willpowerCurrent:
     "Voluntad actual (0..permanente): los puntos que tenés ahora mismo. Se gastan para resistir, ganar un éxito automático en una tirada o anular un penalizador por heridas.",
   bloodPool:
-    "Sangre almacenada (0-20 según generación). La gastas para curar, alimentar disciplinas o aparentar humanidad.",
+    "Sangre almacenada. El máximo depende de la generación (Tabla de Generación V20): 13ª=10, 12ª=11, 11ª=12, 10ª=13, 9ª=14, 8ª=15, 7ª=20, 6ª=30, 5ª=40, 4ª=50. Se gasta para curar, alimentar disciplinas o aparentar humanidad.",
   experience: "Puntos de experiencia para mejorar al personaje entre sesiones.",
 };
 
@@ -105,7 +105,7 @@ export const IDENTITY_TOOLTIPS = {
     "Un par de palabras que resumen quién es el personaje (ej. 'Detective caído', 'Anarquista poeta').",
   chronicleName: "Nombre libre de la crónica donde juegas a este personaje.",
   generation:
-    "Distancia respecto a Caín. Cuanto menor el número, más poderoso (4ª = antediluviano, 13ª = sangre débil).",
+    "Distancia respecto a Caín. Cuanto menor el número, más poderoso (4ª = antediluviano, 13ª = sangre débil). Define el techo de la Reserva de Sangre: cambiarla recalcula la sangre máxima si el valor seguía la fórmula por defecto.",
   haven:
     "Refugio donde duermes durante el día, protegido del sol y enemigos.",
   clan:

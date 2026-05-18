@@ -13,6 +13,7 @@ import { Button } from "~/components/ui/button";
 import {
   listArchetypes,
   listArmors,
+  listBackgrounds,
   listClans,
   listDisciplines,
   listMeritsFlaws,
@@ -22,6 +23,7 @@ import {
 import type {
   Archetype,
   Armor,
+  Background,
   Clan,
   Discipline,
   MeritFlaw,
@@ -38,7 +40,11 @@ import type {
   CharacterKind,
 } from "~/lib/api/characters/characters.types";
 import { findTemplate } from "~/lib/antagonist-templates";
-import { emptyCharacterInput } from "~/lib/character-sheet";
+import {
+  emptyCharacterInput,
+  isCharacterInputDirty,
+} from "~/lib/character-sheet";
+import { useUnsavedChangesGuard } from "~/hooks/use-unsaved-changes-guard";
 import { useUserStore } from "~/stores/user.store";
 
 export function meta() {
@@ -62,16 +68,29 @@ export default function NewCharacterRoute() {
   const [clans, setClans] = useState<Clan[]>([]);
   const [disciplines, setDisciplines] = useState<Discipline[]>([]);
   const [meritsFlaws, setMeritsFlaws] = useState<MeritFlaw[]>([]);
+  const [backgroundsCatalog, setBackgroundsCatalog] = useState<Background[]>([]);
   const [weapons, setWeapons] = useState<Weapon[]>([]);
   const [weaponCategories, setWeaponCategories] = useState<WeaponCategory[]>([]);
   const [armors, setArmors] = useState<Armor[]>([]);
   const [chronicleName, setChronicleName] = useState<string | null>(null);
   const [value, setValue] = useState<CharacterInput>(emptyCharacterInput());
+  // Snapshot del estado tras aplicar params/template iniciales. Sirve para
+  // saber si el jugador realmente tocó algo más allá de los autocompletados.
+  // Mientras es null el guard se mantiene apagado (catálogos aún cargando).
+  const [pristine, setPristine] = useState<CharacterInput | null>(null);
+  // Bandera para desactivar el guard justo antes de un navigate intencional
+  // (post-create). Sin esto, el blocker interceptaría la redirección al
+  // detalle del personaje recién creado.
+  const [skipGuard, setSkipGuard] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [weaponDialogOpen, setWeaponDialogOpen] = useState(false);
   const [armorDialogOpen, setArmorDialogOpen] = useState(false);
+
+  const dirty =
+    !skipGuard && !!pristine && isCharacterInputDirty(value, pristine);
+  const { dialog: unsavedDialog } = useUnsavedChangesGuard({ dirty });
 
   useEffect(() => {
     const tasks: Promise<unknown>[] = [
@@ -79,6 +98,7 @@ export default function NewCharacterRoute() {
       listClans(),
       listDisciplines(),
       listMeritsFlaws(),
+      listBackgrounds(),
       listWeapons(),
       listWeaponCategories(),
       listArmors(),
@@ -87,11 +107,12 @@ export default function NewCharacterRoute() {
 
     Promise.all(tasks)
       .then((results) => {
-        const [a, c, d, m, w, wc, ar, ch] = results as [
+        const [a, c, d, m, bg, w, wc, ar, ch] = results as [
           Archetype[],
           Clan[],
           Discipline[],
           MeritFlaw[],
+          Background[],
           Weapon[],
           WeaponCategory[],
           Armor[],
@@ -101,6 +122,7 @@ export default function NewCharacterRoute() {
         setClans(c);
         setDisciplines(d);
         setMeritsFlaws(m);
+        setBackgroundsCatalog(bg);
         setWeapons(w);
         setWeaponCategories(wc);
         setArmors(ar);
@@ -115,6 +137,9 @@ export default function NewCharacterRoute() {
             if (tpl) next = tpl.apply(next);
           }
           if (ch) next.chronicleName = ch.name;
+          // Capturamos el estado base tras inyectar params/template para
+          // que el guard solo compare contra esto y no contra el empty puro.
+          setPristine(next);
           return next;
         });
         if (ch) setChronicleName(ch.name);
@@ -140,6 +165,9 @@ export default function NewCharacterRoute() {
       const created = chronicleId
         ? await createChronicleCharacter(chronicleId, payload)
         : await createCharacter(payload);
+      // Desactiva el guard antes de redirigir: ya guardamos lo que el
+      // jugador editó, no hay motivo para interceptar la navegación.
+      setSkipGuard(true);
       navigate(
         chronicleId ? `/chronicles/${chronicleId}` : `/characters/${created.id}`,
         { replace: true },
@@ -196,6 +224,7 @@ export default function NewCharacterRoute() {
           clans={clans}
           disciplines={disciplines}
           meritsFlaws={meritsFlaws}
+          backgrounds={backgroundsCatalog}
           weapons={weapons}
           weaponCategories={weaponCategories}
           armors={armors}
@@ -249,6 +278,7 @@ export default function NewCharacterRoute() {
           setArmorDialogOpen(false);
         }}
       />
+      {unsavedDialog}
     </section>
   );
 }

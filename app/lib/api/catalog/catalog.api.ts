@@ -4,6 +4,7 @@ import type {
   Archetype,
   Armor,
   AttributeInfo,
+  Background,
   Clan,
   Discipline,
   HealthLevelInfo,
@@ -43,6 +44,11 @@ export async function listDisciplines(): Promise<Discipline[]> {
 
 export async function listMeritsFlaws(): Promise<MeritFlaw[]> {
   const { data } = await apiClient.get<MeritFlaw[]>("/catalog/merits-flaws");
+  return data;
+}
+
+export async function listBackgrounds(): Promise<Background[]> {
+  const { data } = await apiClient.get<Background[]>("/catalog/backgrounds");
   return data;
 }
 

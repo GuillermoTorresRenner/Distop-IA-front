@@ -1,5 +1,5 @@
 import { Plus, Star, Trash2 } from "lucide-react";
-import { useMemo, useState, type ReactNode } from "react";
+import { Fragment, useMemo, useState, type ReactNode } from "react";
 import { DotRating } from "~/components/character/dot-rating";
 import { HealthToggle, type DamageState } from "~/components/character/health-toggle";
 import { SpecialtyDialog } from "~/components/character/specialty-dialog";
@@ -14,6 +14,7 @@ import { Textarea } from "~/components/ui/textarea";
 import type {
   Archetype,
   Armor,
+  Background,
   Clan,
   Discipline,
   MeritFlaw,
@@ -30,7 +31,9 @@ import type {
   CharacterWeapon,
 } from "~/lib/api/characters/characters.types";
 import {
+  applyAutoStats,
   ATTRIBUTES,
+  bloodPoolForGeneration,
   HEALTH_LEVELS,
   KNOWLEDGES,
   SKILLS,
@@ -55,6 +58,9 @@ interface Props {
   clans: Clan[];
   disciplines: Discipline[];
   meritsFlaws: MeritFlaw[];
+  /** Catálogo de Trasfondos V20 para el dropdown. Si no llega, la UI cae a
+   *  input libre (compat con consumidores antiguos). */
+  backgrounds?: Background[];
   weapons: Weapon[];
   weaponCategories: WeaponCategory[];
   armors: Armor[];
@@ -75,6 +81,7 @@ export function CharacterSheetForm({
   clans,
   disciplines,
   meritsFlaws,
+  backgrounds,
   weapons,
   weaponCategories,
   armors,
@@ -83,13 +90,24 @@ export function CharacterSheetForm({
   readOnly,
   playerName,
 }: Props) {
+  const backgroundCatalog = backgrounds ?? [];
+  const backgroundsByName = useMemo(() => {
+    const m = new Map<string, Background>();
+    for (const b of backgroundCatalog) m.set(b.name, b);
+    return m;
+  }, [backgroundCatalog]);
   // Especialidad abierta en el modal (si hay). Vacía mientras el modal está cerrado.
   const [specialtyEditing, setSpecialtyEditing] = useState<
     { category: CharacterAbility["category"]; name: string } | null
   >(null);
 
   function patch(p: Partial<CharacterInput>) {
-    onChange({ ...value, ...p });
+    // Aplica los autocálculos V20 (Voluntad permanente ← Coraje, Humanidad
+    // ← Conciencia + Autocontrol, Reserva de Sangre ← Generación) antes de
+    // propagar el cambio. Solo se autocalculan los campos que aún estaban
+    // sincronizados con la fórmula previa, preservando ediciones manuales.
+    const merged = applyAutoStats(value, p);
+    onChange({ ...value, ...merged });
   }
 
   function setAbility(category: CharacterAbility["category"], name: string, v: number) {
@@ -167,9 +185,11 @@ export function CharacterSheetForm({
   }
 
   function addMeritFlaw() {
+    // Arranca sin selección. La UI muestra un placeholder "— Selecciona —"
+    // hasta que el jugador elija una entrada del catálogo o un custom.
     const list = [
       ...(value.meritsFlaws ?? []),
-      { meritFlawId: meritsFlaws[0]?.id ?? "" } as CharacterMeritFlaw,
+      { meritFlawId: null } as CharacterMeritFlaw,
     ];
     patch({ meritsFlaws: list });
   }
@@ -536,7 +556,11 @@ export function CharacterSheetForm({
       {/* Ventajas */}
       <SectionHeading>Ventajas</SectionHeading>
       <div className="grid gap-6 lg:grid-cols-3">
-        {/* Trasfondos */}
+        {/* Trasfondos: lista cerrada del catálogo V20 con opción "Personalizado".
+            El value persistido es siempre el texto en `bg.name`. Si coincide
+            con un trasfondo del catálogo, el select lo muestra como tal y se
+            habilita el botón de info. Si no coincide (o es custom), arranca
+            en modo libre. */}
         <AttrBlock
           title="Trasfondos"
           action={
@@ -552,34 +576,23 @@ export function CharacterSheetForm({
               Sin trasfondos.
             </p>
           ) : (
-            (value.backgrounds ?? []).map((bg, i) => (
-              <div key={i} className="flex items-center gap-2">
-                <Input
-                  placeholder="Recursos, Aliados, ..."
-                  value={bg.name}
-                  disabled={readOnly}
-                  onChange={(e) => updateBackground(i, { name: e.target.value })}
-                  className="h-8 flex-1"
-                />
-                <DotRating
-                  value={bg.level}
-                  onChange={(v) => updateBackground(i, { level: v })}
+            (value.backgrounds ?? []).map((bg, i) => {
+              const inCatalog = backgroundsByName.has(bg.name);
+              return (
+                <BackgroundRow
+                  key={i}
+                  background={bg}
+                  catalog={backgroundCatalog}
+                  inCatalog={inCatalog}
                   readOnly={readOnly}
+                  onChange={(patch) => updateBackground(i, patch)}
+                  onRemove={() => removeBackground(i)}
+                  onInfo={
+                    inCatalog ? () => infoModal.open("background", bg.name, bg.name) : undefined
+                  }
                 />
-                {!readOnly && (
-                  <Button
-                    type="button"
-                    size="icon-sm"
-                    variant="ghost"
-                    onClick={() => removeBackground(i)}
-                    aria-label="Eliminar trasfondo"
-                    className="text-destructive hover:bg-destructive/10"
-                  >
-                    <Trash2 className="size-3.5" />
-                  </Button>
-                )}
-              </div>
-            ))
+              );
+            })
           )}
         </AttrBlock>
 
@@ -767,79 +780,17 @@ export function CharacterSheetForm({
               Sin méritos ni defectos.
             </p>
           ) : (
-            (value.meritsFlaws ?? []).map((m, i) => {
-              const cat = meritsFlaws.find((x) => x.id === m.meritFlawId);
-              return (
-                <div key={i} className="space-y-1 rounded-md border border-border/40 bg-background/30 p-2">
-                  <div className="flex items-center gap-2">
-                    <Tooltip
-                      title={cat?.name}
-                      content={
-                        cat ? (
-                          <span>
-                            <span className="block">
-                              [{cat.kind === "MERIT" ? "+" : ""}{cat.value}]{" "}
-                              {cat.category ?? ""}
-                            </span>
-                            {cat.description ? (
-                              <span className="mt-1 block">{cat.description}</span>
-                            ) : null}
-                          </span>
-                        ) : (
-                          ""
-                        )
-                      }
-                      className="flex-1"
-                    >
-                      <select
-                        value={m.meritFlawId}
-                        disabled={readOnly}
-                        onChange={(e) => updateMeritFlaw(i, { meritFlawId: e.target.value })}
-                        className={cn(SELECT_DARK_CLASS, "h-8")}
-                      >
-                        {meritsFlaws.map((opt) => (
-                          <option key={opt.id} value={opt.id}>
-                            [{opt.kind === "MERIT" ? "+" : ""}{opt.value}] {opt.name}
-                            {opt.category ? ` · ${opt.category}` : ""}
-                          </option>
-                        ))}
-                      </select>
-                    </Tooltip>
-                    {cat ? (
-                      <Button
-                        type="button"
-                        size="icon-sm"
-                        variant="ghost"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          infoModal.open("merit-flaw", cat.name, cat.name);
-                        }}
-                        aria-label={`Ver detalle de ${cat.name}`}
-                        title="Ver detalle"
-                        className="text-muted-foreground hover:text-blood"
-                      >
-                        <span aria-hidden className="font-heading text-[0.6rem] uppercase tracking-widest">
-                          ?
-                        </span>
-                      </Button>
-                    ) : null}
-                    {!readOnly && (
-                      <Button
-                        type="button"
-                        size="icon-sm"
-                        variant="ghost"
-                        onClick={() => removeMeritFlaw(i)}
-                        aria-label="Eliminar"
-                        className="text-destructive hover:bg-destructive/10"
-                      >
-                        <Trash2 className="size-3.5" />
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              );
-            })
+            (value.meritsFlaws ?? []).map((m, i) => (
+              <MeritFlawRow
+                key={i}
+                meritFlaw={m}
+                catalog={meritsFlaws}
+                readOnly={readOnly}
+                onChange={(patch) => updateMeritFlaw(i, patch)}
+                onRemove={() => removeMeritFlaw(i)}
+                onInfo={(name) => infoModal.open("merit-flaw", name, name)}
+              />
+            ))
           )}
         </AttrBlock>
       </div>
@@ -884,15 +835,18 @@ export function CharacterSheetForm({
             value={value.willpowerCurrent ?? 0}
             min={0}
             max={value.willpowerMax ?? 10}
+            // 10 huecos siempre, igual que Humanidad / Voluntad permanente.
+            // Los puntos por encima del máximo permanente quedan inactivos.
+            slots={10}
             onChange={(v) => patch({ willpowerCurrent: v })}
             readOnly={readOnly}
           />
-          <DotRow
-            label="Reserva de sangre"
-            tooltip={STATE_TOOLTIPS.bloodPool}
+          {/* Reserva de sangre: stepper numérico (no DotRating) porque el
+              techo depende de la generación y puede llegar a 50 (4ª gen).
+              El máximo se calcula con `bloodPoolForGeneration`. */}
+          <BloodPoolRow
             value={value.bloodPool ?? 0}
-            min={0}
-            max={20}
+            generation={value.generation ?? null}
             onChange={(v) => patch({ bloodPool: v })}
             readOnly={readOnly}
           />
@@ -1073,6 +1027,548 @@ function AttrBlock({
   );
 }
 
+/**
+ * Fila de un trasfondo del personaje. La UI muestra un `<select>` con la
+ * lista cerrada del catálogo + una opción "Personalizado…"; al elegirla, se
+ * cambia a un input libre que persiste el `name` tal cual lo escribe el
+ * jugador. Las dos vistas operan sobre el mismo campo `name` del
+ * CharacterBackground — no hay metadata oculta.
+ */
+function BackgroundRow({
+  background,
+  catalog,
+  inCatalog,
+  readOnly,
+  onChange,
+  onRemove,
+  onInfo,
+}: {
+  background: { name: string; level: number };
+  catalog: Background[];
+  /** El name actual coincide con un trasfondo del catálogo. */
+  inCatalog: boolean;
+  readOnly?: boolean;
+  onChange: (patch: { name?: string; level?: number }) => void;
+  onRemove: () => void;
+  /** Si hay match con el catálogo, abre el InfoModal con la descripción. */
+  onInfo?: () => void;
+}) {
+  // Si la fila arrancó vacía o con un valor del catálogo, vivimos en modo
+  // select. Si el valor es un custom (no está en el catálogo y no es vacío),
+  // arrancamos en modo libre. El usuario puede alternar con el botón "Aa".
+  const startsCustom = background.name !== "" && !inCatalog;
+  const [customMode, setCustomMode] = useState(startsCustom);
+
+  function pickFromCatalog(name: string) {
+    if (name === "__custom__") {
+      // Entrar en modo libre: vaciamos el name si venía del catálogo para
+      // dejar al jugador escribir sin sorpresas.
+      setCustomMode(true);
+      if (inCatalog || background.name === "") onChange({ name: "" });
+      return;
+    }
+    setCustomMode(false);
+    onChange({ name });
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      {customMode ? (
+        <div className="flex flex-1 items-center gap-1">
+          <Input
+            placeholder="Trasfondo personalizado…"
+            value={background.name}
+            disabled={readOnly}
+            onChange={(e) => onChange({ name: e.target.value })}
+            className="h-8 flex-1"
+          />
+          {!readOnly ? (
+            <Tooltip
+              title="Volver al catálogo"
+              content="Elige un trasfondo de la lista cerrada V20."
+            >
+              <Button
+                type="button"
+                size="icon-sm"
+                variant="ghost"
+                onClick={() => {
+                  setCustomMode(false);
+                  onChange({ name: "" });
+                }}
+                aria-label="Volver al selector de catálogo"
+              >
+                <span className="font-heading text-[10px]">≡</span>
+              </Button>
+            </Tooltip>
+          ) : null}
+        </div>
+      ) : (
+        <div className="flex flex-1 items-center gap-1">
+          <select
+            value={inCatalog ? background.name : ""}
+            disabled={readOnly}
+            onChange={(e) => pickFromCatalog(e.target.value)}
+            className={cn(SELECT_DARK_CLASS, "h-8 flex-1")}
+            aria-label="Trasfondo"
+          >
+            <option value="">— Selecciona un trasfondo —</option>
+            {catalog.map((b) => (
+              <option key={b.id} value={b.name}>
+                {b.name}
+                {b.category ? ` · ${b.category}` : ""}
+              </option>
+            ))}
+            <option value="__custom__">+ Personalizado…</option>
+          </select>
+          {inCatalog && onInfo ? (
+            <Tooltip
+              title={background.name}
+              content="Ver descripción canónica del trasfondo."
+            >
+              <Button
+                type="button"
+                size="icon-sm"
+                variant="ghost"
+                onClick={onInfo}
+                aria-label={`Información sobre ${background.name}`}
+              >
+                <span className="font-heading text-[10px]">i</span>
+              </Button>
+            </Tooltip>
+          ) : null}
+        </div>
+      )}
+      <DotRating
+        value={background.level}
+        onChange={(v) => onChange({ level: v })}
+        readOnly={readOnly}
+      />
+      {!readOnly && (
+        <Button
+          type="button"
+          size="icon-sm"
+          variant="ghost"
+          onClick={onRemove}
+          aria-label="Eliminar trasfondo"
+          className="text-destructive hover:bg-destructive/10"
+        >
+          <Trash2 className="size-3.5" />
+        </Button>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Fila de un mérito/defecto del personaje. Soporta dos modos mutuamente
+ * excluyentes:
+ *
+ *  - **Catálogo:** select agrupado por Categoría (Físico/Mental/Social/
+ *    Sobrenatural) y dentro de cada categoría separa "Méritos" / "Defectos"
+ *    via `<optgroup>` con label "Categoría — Méritos".
+ *  - **Personalizado:** inputs inline para nombre, tipo (mérito/defecto),
+ *    coste y categoría libre. El valor persiste en los campos `customX`
+ *    del CharacterMeritFlaw; no toca el catálogo global.
+ *
+ * El usuario alterna con la opción "+ Personalizado…" del select o con el
+ * botón "≡" cuando está en modo libre.
+ */
+function MeritFlawRow({
+  meritFlaw,
+  catalog,
+  readOnly,
+  onChange,
+  onRemove,
+  onInfo,
+}: {
+  meritFlaw: CharacterMeritFlaw;
+  catalog: MeritFlaw[];
+  readOnly?: boolean;
+  onChange: (patch: Partial<CharacterMeritFlaw>) => void;
+  onRemove: () => void;
+  onInfo: (name: string) => void;
+}) {
+  const cat = catalog.find((x) => x.id === meritFlaw.meritFlawId) ?? null;
+  const isCustom = !meritFlaw.meritFlawId && !!meritFlaw.customName !== false &&
+    (!!meritFlaw.customName || !!meritFlaw.customKind || meritFlaw.customValue != null);
+  // Agrupado del catálogo: { "Físico": { MERIT: [...], FLAW: [...] }, ... }
+  const grouped = useMemo(() => {
+    const byCat = new Map<string, { MERIT: MeritFlaw[]; FLAW: MeritFlaw[] }>();
+    for (const m of catalog) {
+      const c = m.category?.trim() || "Otros";
+      let bucket = byCat.get(c);
+      if (!bucket) {
+        bucket = { MERIT: [], FLAW: [] };
+        byCat.set(c, bucket);
+      }
+      bucket[m.kind].push(m);
+    }
+    // Orden de categorías canónico V20 + cualquier extra al final.
+    const canonical = ["Físico", "Mental", "Social", "Sobrenatural"];
+    const ordered = [
+      ...canonical.filter((c) => byCat.has(c)),
+      ...[...byCat.keys()].filter((c) => !canonical.includes(c)).sort(),
+    ];
+    return ordered.map((c) => ({
+      category: c,
+      MERIT: byCat.get(c)!.MERIT.sort((a, b) => a.value - b.value || a.name.localeCompare(b.name)),
+      FLAW: byCat.get(c)!.FLAW.sort((a, b) => b.value - a.value || a.name.localeCompare(b.name)),
+    }));
+  }, [catalog]);
+
+  function handleSelectChange(v: string) {
+    if (v === "__custom__") {
+      // Entra a modo custom: limpia FK del catálogo y prellena con kind por
+      // defecto para que los inputs custom estén operativos.
+      onChange({
+        meritFlawId: null,
+        customName: "",
+        customKind: "MERIT",
+        customValue: 1,
+        customCategory: "",
+      });
+      return;
+    }
+    if (v === "") {
+      onChange({ meritFlawId: null });
+      return;
+    }
+    // Vuelve al modo catálogo: limpia los campos custom.
+    onChange({
+      meritFlawId: v,
+      customName: null,
+      customKind: null,
+      customValue: null,
+      customCategory: null,
+    });
+  }
+
+  function backToCatalog() {
+    onChange({
+      meritFlawId: null,
+      customName: null,
+      customKind: null,
+      customValue: null,
+      customCategory: null,
+    });
+  }
+
+  // Modo custom: o bien tiene meritFlawId null y algún customX, o bien
+  // arrancó con una entrada vacía. La señal canónica es que NO haya match
+  // con el catálogo y haya al menos un campo custom poblado.
+  const customMode = !meritFlaw.meritFlawId && isCustom;
+
+  return (
+    <div className="space-y-1 rounded-md border border-border/40 bg-background/30 p-2">
+      {customMode ? (
+        <CustomMeritFlawInputs
+          meritFlaw={meritFlaw}
+          readOnly={readOnly}
+          onChange={onChange}
+          onBackToCatalog={backToCatalog}
+          onRemove={onRemove}
+        />
+      ) : (
+        <div className="flex items-center gap-2">
+          <Tooltip
+            title={cat?.name}
+            content={
+              cat ? (
+                <span>
+                  <span className="block">
+                    [{cat.kind === "MERIT" ? "+" : ""}{cat.value}]{" "}
+                    {cat.category ?? ""}
+                  </span>
+                  {cat.description ? (
+                    <span className="mt-1 block">{cat.description}</span>
+                  ) : null}
+                </span>
+              ) : (
+                ""
+              )
+            }
+            className="flex-1"
+          >
+            <select
+              value={meritFlaw.meritFlawId ?? ""}
+              disabled={readOnly}
+              onChange={(e) => handleSelectChange(e.target.value)}
+              className={cn(SELECT_DARK_CLASS, "h-8")}
+            >
+              <option value="">— Selecciona un mérito / defecto —</option>
+              {/*
+                Tres niveles visuales en un <select> nativo (que solo permite
+                un nivel de <optgroup>):
+                  1) Categoría: option deshabilitado con barras decorativas
+                     y mayúsculas para que destaque como encabezado.
+                  2) <optgroup> "Méritos" / "Defectos" indentado con prefijo.
+                  3) Items con doble indentación (NBSP) y bullet "·".
+              */}
+              {grouped.map((g) => (
+                <Fragment key={g.category}>
+                  <option disabled value={`__cat__${g.category}`}>
+                    {`━━━ ${g.category.toUpperCase()} ━━━`}
+                  </option>
+                  {g.MERIT.length > 0 ? (
+                    <optgroup label={"  ▸ Méritos"}>
+                      {g.MERIT.map((opt) => (
+                        <option key={opt.id} value={opt.id}>
+                          {`    · [+${opt.value}] ${opt.name}`}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ) : null}
+                  {g.FLAW.length > 0 ? (
+                    <optgroup label={"  ▸ Defectos"}>
+                      {g.FLAW.map((opt) => (
+                        <option key={opt.id} value={opt.id}>
+                          {`    · [${opt.value}] ${opt.name}`}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ) : null}
+                </Fragment>
+              ))}
+              <option disabled value="__sep_custom__">
+                {"━━━━━━━━━━━━━━━"}
+              </option>
+              <option value="__custom__">+ Personalizado…</option>
+            </select>
+          </Tooltip>
+          {cat ? (
+            <Button
+              type="button"
+              size="icon-sm"
+              variant="ghost"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onInfo(cat.name);
+              }}
+              aria-label={`Ver detalle de ${cat.name}`}
+              title="Ver detalle"
+              className="text-muted-foreground hover:text-blood"
+            >
+              <span aria-hidden className="font-heading text-[0.6rem] uppercase tracking-widest">
+                ?
+              </span>
+            </Button>
+          ) : null}
+          {!readOnly && (
+            <Button
+              type="button"
+              size="icon-sm"
+              variant="ghost"
+              onClick={onRemove}
+              aria-label="Eliminar"
+              className="text-destructive hover:bg-destructive/10"
+            >
+              <Trash2 className="size-3.5" />
+            </Button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CustomMeritFlawInputs({
+  meritFlaw,
+  readOnly,
+  onChange,
+  onBackToCatalog,
+  onRemove,
+}: {
+  meritFlaw: CharacterMeritFlaw;
+  readOnly?: boolean;
+  onChange: (patch: Partial<CharacterMeritFlaw>) => void;
+  onBackToCatalog: () => void;
+  onRemove: () => void;
+}) {
+  // Si el jugador cambia el kind, ajustamos el signo del value para que
+  // sea coherente y no falle la validación del back.
+  function setKind(k: "MERIT" | "FLAW") {
+    const current = meritFlaw.customValue ?? 0;
+    let nextValue = current;
+    if (k === "MERIT" && current <= 0) nextValue = Math.max(1, Math.abs(current) || 1);
+    if (k === "FLAW" && current >= 0) nextValue = -Math.max(1, Math.abs(current) || 1);
+    onChange({ customKind: k, customValue: nextValue });
+  }
+
+  function setValue(v: number) {
+    // Mantiene el signo coherente con el kind elegido.
+    const k = meritFlaw.customKind ?? "MERIT";
+    const sign = k === "MERIT" ? 1 : -1;
+    const magnitude = Math.max(1, Math.min(7, Math.abs(Math.floor(v) || 1)));
+    onChange({ customValue: sign * magnitude });
+  }
+
+  const kind = meritFlaw.customKind ?? "MERIT";
+  const value = meritFlaw.customValue ?? (kind === "MERIT" ? 1 : -1);
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-2">
+        <span className="font-heading text-[10px] uppercase tracking-widest text-amber-300">
+          Personalizado
+        </span>
+        <div className="ml-auto flex items-center gap-1">
+          {!readOnly ? (
+            <Tooltip
+              title="Volver al catálogo"
+              content="Cancelar la entrada custom y elegir del catálogo V20."
+            >
+              <Button
+                type="button"
+                size="icon-sm"
+                variant="ghost"
+                onClick={onBackToCatalog}
+                aria-label="Volver al catálogo"
+              >
+                <span className="font-heading text-[10px]">≡</span>
+              </Button>
+            </Tooltip>
+          ) : null}
+          {!readOnly ? (
+            <Button
+              type="button"
+              size="icon-sm"
+              variant="ghost"
+              onClick={onRemove}
+              aria-label="Eliminar"
+              className="text-destructive hover:bg-destructive/10"
+            >
+              <Trash2 className="size-3.5" />
+            </Button>
+          ) : null}
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <Input
+          placeholder="Nombre"
+          value={meritFlaw.customName ?? ""}
+          disabled={readOnly}
+          onChange={(e) => onChange({ customName: e.target.value })}
+          className="h-8"
+        />
+        <Input
+          placeholder="Categoría (Físico, Mental…)"
+          value={meritFlaw.customCategory ?? ""}
+          disabled={readOnly}
+          onChange={(e) => onChange({ customCategory: e.target.value })}
+          className="h-8"
+        />
+      </div>
+      <div className="flex items-center gap-2">
+        <select
+          value={kind}
+          disabled={readOnly}
+          onChange={(e) => setKind(e.target.value as "MERIT" | "FLAW")}
+          className={cn(SELECT_DARK_CLASS, "h-8 flex-1")}
+          aria-label="Tipo"
+        >
+          <option value="MERIT">Mérito</option>
+          <option value="FLAW">Defecto</option>
+        </select>
+        <div className="flex items-center rounded-md border border-input bg-input/30">
+          <button
+            type="button"
+            disabled={readOnly}
+            onClick={() => setValue(Math.abs(value) - 1)}
+            className="px-2 py-1 text-sm font-heading hover:bg-blood/20 disabled:opacity-40"
+            aria-label="Bajar coste"
+          >
+            −
+          </button>
+          <span className="w-10 text-center font-heading text-sm tabular-nums">
+            {kind === "MERIT" ? "+" : ""}
+            {value}
+          </span>
+          <button
+            type="button"
+            disabled={readOnly}
+            onClick={() => setValue(Math.abs(value) + 1)}
+            className="px-2 py-1 text-sm font-heading hover:bg-blood/20 disabled:opacity-40"
+            aria-label="Subir coste"
+          >
+            +
+          </button>
+          <span className="px-1.5 text-[10px] text-muted-foreground">pts</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Fila para la Reserva de Sangre con stepper numérico. No usa DotRating
+ * porque el techo varía con la generación (10 → 50). El máximo se infiere
+ * desde la Tabla de Generación V20.
+ */
+function BloodPoolRow({
+  value,
+  generation,
+  onChange,
+  readOnly,
+}: {
+  value: number;
+  generation: number | null;
+  onChange: (v: number) => void;
+  readOnly?: boolean;
+}) {
+  const max = bloodPoolForGeneration(generation) ?? 50;
+  const tooltip = generation
+    ? `${STATE_TOOLTIPS.bloodPool} · Máximo por generación ${generation}ª: ${max}.`
+    : STATE_TOOLTIPS.bloodPool;
+  function clamp(v: number) {
+    return Math.max(0, Math.min(max, Math.floor(v)));
+  }
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <Tooltip title="Reserva de sangre" content={tooltip}>
+        <span className="font-serif text-sm">Reserva de sangre</span>
+      </Tooltip>
+      <div className="flex items-center rounded-md border border-input bg-input/30">
+        <button
+          type="button"
+          disabled={readOnly || value <= 0}
+          onClick={() => onChange(clamp(value - 1))}
+          className="px-2 py-1 text-sm font-heading hover:bg-blood/20 disabled:opacity-40 disabled:hover:bg-transparent"
+          aria-label="Restar sangre"
+        >
+          −
+        </button>
+        <input
+          type="number"
+          value={value}
+          min={0}
+          max={max}
+          disabled={readOnly}
+          onChange={(e) => {
+            const n = parseInt(e.target.value, 10);
+            if (!Number.isNaN(n)) onChange(clamp(n));
+            else if (e.target.value === "") onChange(0);
+          }}
+          aria-label="Reserva de sangre"
+          className="h-7 w-14 bg-transparent text-center font-heading text-sm tabular-nums focus:outline-none"
+        />
+        <button
+          type="button"
+          disabled={readOnly || value >= max}
+          onClick={() => onChange(clamp(value + 1))}
+          className="px-2 py-1 text-sm font-heading hover:bg-blood/20 disabled:opacity-40 disabled:hover:bg-transparent"
+          aria-label="Sumar sangre"
+        >
+          +
+        </button>
+        <span className="px-2 text-[10px] text-muted-foreground tabular-nums">
+          / {max}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 function DotRow({
   label,
   tooltip,
@@ -1084,6 +1580,7 @@ function DotRow({
   specialty,
   onOpenSpecialty,
   onInfo,
+  slots,
 }: {
   label: string;
   tooltip?: string;
@@ -1098,6 +1595,11 @@ function DotRow({
   onOpenSpecialty?: () => void;
   /** Si está definido, el label es clicable y abre el InfoModal. */
   onInfo?: () => void;
+  /**
+   * Cantidad fija de huecos a renderizar (>= max). Los slots por encima
+   * de `max` quedan inactivos y solo sirven para alinear con otras filas.
+   */
+  slots?: number;
 }) {
   const canHaveSpecialty = value >= 4 && !!onOpenSpecialty;
   const hasSpecialty = !!specialty && specialty.trim().length > 0;
@@ -1162,6 +1664,7 @@ function DotRow({
           value={value}
           min={min}
           max={max}
+          slots={slots}
           onChange={onChange}
           readOnly={readOnly}
           size="sm"
