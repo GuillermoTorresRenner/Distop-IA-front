@@ -333,7 +333,7 @@ export function CharacterSheetForm({
           label="Naturaleza"
           tooltipTitle="Naturaleza"
           tooltipContent={
-            selectedNature?.description ?? IDENTITY_TOOLTIPS.nature
+            selectedNature?.tooltip ?? selectedNature?.description ?? IDENTITY_TOOLTIPS.nature
           }
           value={value.natureId ?? ""}
           disabled={readOnly}
@@ -375,7 +375,7 @@ export function CharacterSheetForm({
           label="Conducta"
           tooltipTitle="Conducta"
           tooltipContent={
-            selectedDemeanor?.description ?? IDENTITY_TOOLTIPS.demeanor
+            selectedDemeanor?.tooltip ?? selectedDemeanor?.description ?? IDENTITY_TOOLTIPS.demeanor
           }
           value={value.demeanorId ?? ""}
           disabled={readOnly}
@@ -413,7 +413,7 @@ export function CharacterSheetForm({
             tooltipContent={
               selectedClan ? (
                 <span>
-                  <span className="block">{selectedClan.description}</span>
+                  <span className="block">{selectedClan.tooltip ?? selectedClan.description}</span>
                   {selectedClan.disciplines ? (
                     <span className="mt-1 block text-foreground/80">
                       Disciplinas: {selectedClan.disciplines}
@@ -673,7 +673,7 @@ export function CharacterSheetForm({
                   <div className="flex items-center gap-2">
                     <Tooltip
                       title={disc?.name}
-                      content={disc?.description ?? "Selecciona una disciplina."}
+                      content={disc?.tooltip ?? disc?.description ?? "Selecciona una disciplina."}
                       className="flex-1"
                     >
                       <select
@@ -714,7 +714,7 @@ export function CharacterSheetForm({
                         .filter((p) => p.level <= d.level)
                         .map((p) => (
                           <li key={p.id} className="text-foreground/80">
-                            <Tooltip title={`Nivel ${p.level} · ${p.name}`} content={p.description ?? ""}>
+                            <Tooltip title={`Nivel ${p.level} · ${p.name}`} content={p.tooltip ?? p.summary ?? p.description ?? ""}>
                               <button
                                 type="button"
                                 onClick={(e) => {

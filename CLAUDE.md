@@ -200,13 +200,25 @@ Flujo de invitación a usuarios existentes:
 
 Usa el componente `Tabs` de `~/components/common/tabs.tsx` con cinco pestañas:
 
-1. **Rasgos** — Atributos (Físicos/Sociales/Mentales) + Habilidades (Talentos/Técnicas/Conocimientos).
+1. **Rasgos** — Atributos (Físicos/Sociales/Mentales) + Habilidades (Talentos/Técnicas/Conocimientos). Tooltip sobre cada rasgo/habilidad desde catálogo backend o fallback hardcoded.
 2. **Ventajas** — Trasfondos (`BackgroundRow`: select cerrado + personalizado), Disciplinas, Virtudes, Méritos/Defectos (`MeritFlawRow`: select de 3 niveles + personalizado).
 3. **Estado y salud** — Humanidad/Senda (auto-calculada = Conciencia + Autocontrol), Voluntad permanente (auto-calculada = Coraje), Voluntad actual (`DotRating` con `slots=10`), Reserva de sangre (`BloodPoolRow`: stepper hasta 50, auto-calculada por Generación), Experiencia, niveles de Salud.
 4. **Equipo** — Armas cuerpo a cuerpo, Armas a distancia, Armaduras (con dialogs para crear customs).
 5. **Notas** — Textarea libre (max 8000 chars).
 
 Sección **Identidad** fija arriba (fuera de las pestañas). Botones header: **Tablas** (experiencia, maniobras combate, armaduras) y **Guía rápida** (V20).
+
+**Props nuevos**:
+- `attributes?: AttributeInfo[]` - catálogo de atributos con tooltips.
+- `abilities?: AbilityInfo[]` - catálogo de habilidades con tooltips.
+- `virtues?: Virtue[]` - catálogo de virtudes.
+
+**Patrón tooltip con fallback** (helpers internos):
+- `tooltipForAttribute(key, catalog)` → busca en catálogo, fallback a `ATTR_TOOLTIPS` de `sheet-tooltips.ts`.
+- `tooltipForAbility(name, catalog)` → busca en catálogo, fallback a `ABILITY_TOOLTIPS`.
+- `tooltipForVirtue(key, catalog)` → busca en catálogo, fallback a `VIRTUE_TOOLTIPS`.
+
+Esta arquitectura permite que el backend pueble los tooltips (via vault de Obsidian) sin recompilar el frontend; si faltan datos, la UI cae a los hardcoded para que nunca haya regresión.
 
 **Autocálculos V20** (`app/lib/character-sheet.ts`):
 
@@ -259,10 +271,25 @@ Orden canónico: Físico → Mental → Social → Sobrenatural → otras. Dentr
 **Catálogos propios** (capa API `app/lib/api/catalog/`):
 
 - Archetypes, Disciplines, Clans, MeritsFlaws (preexistentes).
-- **Backgrounds** (nuevo) — `listBackgrounds()` en `catalog.api.ts`, `Background[]` en `catalog.types.ts`.
-- Cache en `catalog-cache.ts` incluye backgrounds. `InfoKind = "background"` con resolver → `{ title, subtitle: "Trasfondo · <categoría>", body }`.
+- **Backgrounds** — `listBackgrounds()`, `listAttributesInfo()`, `listAbilitiesInfo()`, `listVirtues()` en `catalog.api.ts`.
+- Tipos: `Background[]`, `AttributeInfo[]`, `AbilityInfo[]`, `Virtue[]` en `catalog.types.ts`.
+- **Tooltips**: todos los catálogos ahora incluyen campo `tooltip?: string | null` (excepto items que aún no lo tienen en el vault).
+- Cache en `catalog-cache.ts` incluye backgrounds, attributesInfo, abilitiesInfo, virtues. `InfoKind = "background"|"virtue"` etc., con resolver → `{ title, subtitle, body }`.
 
-Routes `/characters/new` y `/characters/detail` cargan y propagan el catálogo de backgrounds a la hoja.
+Routes `/characters/new` y `/characters/detail` cargan todos los catálogos vía loaders SSR y los pasan a `character-sheet-form.tsx`.
+
+## Componente InfoModal y renderizado de catálogo
+
+**`app/components/common/info-modal.tsx`**:
+
+Modal que renderiza descripciones largas del catálogo (atributos, habilidades, disciplinas, virtudes, etc.). Usa la clase CSS `.markdown-content` definida en `app/app.css` para estilar párrafos Markdown con separación correcta.
+
+**Importante**: No se usa `@tailwindcss/typography` (no está instalado). En su lugar, `.markdown-content` aplica estilos manuales:
+- `p { margin: 0.5rem 0 }` — crea separación entre párrafos.
+- `ul { margin-left: 1rem; list-style: disc; }` — listas con sangría.
+- Otros estilos para `h2`, `h3`, `blockquote`, etc.
+
+Esto garantiza que el body Markdown del catálogo (con saltos de línea entre párrafos) se renderice legible sin depender de un plugin CSS que no está disponible.
 
 ## Navbar privado
 
