@@ -91,6 +91,7 @@ export default function ChronicleTableRoute() {
     remoteBoardVersion,
     sendMessage,
     rollVtm,
+    rollInitiative,
     announceSheet,
     activateDiscipline,
     shareBoard,
@@ -275,6 +276,7 @@ export default function ChronicleTableRoute() {
     sourceName?: string;
   }) {
     prefillSeqRef.current += 1;
+    const char = visibleCharacters.find((c) => c.id === input.characterId);
     setPrefill({
       pool: input.pool,
       label: input.label,
@@ -285,12 +287,52 @@ export default function ChronicleTableRoute() {
       specialtyText: input.specialtyText,
       sourceKind: input.sourceKind,
       sourceName: input.sourceName,
+      dexterity: char?.dexterity,
+      wits: char?.wits,
       signature: prefillSeqRef.current,
     });
     setRightTab("dice");
     setMobileTab("chat");
     setMobileDiceOpen(true);
   }
+
+  // Mantén un prefill base con los datos del personaje seleccionado para que
+  // el botón de iniciativa funcione sin necesidad de un click-to-roll previo.
+  // Sólo identidad + atributos de iniciativa; pool/label se rellenan al
+  // hacer click-to-roll en la hoja.
+  useEffect(() => {
+    if (!selectedChar) {
+      setPrefill(undefined);
+      return;
+    }
+    setPrefill((prev) => {
+      // Si ya hay prefill para este personaje, mantenlo intacto (no queremos
+      // resetear el pool/label que vino de un click-to-roll reciente).
+      if (prev && prev.characterId === selectedChar.id) {
+        if (
+          prev.dexterity === selectedChar.dexterity &&
+          prev.wits === selectedChar.wits &&
+          prev.willpowerAvailable === selectedChar.willpowerCurrent
+        ) {
+          return prev;
+        }
+        return {
+          ...prev,
+          dexterity: selectedChar.dexterity,
+          wits: selectedChar.wits,
+          willpowerAvailable: selectedChar.willpowerCurrent,
+        };
+      }
+      // Cambio de personaje: prefill base sin pool ni label (no aplica
+      // signature porque no queremos forzar reset del form V20).
+      return {
+        characterId: selectedChar.id,
+        dexterity: selectedChar.dexterity,
+        wits: selectedChar.wits,
+        willpowerAvailable: selectedChar.willpowerCurrent,
+      };
+    });
+  }, [selectedChar]);
 
   // ── Tabs y modal pizarra ─────────────────────────────────
   const [rightTab, setRightTab] = useState<RightTab>("chat");
@@ -641,6 +683,7 @@ export default function ChronicleTableRoute() {
                     const resp = await rollVtm(input);
                     return resp;
                   }}
+                  onRollInitiative={rollInitiative}
                 />
               </div>
               <div className="border-t border-border bg-background/30 p-2 lg:hidden">
@@ -686,6 +729,14 @@ export default function ChronicleTableRoute() {
               prefill={prefill}
               onRoll={async (input) => {
                 const resp = await rollVtm(input);
+                if (resp.ok) {
+                  setRightTab("dice");
+                  setMobileDiceOpen(false);
+                }
+                return resp;
+              }}
+              onRollInitiative={async (input) => {
+                const resp = await rollInitiative(input);
                 if (resp.ok) {
                   setRightTab("dice");
                   setMobileDiceOpen(false);

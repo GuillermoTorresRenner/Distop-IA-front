@@ -5,6 +5,7 @@ import {
   Loader2,
   RotateCcw,
   Star,
+  Swords,
   Trash2,
   Wand2,
   Zap,
@@ -142,6 +143,9 @@ export function RollHistory({
 // ─────────────────────────────────────────────────────────────────────────────
 
 function RollCard({ roll, highlight }: { roll: DiceRoll; highlight: boolean }) {
+  if (roll.sourceKind === "INITIATIVE") {
+    return <InitiativeRollCard roll={roll} highlight={highlight} />;
+  }
   const authorName = roll.user?.nickname ?? roll.user?.email ?? "Anónimo";
   const at = new Date(roll.createdAt).toLocaleTimeString();
 
@@ -322,6 +326,121 @@ function RollCard({ roll, highlight }: { roll: DiceRoll; highlight: boolean }) {
             ? "Pifia"
             : `${roll.successes} ${roll.successes === 1 ? "éxito" : "éxitos"}`}
         </strong>
+      </footer>
+    </article>
+  );
+}
+
+/**
+ * Card especializada para tiradas de iniciativa: 1d10 + Destreza + Astucia.
+ * Layout pensado para que se distinga de las tiradas V20 de un vistazo y
+ * comunique el total grande (que coincide con la entrada en el tracker).
+ */
+function InitiativeRollCard({
+  roll,
+  highlight,
+}: {
+  roll: DiceRoll;
+  highlight: boolean;
+}) {
+  const authorName = roll.user?.nickname ?? roll.user?.email ?? "Anónimo";
+  const at = new Date(roll.createdAt).toLocaleTimeString();
+  const meta = (roll.metadata ?? null) as
+    | {
+        d10?: number;
+        dexterity?: number;
+        wits?: number;
+        modifier?: number;
+        total?: number;
+      }
+    | null;
+  // Fallback defensivo si la metadata no llegó por algún motivo: tomamos
+  // el primer dado del array `rolls` y dejamos el resto en 0.
+  const d10 = meta?.d10 ?? roll.rolls?.[0] ?? 0;
+  const dex = meta?.dexterity ?? 0;
+  const wits = meta?.wits ?? 0;
+  const modifier = meta?.modifier ?? 0;
+  const total = meta?.total ?? d10 + dex + wits + modifier;
+
+  return (
+    <article
+      className={cn(
+        "rounded-md border border-amber-500/40 bg-amber-500/5 p-2 transition-all",
+        highlight && "ring-2 ring-amber-400 shadow-lg shadow-amber-400/30 scale-[1.02]"
+      )}
+    >
+      <header className="flex items-start justify-between gap-2 text-xs">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5 truncate">
+            <span className="font-heading uppercase tracking-wider text-amber-300">
+              {authorName}
+            </span>
+            <VisibilityBadge isPublic={roll.isPublic} />
+            {roll.character ? (
+              <span className="text-muted-foreground">
+                · {roll.character.name}
+                {roll.character.kind && roll.character.kind !== "PC" ? (
+                  <span className="ml-1 text-amber-400">
+                    ({roll.character.kind === "NPC" ? "PNJ" : "antagonista"})
+                  </span>
+                ) : null}
+              </span>
+            ) : null}
+          </div>
+          <div className="mt-1 inline-flex items-center gap-1 rounded-full border border-amber-500/60 bg-amber-500/15 px-1.5 py-0.5 font-heading text-[0.55rem] uppercase tracking-widest text-amber-300">
+            <Swords className="size-3" />
+            Iniciativa
+          </div>
+        </div>
+        <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+          {at}
+        </span>
+      </header>
+
+      <div className="mt-2 flex items-center gap-3">
+        <span
+          className={cn(
+            "inline-flex h-9 w-9 items-center justify-center rounded border text-base font-heading font-bold",
+            "border-amber-400 bg-amber-400/20 text-amber-200"
+          )}
+          title={`d10 = ${d10}`}
+        >
+          {d10}
+        </span>
+        <span className="text-sm text-muted-foreground">
+          + <span className="text-foreground">{dex}</span>{" "}
+          <span className="text-[10px] uppercase tracking-wider">Dex</span> +{" "}
+          <span className="text-foreground">{wits}</span>{" "}
+          <span className="text-[10px] uppercase tracking-wider">Ast</span>
+          {modifier !== 0 ? (
+            <>
+              {" "}
+              <span
+                className={cn(
+                  "font-medium",
+                  modifier > 0 ? "text-emerald-300" : "text-blood",
+                )}
+              >
+                {modifier > 0 ? `+ ${modifier}` : `− ${Math.abs(modifier)}`}
+              </span>{" "}
+              <span className="text-[10px] uppercase tracking-wider">
+                mod
+              </span>
+            </>
+          ) : null}
+        </span>
+        <span className="ml-auto text-right">
+          <span className="block text-[10px] uppercase tracking-widest text-muted-foreground">
+            Total
+          </span>
+          <strong className="block font-heading text-2xl leading-none text-amber-200">
+            {total}
+          </strong>
+        </span>
+      </div>
+
+      <footer className="mt-2 text-[10px] italic text-muted-foreground">
+        Inscrito en el orden de turnos con iniciativa {total}.
       </footer>
     </article>
   );

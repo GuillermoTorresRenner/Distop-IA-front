@@ -114,11 +114,29 @@ export interface DiceRoll {
   successes: number;
   isBotch: boolean;
   isPublic: boolean;
-  /** Origen de la tirada (ej. "DISCIPLINE"). Null para tiradas manuales. */
+  /** Origen de la tirada (ej. "DISCIPLINE", "INITIATIVE"). Null para tiradas manuales. */
   sourceKind?: string | null;
   /** Etiqueta legible del origen (ej. nombre de la disciplina). */
   sourceName?: string | null;
+  /**
+   * Payload extra dependiente de `sourceKind`.
+   * Para `INITIATIVE`: `{ d10, dexterity, wits, total }`.
+   */
+  metadata?: Record<string, unknown> | null;
   createdAt: string;
+}
+
+export interface RollInitiativeInput {
+  characterId: string;
+  /** Etiqueta opcional (ej. "Asalto sorpresa"). */
+  label?: string;
+  /** Default true. */
+  isPublic?: boolean;
+  /**
+   * Modificador circunstancial entero (positivo o negativo). Se suma al
+   * total junto con Destreza y Astucia. Rango [-20, +20].
+   */
+  modifier?: number;
 }
 
 export interface RollVtmInput {
@@ -214,6 +232,10 @@ export interface ClientToServerEvents {
   ) => void;
   "roll:vtm": (
     body: RollVtmInput,
+    ack?: (resp: { ok: boolean; id?: string; error?: string }) => void
+  ) => void;
+  "roll:initiative": (
+    body: RollInitiativeInput,
     ack?: (resp: { ok: boolean; id?: string; error?: string }) => void
   ) => void;
   "sheet:announce": (

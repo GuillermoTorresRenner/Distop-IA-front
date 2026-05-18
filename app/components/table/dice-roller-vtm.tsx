@@ -6,13 +6,14 @@ import {
   HeartCrack,
   RotateCcw,
   Star,
+  Swords,
   Zap,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Tooltip } from "~/components/common/tooltip";
 import { Button } from "~/components/ui/button";
 import { cn } from "~/lib/utils";
-import type { RollVtmInput } from "~/lib/socket/types";
+import type { RollInitiativeInput, RollVtmInput } from "~/lib/socket/types";
 
 export interface RollerPrefill {
   pool?: number;
@@ -36,6 +37,13 @@ export interface RollerPrefill {
    */
   skillRating?: number;
   /**
+   * Atributo Destreza del personaje seleccionado. Necesario para mostrar
+   * el desglose del botón de iniciativa (1d10 + Destreza + Astucia).
+   */
+  dexterity?: number;
+  /** Atributo Astucia del personaje seleccionado. */
+  wits?: number;
+  /**
    * Texto (markdown) de la especialidad declarada en la habilidad
    * seleccionada. Se envía al back cuando el roller marca specialty=true,
    * para guardarlo con la tirada como snapshot histórico.
@@ -58,6 +66,14 @@ interface DiceRollerVtMProps {
   onRoll: (
     input: RollVtmInput
   ) => Promise<{ ok: boolean; error?: string; id?: string }>;
+  /**
+   * Tira iniciativa V20 para el personaje del prefill: 1d10 + Destreza +
+   * Astucia. El back agrega o actualiza al personaje en el tracker de
+   * turnos con el total como iniciativa.
+   */
+  onRollInitiative?: (
+    input: RollInitiativeInput
+  ) => Promise<{ ok: boolean; error?: string; id?: string }>;
 }
 
 const MIN_SKILL_FOR_SPECIALTY = 4;
@@ -78,6 +94,7 @@ export function DiceRollerVtM({
   canTryPrivate,
   prefill,
   onRoll,
+  onRollInitiative,
 }: DiceRollerVtMProps) {
   const [pool, setPool] = useState(5);
   const [difficulty, setDifficulty] = useState(6);
@@ -98,6 +115,17 @@ export function DiceRollerVtM({
   const [wpPanelOpen, setWpPanelOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /**
+   * Modificador circunstancial para la tirada de iniciativa (positivo o
+   * negativo). No persiste entre tiradas: se resetea al cambiar de personaje
+   * y tras tirar para evitar arrastrar modificadores accidentales.
+   */
+  const [initiativeModifier, setInitiativeModifier] = useState(0);
+  /**
+   * El panel de iniciativa arranca colapsado para no robar foco al roller
+   * V20. Se abre con el botón "Iniciativa" y se vuelve a cerrar tras tirar.
+   */
+  const [initiativeOpen, setInitiativeOpen] = useState(false);
 
   const skillRating = prefill?.skillRating ?? 0;
   const specialtyAllowed = skillRating >= MIN_SKILL_FOR_SPECIALTY;
@@ -133,6 +161,14 @@ export function DiceRollerVtM({
     if (!specialtyAllowed && specialty) setSpecialty(false);
   }, [specialtyAllowed, specialty]);
 
+  // Resetea el modificador de iniciativa al cambiar de personaje: no tiene
+  // sentido arrastrarlo entre PJs ni mantenerlo después de tirar. También
+  // cerramos el panel para que el siguiente PJ arranque con la UI limpia.
+  useEffect(() => {
+    setInitiativeModifier(0);
+    setInitiativeOpen(false);
+  }, [prefill?.characterId]);
+
   const rawPenalty = Math.min(0, prefill?.woundPenalty ?? 0);
   const effectivePenalty = wpWound ? 0 : rawPenalty;
   const previewPool = Math.max(1, pool + effectivePenalty);
@@ -157,6 +193,33 @@ export function DiceRollerVtM({
     setWpSuccess(desired.success);
     setWpWound(desired.wound);
     setWpReroll(desired.reroll);
+  }
+
+  const initiativeBase =
+    (prefill?.dexterity ?? 0) + (prefill?.wits ?? 0);
+  const initiativeBonus = initiativeBase + initiativeModifier;
+  const canRollInitiative =
+    !!onRollInitiative && !!prefill?.characterId && initiativeBase > 0;
+
+  async function handleRollInitiative() {
+    if (!onRollInitiative || !prefill?.characterId || busy) return;
+    setBusy(true);
+    setError(null);
+    const resp = await onRollInitiative({
+      characterId: prefill.characterId,
+      isPublic,
+      modifier: initiativeModifier !== 0 ? initiativeModifier : undefined,
+    });
+    setBusy(false);
+    if (!resp.ok) {
+      setError(resp.error ?? "No se pudo tirar la iniciativa");
+    } else {
+      // Tirada consumida: el modificador es circunstancial y no debe
+      // arrastrarse a la siguiente iniciativa. También colapsamos el panel
+      // para devolver el foco al roller V20.
+      setInitiativeModifier(0);
+      setInitiativeOpen(false);
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -220,7 +283,47 @@ export function DiceRollerVtM({
         />
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap items-center justify-center gap-2">
+        {onRollInitiative ? (
+          <Tooltip
+            title="Iniciativa V20"
+            content={
+              canRollInitiative
+                ? "Despliega el panel para tirar 1d10 + Destreza + Astucia. Puedes añadir un modificador circunstancial antes de tirar."
+                : "Selecciona un personaje en la hoja con Destreza y Astucia para tirar iniciativa."
+            }
+            side="top"
+          >
+            <button
+              type="button"
+              onClick={() => setInitiativeOpen((v) => !v)}
+              disabled={busy || !canRollInitiative}
+              aria-expanded={initiativeOpen}
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-heading uppercase tracking-wider transition-colors",
+                initiativeOpen || initiativeModifier !== 0
+                  ? "border-amber-400 bg-amber-500/20 text-amber-200"
+                  : "border-border bg-input/30 text-muted-foreground hover:bg-amber-500/10",
+                (busy || !canRollInitiative) &&
+                  "opacity-40 cursor-not-allowed hover:bg-input/30",
+              )}
+            >
+              <Swords className="size-3.5" />
+              Iniciativa
+              {initiativeModifier !== 0 ? (
+                <span className="ml-1 rounded-full bg-amber-500/30 px-1.5 text-[10px] leading-4 tabular-nums">
+                  {initiativeModifier > 0 ? "+" : ""}
+                  {initiativeModifier}
+                </span>
+              ) : null}
+              {initiativeOpen ? (
+                <ChevronUp className="size-3.5" />
+              ) : (
+                <ChevronDown className="size-3.5" />
+              )}
+            </button>
+          </Tooltip>
+        ) : null}
         <Toggle
           active={specialty}
           onToggle={() => specialtyAllowed && setSpecialty((v) => !v)}
@@ -273,6 +376,53 @@ export function DiceRollerVtM({
           />
         ) : null}
       </div>
+
+      {initiativeOpen && canRollInitiative ? (
+        <div className="space-y-1.5 rounded-md border border-amber-500/30 bg-amber-500/5 p-2.5">
+          <div className="flex items-center justify-between gap-2">
+            <span className="font-heading text-[10px] uppercase tracking-widest text-amber-300/90">
+              Modificador circunstancial
+            </span>
+            <ModifierStepper
+              value={initiativeModifier}
+              onChange={setInitiativeModifier}
+              disabled={busy}
+            />
+          </div>
+          <p className="text-[10px] leading-tight text-muted-foreground">
+            Base: 1d10 + Destreza ({prefill?.dexterity ?? 0}) + Astucia (
+            {prefill?.wits ?? 0})
+            {initiativeModifier !== 0 ? (
+              <span
+                className={cn(
+                  "ml-1 font-medium",
+                  initiativeModifier > 0
+                    ? "text-emerald-300"
+                    : "text-blood",
+                )}
+              >
+                {initiativeModifier > 0 ? "+" : ""}
+                {initiativeModifier} circunstancial
+              </span>
+            ) : null}
+            <span className="ml-1 italic text-muted-foreground/70">
+              · se reinicia tras tirar
+            </span>
+          </p>
+          <Button
+            type="button"
+            onClick={handleRollInitiative}
+            disabled={busy}
+            variant="outline"
+            className="w-full border-amber-500/50 text-amber-200 hover:bg-amber-500/10"
+          >
+            <Swords className="size-4" />
+            {busy
+              ? "Tirando iniciativa..."
+              : `Tirar · 1d10 + ${initiativeBonus >= 0 ? initiativeBonus : `(${initiativeBonus})`}`}
+          </Button>
+        </div>
+      ) : null}
 
       {wpPanelOpen && hasCharacter ? (
         <div className="space-y-1.5 rounded-md border border-blood/40 bg-blood/5 p-2.5">
@@ -333,17 +483,68 @@ export function DiceRollerVtM({
 
       {error ? <p className="text-xs text-blood">{error}</p> : null}
 
-      <Button
-        type="submit"
-        disabled={busy}
-        className="w-full bg-blood text-blood-foreground hover:bg-blood/90"
-      >
-        <Dices className="size-4" />
-        {busy
-          ? "Tirando..."
-          : `Tirar ${previewPool}d10 vs ${difficulty}`}
-      </Button>
+      {initiativeOpen ? null : (
+        <Button
+          type="submit"
+          disabled={busy}
+          className="w-full bg-blood text-blood-foreground hover:bg-blood/90"
+        >
+          <Dices className="size-4" />
+          {busy
+            ? "Tirando..."
+            : `Tirar ${previewPool}d10 vs ${difficulty}`}
+        </Button>
+      )}
     </form>
+  );
+}
+
+/** Stepper compacto con rango [-20, +20] para el modificador de iniciativa. */
+function ModifierStepper({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: number;
+  onChange: (v: number) => void;
+  disabled?: boolean;
+}) {
+  function clamp(v: number) {
+    return Math.max(-20, Math.min(20, v));
+  }
+  return (
+    <div className="flex items-center rounded-md border border-amber-500/40 bg-input/30">
+      <button
+        type="button"
+        onClick={() => onChange(clamp(value - 1))}
+        disabled={disabled}
+        aria-label="Restar modificador"
+        className="px-2 py-0.5 text-sm font-heading text-amber-300 hover:bg-blood/20 disabled:opacity-40"
+      >
+        −
+      </button>
+      <input
+        type="number"
+        value={value}
+        onChange={(e) => {
+          const n = parseInt(e.target.value, 10);
+          if (!Number.isNaN(n)) onChange(clamp(n));
+          else if (e.target.value === "" || e.target.value === "-") onChange(0);
+        }}
+        disabled={disabled}
+        aria-label="Modificador de iniciativa"
+        className="h-7 w-12 bg-transparent text-center font-heading text-sm tabular-nums focus:outline-none disabled:opacity-40"
+      />
+      <button
+        type="button"
+        onClick={() => onChange(clamp(value + 1))}
+        disabled={disabled}
+        aria-label="Sumar modificador"
+        className="px-2 py-0.5 text-sm font-heading text-amber-300 hover:bg-blood/20 disabled:opacity-40"
+      >
+        +
+      </button>
+    </div>
   );
 }
 
