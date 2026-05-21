@@ -106,6 +106,8 @@ export type InfoKind =
   | "ability"
   | "discipline"
   | "discipline-power"
+  | "discipline-path"
+  | "discipline-ritual"
   | "merit-flaw"
   | "background"
   | "clan"
@@ -164,30 +166,85 @@ export function resolveInfoEntry(
       };
     }
     case "discipline-power": {
-      // identifier en formato "Nombre disciplina|N" o "Nombre disciplina|nombre poder"
-      const [discName, levelOrName] = identifier.split("|");
+      // identifier en formato:
+      //   "Nombre disciplina|N"             ← disciplina monolítica, busca por nivel
+      //   "Nombre disciplina|nombre poder"  ← disciplina monolítica, busca por nombre
+      //   "Nombre disciplina|pathKey|N"     ← disciplina con sendas, nivel dentro de senda
+      const parts = identifier.split("|");
+      const [discName, second, third] = parts;
       const d = bundle.disciplines.find((x) => x.name === discName);
       if (!d) return null;
-      const lvl = Number(levelOrName);
-      const power = Number.isFinite(lvl)
-        ? d.powers.find((p) => p.level === lvl)
-        : d.powers.find((p) => p.name === levelOrName);
+      let power: import("~/lib/api/catalog/catalog.types").DisciplinePower | undefined;
+      let pathName: string | undefined;
+      if (parts.length >= 3) {
+        // Senda + nivel.
+        const path = d.paths?.find((p) => p.key === second);
+        const lvl = Number(third);
+        power = path?.powers.find((p) => p.level === lvl);
+        pathName = path?.name;
+      } else {
+        const lvl = Number(second);
+        power = Number.isFinite(lvl)
+          ? d.powers.find((p) => p.level === lvl)
+          : d.powers.find((p) => p.name === second);
+      }
       if (!power) return null;
       const chips: string[] = [];
       if (typeof power.bloodCost === "number") {
         chips.push(power.bloodCost === 0 ? "Sin coste" : `${power.bloodCost} sangre`);
       }
       if (power.rollAttribute || power.rollAbility) {
-        const parts = [power.rollAttribute, power.rollAbility].filter(Boolean);
-        chips.push(parts.join(" + "));
+        const pp = [power.rollAttribute, power.rollAbility].filter(Boolean);
+        chips.push(pp.join(" + "));
       }
       if (typeof power.rollDifficulty === "number") {
         chips.push(`Dif. ${power.rollDifficulty}`);
       }
       return {
         title: power.name,
-        subtitle: `${d.name} · Nivel ${power.level}`,
+        subtitle: pathName
+          ? `${d.name} · ${pathName} · Nivel ${power.level}`
+          : `${d.name} · Nivel ${power.level}`,
         body: power.description || power.summary || null,
+        chips,
+      };
+    }
+    case "discipline-path": {
+      // identifier formato "Nombre disciplina|pathKey".
+      const [discName, key] = identifier.split("|");
+      const d = bundle.disciplines.find((x) => x.name === discName);
+      const path = d?.paths?.find((p) => p.key === key);
+      if (!d || !path) return null;
+      return {
+        title: path.name,
+        subtitle: `${d.name} · Senda`,
+        body: path.description ?? path.tooltip ?? null,
+      };
+    }
+    case "discipline-ritual": {
+      // identifier formato "Nombre disciplina|ritualKey".
+      const [discName, key] = identifier.split("|");
+      const d = bundle.disciplines.find((x) => x.name === discName);
+      const ritual = d?.rituals?.find((r) => r.key === key);
+      if (!d || !ritual) return null;
+      const chips: string[] = [];
+      if (ritual.castingTime) chips.push(ritual.castingTime);
+      if (ritual.rollAttribute || ritual.rollAbility) {
+        const pp = [ritual.rollAttribute, ritual.rollAbility].filter(Boolean);
+        chips.push(pp.join(" + "));
+      }
+      if (typeof ritual.rollDifficulty === "number") {
+        chips.push(`Dif. ${ritual.rollDifficulty}`);
+      }
+      const bodyParts: string[] = [];
+      if (ritual.description) bodyParts.push(ritual.description);
+      if (ritual.ingredients) {
+        bodyParts.push(`\n**Ingredientes:** ${ritual.ingredients}`);
+      }
+      return {
+        title: ritual.name,
+        subtitle: `${d.name} · Ritual nivel ${ritual.level}`,
+        body: bodyParts.join("\n") || null,
         chips,
       };
     }

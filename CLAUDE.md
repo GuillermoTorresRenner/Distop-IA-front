@@ -201,7 +201,7 @@ Flujo de invitación a usuarios existentes:
 Usa el componente `Tabs` de `~/components/common/tabs.tsx` con cinco pestañas:
 
 1. **Rasgos** — Atributos (Físicos/Sociales/Mentales) + Habilidades (Talentos/Técnicas/Conocimientos). Tooltip sobre cada rasgo/habilidad desde catálogo backend o fallback hardcoded.
-2. **Ventajas** — Trasfondos (`BackgroundRow`: select cerrado + personalizado), Disciplinas, Virtudes, Méritos/Defectos (`MeritFlawRow`: select de 3 niveles + personalizado).
+2. **Ventajas** — Trasfondos (`BackgroundRow`: select cerrado + personalizado), Disciplinas (`DisciplineRow`: para monolíticas un `DotRating` + lista de poderes; para ramificadas — Taumaturgia/Nigromancia — subpanel de sendas con `DotRating` por senda, radio "primaria" y sección colapsable de rituales aprendidos vía checkbox), Virtudes, Méritos/Defectos (`MeritFlawRow`: select de 3 niveles + personalizado).
 3. **Estado y salud** — Humanidad/Senda (auto-calculada = Conciencia + Autocontrol), Voluntad permanente (auto-calculada = Coraje), Voluntad actual (`DotRating` con `slots=10`), Reserva de sangre (`BloodPoolRow`: stepper hasta 50, auto-calculada por Generación), Experiencia, niveles de Salud.
 4. **Equipo** — Armas cuerpo a cuerpo, Armas a distancia, Armaduras (con dialogs para crear customs).
 5. **Notas** — Textarea libre (max 8000 chars).

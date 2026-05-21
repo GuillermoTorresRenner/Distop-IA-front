@@ -136,16 +136,58 @@ function buildAbilities(state: WizardState): CharacterAbility[] {
 }
 
 function buildDisciplines(state: WizardState): CharacterDiscipline[] {
-  const byId = new Map<string, number>();
+  // Para disciplinas con sendas, preservamos los paths del state. Para las
+  // monolíticas, sumamos `level` + extras de freebies. Las freebies que
+  // apuntan a una disciplina con sendas se aplican como nivel adicional
+  // a su senda primaria (no diferenciamos en el wizard de freebies
+  // actual; el narrador puede ajustar a mano luego).
+  const byId = new Map<string, CharacterDiscipline>();
   for (const d of state.disciplines) {
-    byId.set(d.disciplineId, (byId.get(d.disciplineId) ?? 0) + d.level);
+    if (d.paths && d.paths.length > 0) {
+      const maxLevel = Math.max(...d.paths.map((p) => p.level));
+      byId.set(d.disciplineId, {
+        disciplineId: d.disciplineId,
+        level: maxLevel,
+        paths: d.paths.map((p) => ({
+          pathId: p.pathId,
+          level: p.level,
+          isPrimary: p.isPrimary,
+        })),
+      });
+    } else {
+      byId.set(d.disciplineId, {
+        disciplineId: d.disciplineId,
+        level: d.level,
+      });
+    }
   }
   for (const [disciplineId, extra] of Object.entries(state.freebies.disciplines)) {
-    if (extra > 0) byId.set(disciplineId, (byId.get(disciplineId) ?? 0) + extra);
+    if (extra <= 0) continue;
+    const existing = byId.get(disciplineId);
+    if (existing?.paths && existing.paths.length > 0) {
+      // Disciplina ramificada: suma a la senda primaria.
+      const next = existing.paths.map((p) =>
+        p.isPrimary
+          ? { ...p, level: Math.min(5, p.level + extra) }
+          : p,
+      );
+      const maxLevel = Math.max(...next.map((p) => p.level));
+      byId.set(disciplineId, {
+        ...existing,
+        level: maxLevel,
+        paths: next,
+      });
+    } else if (existing) {
+      byId.set(disciplineId, {
+        ...existing,
+        level: Math.min(5, existing.level + extra),
+      });
+    } else {
+      // Compró desde cero en freebies.
+      byId.set(disciplineId, { disciplineId, level: extra });
+    }
   }
-  return Array.from(byId.entries())
-    .filter(([, level]) => level > 0)
-    .map(([disciplineId, level]) => ({ disciplineId, level }));
+  return Array.from(byId.values()).filter((d) => d.level > 0);
 }
 
 function buildBackgrounds(

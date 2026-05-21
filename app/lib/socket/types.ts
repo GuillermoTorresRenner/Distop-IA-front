@@ -139,6 +139,22 @@ export interface RollInitiativeInput {
   modifier?: number;
 }
 
+/**
+ * Tirada de un poder o ritual. El servidor lee el catálogo, valida que
+ * el personaje lo conoce al nivel requerido, calcula el pool desde sus
+ * stats (atributo + habilidad + modifier) y tira con la dificultad
+ * declarada en el catálogo. Exactamente uno de `powerId` o `ritualId`.
+ */
+export interface RollPowerInput {
+  characterId: string;
+  powerId?: string;
+  ritualId?: string;
+  label?: string;
+  /** Modificador al pool. Rango [-10, +10]. */
+  modifier?: number;
+  isPublic?: boolean;
+}
+
 export interface RollVtmInput {
   pool: number;
   difficulty?: number;
@@ -236,6 +252,10 @@ export interface ClientToServerEvents {
   ) => void;
   "roll:initiative": (
     body: RollInitiativeInput,
+    ack?: (resp: { ok: boolean; id?: string; error?: string }) => void
+  ) => void;
+  "roll:power": (
+    body: RollPowerInput,
     ack?: (resp: { ok: boolean; id?: string; error?: string }) => void
   ) => void;
   "sheet:announce": (

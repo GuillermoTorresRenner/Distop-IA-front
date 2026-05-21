@@ -19,6 +19,8 @@ import type {
   Background,
   Clan,
   Discipline,
+  DisciplinePath,
+  DisciplineRitual,
   MeritFlaw,
   Virtue,
   Weapon,
@@ -667,93 +669,20 @@ export function CharacterSheetForm({
           ) : (
             (value.disciplines ?? []).map((d, i) => {
               const disc = disciplines.find((x) => x.id === d.disciplineId);
-              const powers = disc?.powers ?? [];
               return (
-                <div key={i} className="space-y-2 rounded-md border border-border/40 bg-background/30 p-2">
-                  <div className="flex items-center gap-2">
-                    <Tooltip
-                      title={disc?.name}
-                      content={disc?.tooltip ?? disc?.description ?? "Selecciona una disciplina."}
-                      className="flex-1"
-                    >
-                      <select
-                        value={d.disciplineId}
-                        disabled={readOnly}
-                        onChange={(e) => updateDiscipline(i, { disciplineId: e.target.value })}
-                        className={cn(SELECT_DARK_CLASS, "h-8")}
-                      >
-                        {disciplines.map((opt) => (
-                          <option key={opt.id} value={opt.id}>
-                            {opt.name}
-                          </option>
-                        ))}
-                      </select>
-                    </Tooltip>
-                    <DotRating
-                      value={d.level}
-                      min={1}
-                      onChange={(v) => updateDiscipline(i, { level: v })}
-                      readOnly={readOnly}
-                    />
-                    {!readOnly && (
-                      <Button
-                        type="button"
-                        size="icon-sm"
-                        variant="ghost"
-                        onClick={() => removeDiscipline(i)}
-                        aria-label="Eliminar disciplina"
-                        className="text-destructive hover:bg-destructive/10"
-                      >
-                        <Trash2 className="size-3.5" />
-                      </Button>
-                    )}
-                  </div>
-                  {powers.length > 0 && (
-                    <ul className="space-y-0.5 font-serif text-xs text-muted-foreground">
-                      {powers
-                        .filter((p) => p.level <= d.level)
-                        .map((p) => (
-                          <li key={p.id} className="text-foreground/80">
-                            <Tooltip title={`Nivel ${p.level} · ${p.name}`} content={p.tooltip ?? p.summary ?? p.description ?? ""}>
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  if (disc) {
-                                    infoModal.open(
-                                      "discipline-power",
-                                      `${disc.name}|${p.level}`,
-                                      p.name,
-                                    );
-                                  }
-                                }}
-                                className="underline decoration-dotted decoration-blood/30 underline-offset-2 transition-colors hover:text-blood hover:decoration-blood focus:outline-none focus:text-blood"
-                              >
-                                <span className="font-semibold text-blood">·{p.level}·</span>{" "}
-                                {p.name}
-                              </button>
-                            </Tooltip>
-                          </li>
-                        ))}
-                    </ul>
-                  )}
-                  {disc ? (
-                    <div className="flex justify-end">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          infoModal.open("discipline", disc.name, disc.name);
-                        }}
-                        className="font-heading text-[0.55rem] uppercase tracking-widest text-muted-foreground underline decoration-dotted decoration-blood/30 underline-offset-2 transition-colors hover:text-blood hover:decoration-blood focus:outline-none focus:text-blood"
-                      >
-                        Ver disciplina
-                      </button>
-                    </div>
-                  ) : null}
-                </div>
+                <DisciplineRow
+                  key={i}
+                  index={i}
+                  pick={d}
+                  disc={disc}
+                  disciplines={disciplines}
+                  readOnly={!!readOnly}
+                  onUpdate={(patchD) => updateDiscipline(i, patchD)}
+                  onRemove={() => removeDiscipline(i)}
+                  onOpenInfo={(kind, id, fallback) =>
+                    infoModal.open(kind, id, fallback)
+                  }
+                />
               );
             })
           )}
@@ -1554,6 +1483,352 @@ function CustomMeritFlawInputs({
           <span className="px-1.5 text-[10px] text-muted-foreground">pts</span>
         </div>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Fila de disciplina en la pestaña Ventajas de la hoja. Maneja los dos
+ * modos del catálogo:
+ *
+ * - **Monolítica** (`disc.hasPaths === false` o sin catálogo aún cargado):
+ *   select de disciplina + `DotRating` único + lista de poderes hasta
+ *   el nivel comprado. Comportamiento legacy.
+ *
+ * - **Ramificada** (`disc.hasPaths === true`, Taumaturgia, Nigromancia):
+ *   select de disciplina + subpanel de sendas. Cada senda tiene su
+ *   `DotRating 1..5`, radio "primaria" y lista de poderes filtrados
+ *   por el nivel conocido. Sección colapsable "Rituales conocidos"
+ *   con checkboxes por ritual del catálogo.
+ *
+ * El handler `onUpdate` recibe `Partial<CharacterDiscipline>` con `paths`
+ * y `learnedRitualIds` actualizados según corresponda; el componente
+ * padre los manda íntegros al backend en el siguiente PATCH.
+ */
+function DisciplineRow({
+  pick,
+  disc,
+  disciplines,
+  readOnly,
+  onUpdate,
+  onRemove,
+  onOpenInfo,
+}: {
+  index: number;
+  pick: CharacterDiscipline;
+  disc: Discipline | undefined;
+  disciplines: Discipline[];
+  readOnly: boolean;
+  onUpdate: (patch: Partial<CharacterDiscipline>) => void;
+  onRemove: () => void;
+  onOpenInfo: (
+    kind: "discipline" | "discipline-power" | "discipline-path" | "discipline-ritual",
+    identifier: string,
+    fallbackTitle?: string,
+  ) => void;
+}) {
+  const hasPaths = !!disc?.hasPaths;
+  const paths = disc?.paths ?? [];
+  const rituals = disc?.rituals ?? [];
+
+  function updatePath(pathId: string, level: number) {
+    const existing = pick.paths ?? [];
+    const found = existing.find((p) => p.pathId === pathId);
+    let nextPaths;
+    if (level <= 0) {
+      // Quitar la senda.
+      nextPaths = existing.filter((p) => p.pathId !== pathId);
+    } else if (found) {
+      nextPaths = existing.map((p) =>
+        p.pathId === pathId ? { ...p, level: Math.max(1, Math.min(5, level)) } : p,
+      );
+    } else {
+      // Si no había ninguna primaria, esta lo será.
+      const anyPrimary = existing.some((p) => p.isPrimary);
+      nextPaths = [
+        ...existing,
+        {
+          pathId,
+          level: Math.max(1, Math.min(5, level)),
+          isPrimary: !anyPrimary,
+        },
+      ];
+    }
+    // Nivel general = máximo de las sendas (legacy, lo lee el back).
+    const maxLevel = nextPaths.length
+      ? Math.max(...nextPaths.map((p) => p.level))
+      : 1;
+    onUpdate({ paths: nextPaths, level: maxLevel });
+  }
+
+  function setPrimary(pathId: string) {
+    const existing = pick.paths ?? [];
+    const nextPaths = existing.map((p) => ({
+      ...p,
+      isPrimary: p.pathId === pathId,
+    }));
+    onUpdate({ paths: nextPaths });
+  }
+
+  function toggleRitual(ritualId: string, learned: boolean) {
+    const existing = pick.learnedRitualIds ?? [];
+    const next = learned
+      ? [...existing, ritualId]
+      : existing.filter((id) => id !== ritualId);
+    onUpdate({ learnedRitualIds: next });
+  }
+
+  const ritualsByLevel = useMemo(() => {
+    const map = new Map<number, DisciplineRitual[]>();
+    for (const r of rituals) {
+      const list = map.get(r.level) ?? [];
+      list.push(r);
+      map.set(r.level, list);
+    }
+    return [...map.entries()].sort(([a], [b]) => a - b);
+  }, [rituals]);
+
+  return (
+    <div className="space-y-2 rounded-md border border-border/40 bg-background/30 p-2">
+      <div className="flex items-center gap-2">
+        <Tooltip
+          title={disc?.name}
+          content={
+            disc?.tooltip ?? disc?.description ?? "Selecciona una disciplina."
+          }
+          className="flex-1"
+        >
+          <select
+            value={pick.disciplineId}
+            disabled={readOnly}
+            onChange={(e) => {
+              // Al cambiar de disciplina reseteamos paths y rituales — la
+              // estructura no es trasladable entre disciplinas distintas.
+              onUpdate({
+                disciplineId: e.target.value,
+                paths: [],
+                learnedRitualIds: [],
+              });
+            }}
+            className={cn(SELECT_DARK_CLASS, "h-8")}
+          >
+            {disciplines.map((opt) => (
+              <option key={opt.id} value={opt.id}>
+                {opt.name}
+                {opt.hasPaths ? " · sendas" : ""}
+              </option>
+            ))}
+          </select>
+        </Tooltip>
+        {hasPaths ? (
+          <span className="font-heading text-[0.65rem] uppercase tracking-widest text-blood">
+            Nivel {pick.level}
+          </span>
+        ) : (
+          <DotRating
+            value={pick.level}
+            min={1}
+            onChange={(v) => onUpdate({ level: v })}
+            readOnly={readOnly}
+          />
+        )}
+        {!readOnly && (
+          <Button
+            type="button"
+            size="icon-sm"
+            variant="ghost"
+            onClick={onRemove}
+            aria-label="Eliminar disciplina"
+            className="text-destructive hover:bg-destructive/10"
+          >
+            <Trash2 className="size-3.5" />
+          </Button>
+        )}
+      </div>
+
+      {hasPaths ? (
+        <div className="space-y-2 rounded-md border border-border/30 bg-background/50 p-2">
+          <p className="font-heading text-[0.65rem] uppercase tracking-[0.3em] text-blood">
+            Sendas
+          </p>
+          {paths.map((p) => {
+            const owned = (pick.paths ?? []).find((x) => x.pathId === p.id);
+            const level = owned?.level ?? 0;
+            return (
+              <div key={p.id} className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      onOpenInfo(
+                        "discipline-path",
+                        `${disc!.name}|${p.key}`,
+                        p.name,
+                      );
+                    }}
+                    className="flex-1 text-left font-serif text-xs text-foreground underline decoration-dotted decoration-blood/30 underline-offset-2 hover:text-blood"
+                  >
+                    {p.name}
+                  </button>
+                  {!readOnly && level > 0 ? (
+                    <label className="flex items-center gap-1 text-[0.65rem] text-muted-foreground">
+                      <input
+                        type="radio"
+                        name={`primary-${pick.disciplineId}`}
+                        checked={!!owned?.isPrimary}
+                        onChange={() => setPrimary(p.id)}
+                        className="accent-blood"
+                      />
+                      <span className="uppercase tracking-widest">Primaria</span>
+                    </label>
+                  ) : null}
+                  <DotRating
+                    value={level}
+                    min={0}
+                    onChange={(v) => updatePath(p.id, v)}
+                    readOnly={readOnly}
+                  />
+                </div>
+                {level > 0 ? (
+                  <ul className="ml-3 space-y-0.5 font-serif text-[0.7rem] text-muted-foreground">
+                    {p.powers
+                      .filter((pw) => pw.level <= level)
+                      .map((pw) => (
+                        <li key={pw.id} className="text-foreground/80">
+                          <Tooltip
+                            title={`${p.name} · Nivel ${pw.level}`}
+                            content={
+                              pw.tooltip ?? pw.summary ?? pw.description ?? ""
+                            }
+                          >
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                onOpenInfo(
+                                  "discipline-power",
+                                  `${disc!.name}|${p.key}|${pw.level}`,
+                                  pw.name,
+                                );
+                              }}
+                              className="underline decoration-dotted decoration-blood/30 underline-offset-2 hover:text-blood"
+                            >
+                              <span className="font-semibold text-blood">
+                                ·{pw.level}·
+                              </span>{" "}
+                              {pw.name}
+                            </button>
+                          </Tooltip>
+                        </li>
+                      ))}
+                  </ul>
+                ) : null}
+              </div>
+            );
+          })}
+
+          {rituals.length > 0 ? (
+            <details className="rounded-md border border-border/30 bg-background/40 px-2 py-1.5">
+              <summary className="cursor-pointer font-heading text-[0.65rem] uppercase tracking-widest text-blood">
+                Rituales conocidos ({pick.learnedRitualIds?.length ?? 0})
+              </summary>
+              <div className="mt-2 space-y-2">
+                {ritualsByLevel.map(([lvl, list]) => (
+                  <div key={lvl} className="space-y-1">
+                    <p className="font-heading text-[0.6rem] uppercase tracking-widest text-muted-foreground">
+                      Nivel {lvl}
+                    </p>
+                    {list.map((r) => {
+                      const checked = (pick.learnedRitualIds ?? []).includes(
+                        r.id,
+                      );
+                      return (
+                        <label
+                          key={r.id}
+                          className="flex items-start gap-2 text-[0.7rem] text-foreground/85"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            disabled={readOnly}
+                            onChange={(e) =>
+                              toggleRitual(r.id, e.target.checked)
+                            }
+                            className="mt-0.5 accent-blood"
+                          />
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              onOpenInfo(
+                                "discipline-ritual",
+                                `${disc!.name}|${r.key}`,
+                                r.name,
+                              );
+                            }}
+                            className="flex-1 text-left underline decoration-dotted decoration-blood/30 underline-offset-2 hover:text-blood"
+                          >
+                            {r.name}
+                          </button>
+                        </label>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+            </details>
+          ) : null}
+        </div>
+      ) : (
+        (disc?.powers ?? []).length > 0 && (
+          <ul className="space-y-0.5 font-serif text-xs text-muted-foreground">
+            {(disc?.powers ?? [])
+              .filter((p) => p.level <= pick.level)
+              .map((p) => (
+                <li key={p.id} className="text-foreground/80">
+                  <Tooltip
+                    title={`Nivel ${p.level} · ${p.name}`}
+                    content={p.tooltip ?? p.summary ?? p.description ?? ""}
+                  >
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        if (disc) {
+                          onOpenInfo(
+                            "discipline-power",
+                            `${disc.name}|${p.level}`,
+                            p.name,
+                          );
+                        }
+                      }}
+                      className="underline decoration-dotted decoration-blood/30 underline-offset-2 transition-colors hover:text-blood hover:decoration-blood focus:outline-none focus:text-blood"
+                    >
+                      <span className="font-semibold text-blood">·{p.level}·</span>{" "}
+                      {p.name}
+                    </button>
+                  </Tooltip>
+                </li>
+              ))}
+          </ul>
+        )
+      )}
+
+      {disc ? (
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              onOpenInfo("discipline", disc.name, disc.name);
+            }}
+            className="font-heading text-[0.55rem] uppercase tracking-widest text-muted-foreground underline decoration-dotted decoration-blood/30 underline-offset-2 transition-colors hover:text-blood hover:decoration-blood focus:outline-none focus:text-blood"
+          >
+            Ver disciplina
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }

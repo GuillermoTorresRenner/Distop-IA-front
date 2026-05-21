@@ -1091,24 +1091,74 @@ function DisciplinesSection({
   const [error, setError] = useState<string | null>(null);
 
   // Solo mostramos disciplinas que el personaje ha aprendido (level >= 1).
-  // Por cada disciplina, los poderes hasta el nivel aprendido.
+  // Por cada disciplina, los poderes hasta el nivel aprendido. Para
+  // disciplinas con sendas, los poderes vienen agrupados por senda.
   const learned = useMemo(() => {
     const byId = new Map(catalog.map((d) => [d.id, d]));
     return character.disciplines
       .map((cd) => {
         const d = byId.get(cd.disciplineId);
         if (!d || cd.level < 1) return null;
+        if (d.hasPaths) {
+          // Filtra poderes de cada senda por el nivel conocido en esa senda.
+          const ownedPathsById = new Map(
+            (cd.paths ?? []).map((p) => [p.pathId, p]),
+          );
+          const pathBuckets = (d.paths ?? [])
+            .map((p) => {
+              const owned = ownedPathsById.get(p.id);
+              if (!owned || owned.level < 1) return null;
+              const powers = p.powers
+                .filter((pw) => pw.level <= owned.level)
+                .sort((a, b) => a.level - b.level);
+              return {
+                path: p,
+                level: owned.level,
+                isPrimary: !!owned.isPrimary,
+                powers,
+              };
+            })
+            .filter(
+              (x): x is {
+                path: import("~/lib/api/catalog/catalog.types").DisciplinePath;
+                level: number;
+                isPrimary: boolean;
+                powers: DisciplinePower[];
+              } => x !== null,
+            )
+            // Primaria primero, después por orden de catálogo.
+            .sort((a, b) => {
+              if (a.isPrimary !== b.isPrimary) return a.isPrimary ? -1 : 1;
+              return a.path.order - b.path.order;
+            });
+          // Rituales aprendidos para esta disciplina.
+          const rituals = (d.rituals ?? []).filter((r) =>
+            (character.disciplineRituals ?? []).some(
+              (cr) => cr.ritualId === r.id,
+            ),
+          );
+          return {
+            discipline: d,
+            level: cd.level,
+            powers: [] as DisciplinePower[],
+            pathBuckets,
+            rituals,
+          };
+        }
         const powers = d.powers
           .filter((p) => p.level <= cd.level)
           .sort((a, b) => a.level - b.level);
-        return { discipline: d, level: cd.level, powers };
+        return {
+          discipline: d,
+          level: cd.level,
+          powers,
+          pathBuckets: [],
+          rituals: [],
+        };
       })
-      .filter(
-        (x): x is { discipline: Discipline; level: number; powers: DisciplinePower[] } =>
-          x !== null,
-      )
+      .filter((x): x is NonNullable<typeof x> => x !== null)
       .sort((a, b) => a.discipline.name.localeCompare(b.discipline.name));
-  }, [catalog, character.disciplines]);
+  }, [catalog, character.disciplines, character.disciplineRituals]);
 
   if (learned.length === 0) return null;
 
@@ -1188,27 +1238,84 @@ function DisciplinesSection({
   const body = (
     <div className="space-y-1.5 pt-0.5">
       {error ? <p className="mb-2 text-xs text-blood">{error}</p> : null}
-      {learned.map(({ discipline, level, powers }) => (
+      {learned.map(({ discipline, level, powers, pathBuckets, rituals }) => (
         <article
           key={discipline.id}
           className="rounded-md border border-border/60 bg-background/30 p-1.5"
         >
           <header className="mb-1.5 flex items-baseline justify-between text-[10px] font-heading uppercase tracking-wider text-muted-foreground">
             <span className="text-foreground/90">{discipline.name}</span>
-            <span className="text-blood">Nivel {level}</span>
+            <span className="text-blood">
+              {discipline.hasPaths ? `Max ${level}` : `Nivel ${level}`}
+            </span>
           </header>
-          <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
-            {powers.map((p) => (
-              <DisciplinePowerButton
-                key={p.id}
-                power={p}
-                disciplineName={discipline.name}
-                characterBlood={character.bloodPool}
-                busy={busyPowerId === p.id}
-                onClick={() => void handleActivate(p, discipline.name)}
-              />
-            ))}
-          </div>
+          {discipline.hasPaths ? (
+            <div className="space-y-2">
+              {pathBuckets.map((b) => (
+                <div key={b.path.id} className="space-y-1">
+                  <p className="flex items-baseline justify-between text-[10px] font-heading uppercase tracking-widest text-blood/85">
+                    <span>
+                      {b.path.name}
+                      {b.isPrimary ? " · primaria" : ""}
+                    </span>
+                    <span>Lv {b.level}</span>
+                  </p>
+                  <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+                    {b.powers.map((p) => (
+                      <DisciplinePowerButton
+                        key={p.id}
+                        power={p}
+                        disciplineName={`${discipline.name} · ${b.path.name}`}
+                        characterBlood={character.bloodPool}
+                        busy={busyPowerId === p.id}
+                        onClick={() =>
+                          void handleActivate(
+                            p,
+                            `${discipline.name} · ${b.path.name}`,
+                          )
+                        }
+                      />
+                    ))}
+                  </div>
+                </div>
+              ))}
+              {rituals.length > 0 ? (
+                <details className="rounded-md border border-border/40 bg-background/40 px-1.5 py-1">
+                  <summary className="cursor-pointer text-[10px] font-heading uppercase tracking-widest text-blood/85">
+                    Rituales conocidos ({rituals.length})
+                  </summary>
+                  <ul className="mt-1 space-y-0.5 font-serif text-[11px] text-foreground/80">
+                    {rituals.map((r) => (
+                      <li key={r.id} className="flex items-baseline gap-1.5">
+                        <span className="font-heading text-blood">
+                          ·{r.level}·
+                        </span>
+                        <span>{r.name}</span>
+                        {r.castingTime ? (
+                          <span className="ml-auto text-[10px] italic text-muted-foreground">
+                            {r.castingTime}
+                          </span>
+                        ) : null}
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              ) : null}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+              {powers.map((p) => (
+                <DisciplinePowerButton
+                  key={p.id}
+                  power={p}
+                  disciplineName={discipline.name}
+                  characterBlood={character.bloodPool}
+                  busy={busyPowerId === p.id}
+                  onClick={() => void handleActivate(p, discipline.name)}
+                />
+              ))}
+            </div>
+          )}
         </article>
       ))}
     </div>

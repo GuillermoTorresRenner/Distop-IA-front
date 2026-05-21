@@ -17,6 +17,7 @@ import type {
   DiceRoll,
   PresenceMember,
   RollInitiativeInput,
+  RollPowerInput,
   RollVtmInput,
   SheetAnnounce,
   SheetAnnounceInput,
@@ -304,6 +305,19 @@ export function useTable(chronicleId: string | null) {
     );
   }, []);
 
+  const rollPower = useCallback((input: RollPowerInput) => {
+    const socket = socketRef.current;
+    if (!socket || !socket.connected)
+      return Promise.resolve({ ok: false, error: "Sin conexión" });
+    return new Promise<{ ok: boolean; id?: string; error?: string }>(
+      (resolve) => {
+        socket.emit("roll:power", input, (resp) => {
+          resolve(resp ?? { ok: false, error: "Sin respuesta" });
+        });
+      }
+    );
+  }, []);
+
   const shareBoard = useCallback((isShared: boolean) => {
     const socket = socketRef.current;
     if (!socket || !socket.connected)
@@ -415,6 +429,7 @@ export function useTable(chronicleId: string | null) {
     sendMessage,
     rollVtm,
     rollInitiative,
+    rollPower,
     announceSheet,
     activateDiscipline,
     shareBoard,

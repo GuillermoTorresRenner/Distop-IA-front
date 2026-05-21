@@ -66,11 +66,30 @@ export function StepDisciplines({
     onChange(next);
   }
 
+  function updatePick(disciplineId: string, patch: Partial<WizardDisciplinePick>) {
+    onChange(
+      state.disciplines.map((d) =>
+        d.disciplineId === disciplineId ? { ...d, ...patch } : d,
+      ),
+    );
+  }
+
   function addDiscipline(disciplineId: string) {
     if (!disciplineId) return;
     if (state.disciplines.some((d) => d.disciplineId === disciplineId)) return;
     if (pool.remaining <= 0) return;
-    onChange([...state.disciplines, { disciplineId, level: 1 }]);
+    const def = disciplines.find((x) => x.id === disciplineId);
+    if (def?.hasPaths) {
+      // Ramificada: sin sendas iniciales; el jugador debe asignar al menos
+      // una desde el subpanel. El `level` plano queda en 0 hasta que se
+      // marque alguna senda; usamos 1 como placeholder visual mínimo.
+      onChange([
+        ...state.disciplines,
+        { disciplineId, level: 0, paths: [] },
+      ]);
+    } else {
+      onChange([...state.disciplines, { disciplineId, level: 1 }]);
+    }
   }
 
   function remove(disciplineId: string) {
@@ -114,6 +133,19 @@ export function StepDisciplines({
         ) : (
           state.disciplines.map((pick) => {
             const def = disciplines.find((d) => d.id === pick.disciplineId);
+            if (def?.hasPaths) {
+              return (
+                <DisciplineWithPathsRow
+                  key={pick.disciplineId}
+                  def={def}
+                  pick={pick}
+                  poolRemaining={pool.remaining}
+                  openCatalog={openCatalog}
+                  onChange={(next) => updatePick(pick.disciplineId, next)}
+                  onRemove={() => remove(pick.disciplineId)}
+                />
+              );
+            }
             // Techo dinámico: tope de 3 en creación (V20), nunca por encima
             // de los puntos que quedan en el pool compartido (3 ptos para
             // repartir entre disciplinas).
@@ -182,4 +214,173 @@ export function StepDisciplines({
 
 function clamp(v: number, min: number, max: number) {
   return Math.max(min, Math.min(max, v));
+}
+
+/**
+ * Subpanel para una disciplina ramificada (Taumaturgia o Nigromancia).
+ * El jugador asigna niveles a cada senda; el `level` general se deriva
+ * del máximo de las sendas y la primaria se marca con un radio.
+ *
+ * Reglas V20 que se respetan:
+ *  - Tope 3 por senda en creación (igual que las disciplinas planas).
+ *  - Exactamente una senda marcada como primaria.
+ *  - Las secundarias no pueden superar a la primaria — el techo dinámico
+ *    refleja esto, deshabilitando el botón "+" si fuera a romper la regla.
+ *  - Cada nivel de senda cuesta 1 punto del pool global de 3.
+ */
+function DisciplineWithPathsRow({
+  def,
+  pick,
+  poolRemaining,
+  openCatalog,
+  onChange,
+  onRemove,
+}: {
+  def: Discipline;
+  pick: WizardDisciplinePick;
+  poolRemaining: number;
+  openCatalog: OpenCatalogInfo;
+  onChange: (next: Partial<WizardDisciplinePick>) => void;
+  onRemove: () => void;
+}) {
+  const allPaths = def.paths ?? [];
+  const pathPicks = pick.paths ?? [];
+  const primaryPick = pathPicks.find((p) => p.isPrimary);
+  const primaryLevel = primaryPick?.level ?? 0;
+
+  function setPathLevel(pathId: string, level: number) {
+    const existing = pathPicks.find((p) => p.pathId === pathId);
+    let nextPaths;
+    if (level <= 0) {
+      nextPaths = pathPicks.filter((p) => p.pathId !== pathId);
+      // Si quitamos la primaria, promovemos la siguiente más alta.
+      if (existing?.isPrimary && nextPaths.length > 0) {
+        const newPrimaryIdx = nextPaths.reduce(
+          (best, p, idx, arr) => (p.level > arr[best].level ? idx : best),
+          0,
+        );
+        nextPaths = nextPaths.map((p, idx) => ({
+          ...p,
+          isPrimary: idx === newPrimaryIdx,
+        }));
+      }
+    } else if (existing) {
+      nextPaths = pathPicks.map((p) =>
+        p.pathId === pathId ? { ...p, level: clamp(level, 1, 3) } : p,
+      );
+    } else {
+      // Si no había ninguna primaria aún, esta lo será.
+      const anyPrimary = pathPicks.some((p) => p.isPrimary);
+      nextPaths = [
+        ...pathPicks,
+        {
+          pathId,
+          level: clamp(level, 1, 3),
+          isPrimary: !anyPrimary,
+        },
+      ];
+    }
+    const maxLevel = nextPaths.length
+      ? Math.max(...nextPaths.map((p) => p.level))
+      : 0;
+    onChange({ paths: nextPaths, level: maxLevel });
+  }
+
+  function setPrimary(pathId: string) {
+    onChange({
+      paths: pathPicks.map((p) => ({
+        ...p,
+        isPrimary: p.pathId === pathId,
+      })),
+    });
+  }
+
+  return (
+    <div className="space-y-2 rounded-md border border-blood/30 bg-blood/5 p-2">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <span className="font-heading text-sm text-foreground">
+            {def.name}
+          </span>
+          <WizardInfoButton
+            tooltip={def.tooltip ?? `Detalle de ${def.name}`}
+            kind="discipline"
+            identifier={def.name}
+            fallbackTitle={def.name}
+            onOpenCatalog={openCatalog}
+            ariaLabel={`Información de la disciplina ${def.name}`}
+          />
+          <span className="font-heading text-[0.6rem] uppercase tracking-widest text-blood">
+            ramifica en sendas
+          </span>
+        </div>
+        <Button
+          type="button"
+          size="icon-sm"
+          variant="ghost"
+          onClick={onRemove}
+          aria-label="Quitar"
+        >
+          <Trash2 className="size-3.5" />
+        </Button>
+      </div>
+      <div className="space-y-1.5">
+        {allPaths.map((p) => {
+          const owned = pathPicks.find((x) => x.pathId === p.id);
+          const level = owned?.level ?? 0;
+          // Techo: en creación tope 3, no superar primaria (si esta senda
+          // no es la primaria) y no exceder los puntos del pool global.
+          const noPrimaryYet = primaryLevel === 0;
+          const ceilByPrimary =
+            owned?.isPrimary || noPrimaryYet ? 3 : primaryLevel;
+          const dynamicMax = Math.min(
+            3,
+            ceilByPrimary,
+            level + Math.max(0, poolRemaining),
+          );
+          return (
+            <div
+              key={p.id}
+              className="flex items-center gap-2 rounded-md bg-background/50 px-2 py-1"
+            >
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  openCatalog(
+                    "discipline-path",
+                    `${def.name}|${p.key}`,
+                    p.name,
+                  );
+                }}
+                className="flex-1 text-left font-serif text-xs text-foreground underline decoration-dotted decoration-blood/30 underline-offset-2 hover:text-blood"
+              >
+                {p.name}
+              </button>
+              {level > 0 ? (
+                <label className="flex items-center gap-1 text-[0.6rem] text-muted-foreground">
+                  <input
+                    type="radio"
+                    name={`primary-${pick.disciplineId}`}
+                    checked={!!owned?.isPrimary}
+                    onChange={() => setPrimary(p.id)}
+                    className="accent-blood"
+                  />
+                  <span className="uppercase tracking-widest">Primaria</span>
+                </label>
+              ) : null}
+              <StepperRow
+                label=""
+                value={level}
+                min={0}
+                max={dynamicMax}
+                dotsTotal={3}
+                onChange={(v) => setPathLevel(p.id, v)}
+              />
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
 }

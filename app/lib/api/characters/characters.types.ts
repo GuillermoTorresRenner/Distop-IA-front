@@ -26,11 +26,31 @@ export interface CharacterBackground {
   notes?: string | null;
 }
 
+/**
+ * Senda específica conocida por el personaje dentro de una disciplina
+ * ramificada. Solo aplica si la disciplina tiene `hasPaths=true`.
+ */
+export interface CharacterDisciplinePathPick {
+  id?: string;
+  pathId: string;
+  level: number;
+  /** Marca esta senda como primaria del personaje. */
+  isPrimary?: boolean;
+}
+
 export interface CharacterDiscipline {
   id?: string;
   disciplineId: string;
   level: number;
   discipline?: Discipline;
+  /**
+   * Sendas conocidas. Solo se llena cuando la disciplina tiene
+   * `hasPaths=true`. Cuando viene del back, cada path incluye el
+   * `path` con su catálogo embebido.
+   */
+  paths?: (CharacterDisciplinePathPick & { path?: import("~/lib/api/catalog/catalog.types").DisciplinePath })[];
+  /** Lista de ids de rituales aprendidos en esta disciplina. */
+  learnedRitualIds?: string[];
 }
 
 export interface CharacterMeritFlaw {
@@ -145,6 +165,18 @@ export interface Character {
   abilities: CharacterAbility[];
   backgrounds: CharacterBackground[];
   disciplines: CharacterDiscipline[];
+  /**
+   * Rituales aprendidos por el personaje, agrupados al nivel del
+   * Character (no de CharacterDiscipline) porque la tabla del back
+   * (`character_discipline_rituals`) está enlazada directamente al
+   * personaje. La UI los re-agrupa por `disciplineId` para mostrar.
+   */
+  disciplineRituals?: {
+    id: string;
+    ritualId: string;
+    disciplineId: string;
+    ritual?: import("~/lib/api/catalog/catalog.types").DisciplineRitual;
+  }[];
   meritsFlaws: CharacterMeritFlaw[];
   weapons: CharacterWeapon[];
   armors: CharacterArmor[];

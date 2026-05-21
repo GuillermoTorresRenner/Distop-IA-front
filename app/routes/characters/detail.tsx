@@ -105,6 +105,18 @@ function toInput(c: Character): CharacterInput {
     disciplines: c.disciplines.map((d) => ({
       disciplineId: d.disciplineId,
       level: d.level,
+      paths: d.paths?.map((p) => ({
+        pathId: p.pathId,
+        level: p.level,
+        isPrimary: p.isPrimary,
+      })),
+      // Los rituales aprendidos viven a nivel Character (no
+      // CharacterDiscipline) en el back; aquí los re-agrupamos por
+      // disciplineId para que el form los lleve junto a su disciplina.
+      learnedRitualIds:
+        (c.disciplineRituals ?? [])
+          .filter((r) => r.disciplineId === d.disciplineId)
+          .map((r) => r.ritualId),
     })),
     meritsFlaws: c.meritsFlaws.map((m) => ({
       meritFlawId: m.meritFlawId,

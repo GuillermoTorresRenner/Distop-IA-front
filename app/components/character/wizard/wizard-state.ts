@@ -87,6 +87,13 @@ export interface WizardAbilities {
 export interface WizardDisciplinePick {
   disciplineId: string;
   level: number;
+  /**
+   * Sendas asignadas a la disciplina si esta tiene `hasPaths=true`. Cada
+   * pick consume puntos del pool de disciplinas igual que un nivel
+   * monolítico (1 pt por nivel). El total de la disciplina (`level`) se
+   * deriva del máximo de niveles de sendas.
+   */
+  paths?: { pathId: string; level: number; isPrimary: boolean }[];
 }
 
 export interface WizardBackgroundPick {
@@ -233,8 +240,24 @@ export function abilityCategoryPool(
   return { spent, total, remaining: total - spent };
 }
 
+/**
+ * Calcula el coste de una pick de disciplina en puntos del pool. Para
+ * disciplinas monolíticas, el coste es el `level` plano. Para las que
+ * tienen sendas, **cada nivel de cada senda cuenta**: una primaria a 2
+ * + una secundaria a 1 = 3 puntos del pool.
+ */
+export function disciplinePickCost(d: WizardDisciplinePick): number {
+  if (d.paths && d.paths.length > 0) {
+    return d.paths.reduce((acc, p) => acc + p.level, 0);
+  }
+  return d.level;
+}
+
 export function disciplinePoolStatus(state: WizardState) {
-  const spent = state.disciplines.reduce((acc, d) => acc + d.level, 0);
+  const spent = state.disciplines.reduce(
+    (acc, d) => acc + disciplinePickCost(d),
+    0,
+  );
   return { spent, total: DISCIPLINE_POINTS, remaining: DISCIPLINE_POINTS - spent };
 }
 
@@ -388,8 +411,26 @@ export function canAdvanceAbilities(state: WizardState): boolean {
 export function canAdvanceDisciplines(state: WizardState): boolean {
   const { remaining } = disciplinePoolStatus(state);
   if (remaining !== 0) return false;
-  // Ninguna disciplina puede superar 3 en creación (regla canónica).
-  return state.disciplines.every((d) => d.level >= 1 && d.level <= 3);
+  for (const d of state.disciplines) {
+    if (d.paths && d.paths.length > 0) {
+      // Reglas V20 para sendas:
+      // - Cada senda 1..5; en creación tope 3 (igual que las monolíticas).
+      // - Exactamente una primaria.
+      // - Secundarias ≤ primaria.
+      for (const p of d.paths) {
+        if (p.level < 1 || p.level > 3) return false;
+      }
+      const primaries = d.paths.filter((p) => p.isPrimary);
+      if (primaries.length !== 1) return false;
+      const primaryLevel = primaries[0].level;
+      for (const p of d.paths) {
+        if (!p.isPrimary && p.level > primaryLevel) return false;
+      }
+    } else if (d.level < 1 || d.level > 3) {
+      return false;
+    }
+  }
+  return true;
 }
 
 export function canAdvanceBackgrounds(state: WizardState): boolean {

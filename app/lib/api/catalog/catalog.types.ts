@@ -41,7 +41,10 @@ export interface HealthLevelInfo {
 
 export interface DisciplinePower {
   id: string;
-  disciplineId: string;
+  /** Set solo en disciplinas monolíticas. Null si el poder vive en una senda. */
+  disciplineId: string | null;
+  /** Set solo en poderes que pertenecen a una senda (paths). */
+  pathId: string | null;
   level: number;
   name: string;
   description: string | null;
@@ -59,13 +62,60 @@ export interface DisciplinePower {
   rollDifficulty?: number | null;
 }
 
+/**
+ * Senda de una disciplina ramificada (Taumaturgia, Nigromancia). Cada
+ * senda tiene exactamente 5 niveles propios de poderes.
+ */
+export interface DisciplinePath {
+  id: string;
+  disciplineId: string;
+  /** Clave estable interna (snake_case). */
+  key: string;
+  name: string;
+  description: string | null;
+  tooltip: string | null;
+  order: number;
+  powers: DisciplinePower[];
+}
+
+/**
+ * Ritual taumatúrgico o nigromántico. Se aprende uno por uno y no
+ * escala con el nivel de la disciplina.
+ */
+export interface DisciplineRitual {
+  id: string;
+  disciplineId: string;
+  /** Clave estable interna (snake_case). */
+  key: string;
+  level: number;
+  name: string;
+  description: string | null;
+  tooltip: string | null;
+  ingredients: string | null;
+  castingTime: string | null;
+  rollAttribute: string | null;
+  rollAbility: string | null;
+  rollDifficulty: number | null;
+  order: number;
+}
+
 export interface Discipline {
   id: string;
   name: string;
   description: string | null;
   tooltip: string | null;
   order: number;
+  /**
+   * True para disciplinas que ramifican en sendas (Taumaturgia y
+   * Nigromancia). En ese caso `powers` viene vacío y la lista canon
+   * vive en `paths[].powers`. Además puede incluir `rituals`.
+   */
+  hasPaths: boolean;
   powers: DisciplinePower[];
+  /** Sendas (solo presente si `hasPaths=true`). */
+  paths?: DisciplinePath[];
+  /** Rituales (solo presente si `hasPaths=true`). */
+  rituals?: DisciplineRitual[];
 }
 
 export type MeritFlawKind = "MERIT" | "FLAW";
