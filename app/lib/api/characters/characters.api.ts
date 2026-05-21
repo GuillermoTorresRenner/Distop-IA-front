@@ -115,3 +115,20 @@ export async function unlinkCharacterFromChronicle(
   );
   return data;
 }
+
+/**
+ * Transfiere la propiedad de un PC asociado a la crónica a otro miembro.
+ * Solo el narrador puede ejecutar la operación; el target debe ser miembro
+ * de la crónica.
+ */
+export async function transferCharacterOwnership(
+  chronicleId: string,
+  characterId: string,
+  targetUserId: string,
+): Promise<{ ok: boolean }> {
+  const { data } = await apiClient.post<{ ok: boolean }>(
+    `/chronicles/${chronicleId}/characters/${characterId}/transfer`,
+    { targetUserId },
+  );
+  return data;
+}

@@ -10,6 +10,7 @@ import {
   Send,
   Skull,
   Trash2,
+  UserCog,
   UserMinus,
   Users,
 } from "lucide-react";
@@ -19,6 +20,7 @@ import { extractAuthError } from "~/components/common/auth-error";
 import { FormAlert } from "~/components/common/form-alert";
 import { ImageUploader } from "~/components/common/image-uploader";
 import { CreateNpcDialog } from "~/components/character/create-npc-dialog";
+import { TransferCharacterDialog } from "~/components/character/transfer-character-dialog";
 import { PageHeader } from "~/components/common/page-header";
 import { UserAutocomplete } from "~/components/common/user-autocomplete";
 import { Button } from "~/components/ui/button";
@@ -29,6 +31,7 @@ import {
   linkCharacterToChronicle,
   listAssociableCharacters,
   listChronicleCharacters,
+  transferCharacterOwnership,
   unlinkCharacterFromChronicle,
   type AssociableCharacter,
   type ChronicleCharacterEntry,
@@ -83,6 +86,15 @@ export default function ChronicleDetailRoute() {
   const [charsError, setCharsError] = useState<string | null>(null);
   const [linking, setLinking] = useState(false);
   const [npcDialogOpen, setNpcDialogOpen] = useState(false);
+  // Estado del dialog de transferencia: el PC que se va a reasignar.
+  // Si es null, el dialog está cerrado.
+  const [transferTarget, setTransferTarget] = useState<{
+    characterId: string;
+    characterName: string;
+    currentOwnerId: string;
+  } | null>(null);
+  const [transferLoading, setTransferLoading] = useState(false);
+  const [transferError, setTransferError] = useState<string | null>(null);
 
   async function reload() {
     if (!id) return;
@@ -281,6 +293,27 @@ export default function ChronicleDetailRoute() {
       await reload();
     } catch (err) {
       setCharsError(extractAuthError(err, "No se pudo desasociar"));
+    }
+  }
+
+  async function handleConfirmTransfer(targetUserId: string) {
+    if (!id || !transferTarget) return;
+    setTransferError(null);
+    setTransferLoading(true);
+    try {
+      await transferCharacterOwnership(
+        id,
+        transferTarget.characterId,
+        targetUserId,
+      );
+      setTransferTarget(null);
+      await reload();
+    } catch (err) {
+      setTransferError(
+        extractAuthError(err, "No se pudo transferir el personaje"),
+      );
+    } finally {
+      setTransferLoading(false);
     }
   }
 
@@ -545,18 +578,39 @@ export default function ChronicleDetailRoute() {
                           {isMine ? " · (tú)" : ""}
                         </p>
                       </div>
-                      {canUnlink ? (
-                        <Button
-                          type="button"
-                          size="icon-sm"
-                          variant="ghost"
-                          onClick={() => handleDissociate(c.id, c.name, c.userId)}
-                          aria-label={`Quitar ${c.name} de la mesa`}
-                          className="text-destructive hover:bg-destructive/10"
-                        >
-                          <Link2Off className="size-4" />
-                        </Button>
-                      ) : null}
+                      <div className="flex items-center gap-1">
+                        {isNarrator && c.kind === "PC" ? (
+                          <Button
+                            type="button"
+                            size="icon-sm"
+                            variant="ghost"
+                            onClick={() =>
+                              setTransferTarget({
+                                characterId: c.id,
+                                characterName: c.name,
+                                currentOwnerId: c.userId,
+                              })
+                            }
+                            aria-label={`Transferir ${c.name} a otro jugador`}
+                            title="Transferir a otro jugador"
+                            className="text-blood hover:bg-blood/10"
+                          >
+                            <UserCog className="size-4" />
+                          </Button>
+                        ) : null}
+                        {canUnlink ? (
+                          <Button
+                            type="button"
+                            size="icon-sm"
+                            variant="ghost"
+                            onClick={() => handleDissociate(c.id, c.name, c.userId)}
+                            aria-label={`Quitar ${c.name} de la mesa`}
+                            className="text-destructive hover:bg-destructive/10"
+                          >
+                            <Link2Off className="size-4" />
+                          </Button>
+                        ) : null}
+                      </div>
                     </li>
                   );
                 }
@@ -760,6 +814,24 @@ export default function ChronicleDetailRoute() {
         open={npcDialogOpen}
         chronicleId={chronicle.id}
         onClose={() => setNpcDialogOpen(false)}
+      />
+
+      <TransferCharacterDialog
+        open={transferTarget !== null}
+        characterName={transferTarget?.characterName ?? ""}
+        currentOwnerId={transferTarget?.currentOwnerId ?? ""}
+        members={chronicle.members.map((m) => ({
+          id: m.user.id,
+          nickname: m.user.nickname,
+          email: m.user.email,
+        }))}
+        loading={transferLoading}
+        error={transferError}
+        onCancel={() => {
+          setTransferTarget(null);
+          setTransferError(null);
+        }}
+        onConfirm={handleConfirmTransfer}
       />
 
       {dialog}
