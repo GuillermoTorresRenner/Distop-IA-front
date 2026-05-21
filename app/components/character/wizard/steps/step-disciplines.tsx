@@ -2,6 +2,7 @@ import { Trash2 } from "lucide-react";
 import type { Clan, Discipline } from "~/lib/api/catalog/catalog.types";
 import { Button } from "~/components/ui/button";
 import { SELECT_DARK_CLASS } from "~/lib/select-styles";
+import { cn } from "~/lib/utils";
 import type { OpenCatalogInfo } from "../character-wizard";
 import { WizardInfoButton } from "../wizard-info";
 import {
@@ -77,19 +78,44 @@ export function StepDisciplines({
   function addDiscipline(disciplineId: string) {
     if (!disciplineId) return;
     if (state.disciplines.some((d) => d.disciplineId === disciplineId)) return;
-    if (pool.remaining <= 0) return;
     const def = disciplines.find((x) => x.id === disciplineId);
     if (def?.hasPaths) {
-      // Ramificada: sin sendas iniciales; el jugador debe asignar al menos
-      // una desde el subpanel. El `level` plano queda en 0 hasta que se
-      // marque alguna senda; usamos 1 como placeholder visual mínimo.
+      // Ramificada (Taumaturgia, Nigromancia): el manual V20 dice que
+      // al aprender la disciplina el personaje recibe automáticamente
+      // **un círculo en su senda primaria**. Para Nigromancia, esa
+      // primaria es siempre la Senda del Sepulcro (regla canon).
+      // Para Taumaturgia el jugador puede elegir cualquier senda como
+      // primaria — por defecto sembramos la primera del catálogo (suele
+      // ser la Senda de la Sangre, primaria habitual de los Tremere).
+      //
+      // El nivel inicial de la primaria es 1 y NO consume puntos del
+      // pool (es el "regalo" canon V20). Solo cuando el jugador suba
+      // la primaria por encima de 1, ese exceso paga puntos.
+      const sepulcroPath = (def.paths ?? []).find(
+        (p) => p.key === "senda_sepulcro",
+      );
+      const primaryPath =
+        sepulcroPath ?? def.paths?.[0] ?? null;
+      if (!primaryPath) {
+        // No hay catálogo de sendas todavía — sin primaria, sin pick.
+        onChange([
+          ...state.disciplines,
+          { disciplineId, level: 0, paths: [] },
+        ]);
+        return;
+      }
       onChange([
         ...state.disciplines,
-        { disciplineId, level: 0, paths: [] },
+        {
+          disciplineId,
+          level: 1,
+          paths: [{ pathId: primaryPath.id, level: 1, isPrimary: true }],
+        },
       ]);
-    } else {
-      onChange([...state.disciplines, { disciplineId, level: 1 }]);
+      return;
     }
+    if (pool.remaining <= 0) return;
+    onChange([...state.disciplines, { disciplineId, level: 1 }]);
   }
 
   function remove(disciplineId: string) {
@@ -218,15 +244,27 @@ function clamp(v: number, min: number, max: number) {
 
 /**
  * Subpanel para una disciplina ramificada (Taumaturgia o Nigromancia).
- * El jugador asigna niveles a cada senda; el `level` general se deriva
- * del máximo de las sendas y la primaria se marca con un radio.
  *
- * Reglas V20 que se respetan:
- *  - Tope 3 por senda en creación (igual que las disciplinas planas).
+ * Reglas V20 aplicadas (canon):
+ *
+ * **Comunes a las dos**:
+ *  - Tope 3 por senda en creación.
  *  - Exactamente una senda marcada como primaria.
- *  - Las secundarias no pueden superar a la primaria — el techo dinámico
- *    refleja esto, deshabilitando el botón "+" si fuera a romper la regla.
- *  - Cada nivel de senda cuesta 1 punto del pool global de 3.
+ *  - La primaria arranca con **1 círculo gratis** (regalo al aprender la
+ *    Disciplina); por eso al añadir la disciplina ya viene una senda
+ *    inicial con nivel 1 sin haber descontado pool.
+ *  - Las secundarias deben quedar **al menos un círculo por debajo** de
+ *    la primaria. El techo dinámico = `primaria - 1`.
+ *  - Para poder añadir una segunda senda, la primaria debe estar al
+ *    menos a **nivel 3** (regla de Nigromancia, aplicada también a
+ *    Taumaturgia como sano spacing por encontrarse fuera del manual).
+ *  - La tercera senda exige primaria a 5 — imposible en creación, así
+ *    que el wizard solo permite **máximo 2 sendas** en disciplinas
+ *    ramificadas.
+ *
+ * **Específica de Nigromancia**:
+ *  - La senda primaria es siempre la **Senda del Sepulcro**. El radio
+ *    "Primaria" queda bloqueado en ella y no se puede cambiar.
  */
 function DisciplineWithPathsRow({
   def,
@@ -247,36 +285,58 @@ function DisciplineWithPathsRow({
   const pathPicks = pick.paths ?? [];
   const primaryPick = pathPicks.find((p) => p.isPrimary);
   const primaryLevel = primaryPick?.level ?? 0;
+  // Nigromancia identifica su senda primaria por la key "senda_sepulcro";
+  // si está presente, la primaria queda forzada a ella y el radio de
+  // "Primaria" se bloquea.
+  const sepulcroPath = allPaths.find((p) => p.key === "senda_sepulcro");
+  const isNigromancia = !!sepulcroPath;
+  const canAddSecondary = primaryLevel >= 3;
+  const ownedCount = pathPicks.length;
 
   function setPathLevel(pathId: string, level: number) {
     const existing = pathPicks.find((p) => p.pathId === pathId);
-    let nextPaths;
+    let nextPaths: typeof pathPicks;
     if (level <= 0) {
-      nextPaths = pathPicks.filter((p) => p.pathId !== pathId);
-      // Si quitamos la primaria, promovemos la siguiente más alta.
-      if (existing?.isPrimary && nextPaths.length > 0) {
-        const newPrimaryIdx = nextPaths.reduce(
-          (best, p, idx, arr) => (p.level > arr[best].level ? idx : best),
-          0,
+      // Si la senda eliminada es la primaria forzada (Sepulcro en
+      // Nigromancia) la dejamos en nivel 1 — no se puede bajar de ahí
+      // sin romper el regalo canon.
+      if (existing?.isPrimary && isNigromancia) {
+        nextPaths = pathPicks.map((p) =>
+          p.pathId === pathId ? { ...p, level: 1 } : p,
         );
-        nextPaths = nextPaths.map((p, idx) => ({
-          ...p,
-          isPrimary: idx === newPrimaryIdx,
-        }));
+      } else {
+        nextPaths = pathPicks.filter((p) => p.pathId !== pathId);
+        // Si quitamos la primaria (Taumaturgia), promovemos la más alta
+        // que quede; si no queda ninguna, sin primaria.
+        if (existing?.isPrimary && nextPaths.length > 0) {
+          const newPrimaryIdx = nextPaths.reduce(
+            (best, p, idx, arr) => (p.level > arr[best].level ? idx : best),
+            0,
+          );
+          nextPaths = nextPaths.map((p, idx) => ({
+            ...p,
+            isPrimary: idx === newPrimaryIdx,
+          }));
+        }
       }
     } else if (existing) {
       nextPaths = pathPicks.map((p) =>
         p.pathId === pathId ? { ...p, level: clamp(level, 1, 3) } : p,
       );
     } else {
-      // Si no había ninguna primaria aún, esta lo será.
-      const anyPrimary = pathPicks.some((p) => p.isPrimary);
+      // Añadir una senda nueva: solo si hay primaria ≥ 3 (regla canon).
+      if (!canAddSecondary) return;
+      // Máximo 2 sendas en creación (3ª requiere primaria=5).
+      if (pathPicks.length >= 2) return;
+      // La nueva senda nunca puede ser primaria — la primaria ya está
+      // asignada y el manual exige que la primaria sea estrictamente
+      // mayor que las secundarias.
       nextPaths = [
         ...pathPicks,
         {
           pathId,
-          level: clamp(level, 1, 3),
-          isPrimary: !anyPrimary,
+          level: clamp(level, 1, primaryLevel - 1),
+          isPrimary: false,
         },
       ];
     }
@@ -287,6 +347,8 @@ function DisciplineWithPathsRow({
   }
 
   function setPrimary(pathId: string) {
+    // En Nigromancia la primaria es Sepulcro y no se puede cambiar.
+    if (isNigromancia) return;
     onChange({
       paths: pathPicks.map((p) => ({
         ...p,
@@ -311,7 +373,9 @@ function DisciplineWithPathsRow({
             ariaLabel={`Información de la disciplina ${def.name}`}
           />
           <span className="font-heading text-[0.6rem] uppercase tracking-widest text-blood">
-            ramifica en sendas
+            {isNigromancia
+              ? "Sepulcro primaria · 1ª gratis"
+              : "ramifica en sendas · primaria 1ª gratis"}
           </span>
         </div>
         <Button
@@ -324,24 +388,54 @@ function DisciplineWithPathsRow({
           <Trash2 className="size-3.5" />
         </Button>
       </div>
+      {ownedCount < 2 && !canAddSecondary ? (
+        <p className="rounded-md border border-blood/30 bg-blood/10 px-2 py-1 text-[0.7rem] text-blood/80">
+          Sube la senda primaria a <strong>nivel 3</strong> para poder añadir
+          una segunda senda.
+        </p>
+      ) : null}
+      {ownedCount >= 2 ? (
+        <p className="rounded-md border border-border/60 bg-background/40 px-2 py-1 text-[0.7rem] text-muted-foreground">
+          Máximo 2 sendas en creación. La tercera senda requeriría dominar la
+          primaria a 5.
+        </p>
+      ) : null}
       <div className="space-y-1.5">
         {allPaths.map((p) => {
           const owned = pathPicks.find((x) => x.pathId === p.id);
           const level = owned?.level ?? 0;
-          // Techo: en creación tope 3, no superar primaria (si esta senda
-          // no es la primaria) y no exceder los puntos del pool global.
-          const noPrimaryYet = primaryLevel === 0;
-          const ceilByPrimary =
-            owned?.isPrimary || noPrimaryYet ? 3 : primaryLevel;
+          // Techo dinámico:
+          //  - Primaria: máx 3 (creación), restringida solo por el pool.
+          //  - Secundaria: máx primaryLevel - 1 (las secundarias siempre
+          //    quedan al menos un círculo por debajo).
+          //  - Para una senda aún no añadida: solo se puede añadir si la
+          //    primaria está a ≥3 y aún no hay 2 sendas (regla canon).
+          const isOwnedPrimary = !!owned?.isPrimary;
+          let ceiling: number;
+          if (isOwnedPrimary) {
+            ceiling = 3;
+          } else if (owned) {
+            ceiling = Math.max(1, primaryLevel - 1);
+          } else {
+            // No añadida aún.
+            ceiling = canAddSecondary && ownedCount < 2 ? primaryLevel - 1 : 0;
+          }
           const dynamicMax = Math.min(
             3,
-            ceilByPrimary,
+            ceiling,
             level + Math.max(0, poolRemaining),
           );
+          // El stepper de una senda no añadida pero no permitida queda
+          // con max=0 (deshabilitado). Estado visual: gris.
+          const disabledHint =
+            !owned && (ownedCount >= 2 || !canAddSecondary);
           return (
             <div
               key={p.id}
-              className="flex items-center gap-2 rounded-md bg-background/50 px-2 py-1"
+              className={cn(
+                "flex items-center gap-2 rounded-md bg-background/50 px-2 py-1",
+                disabledHint && "opacity-60",
+              )}
             >
               <button
                 type="button"
@@ -356,13 +450,18 @@ function DisciplineWithPathsRow({
                 className="flex-1 text-left font-serif text-xs text-foreground underline decoration-dotted decoration-blood/30 underline-offset-2 hover:text-blood"
               >
                 {p.name}
+                {isOwnedPrimary ? (
+                  <span className="ml-2 font-heading text-[0.55rem] uppercase tracking-widest text-blood">
+                    Primaria
+                  </span>
+                ) : null}
               </button>
-              {level > 0 ? (
+              {level > 0 && !isNigromancia ? (
                 <label className="flex items-center gap-1 text-[0.6rem] text-muted-foreground">
                   <input
                     type="radio"
                     name={`primary-${pick.disciplineId}`}
-                    checked={!!owned?.isPrimary}
+                    checked={isOwnedPrimary}
                     onChange={() => setPrimary(p.id)}
                     className="accent-blood"
                   />
@@ -372,7 +471,7 @@ function DisciplineWithPathsRow({
               <StepperRow
                 label=""
                 value={level}
-                min={0}
+                min={isOwnedPrimary ? 1 : 0}
                 max={dynamicMax}
                 dotsTotal={3}
                 onChange={(v) => setPathLevel(p.id, v)}

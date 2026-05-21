@@ -243,12 +243,21 @@ export function abilityCategoryPool(
 /**
  * Calcula el coste de una pick de disciplina en puntos del pool. Para
  * disciplinas monolíticas, el coste es el `level` plano. Para las que
- * tienen sendas, **cada nivel de cada senda cuenta**: una primaria a 2
- * + una secundaria a 1 = 3 puntos del pool.
+ * tienen sendas (Taumaturgia, Nigromancia), **cada nivel de cada senda
+ * cuenta**, pero la senda primaria recibe **1 nivel gratis** según el
+ * manual V20 (el círculo automático que se obtiene al aprender la
+ * Disciplina). Ejemplo:
+ *   - Primaria a 2 + secundaria a 1 = (2-1) + 1 = 2 puntos del pool.
+ *   - Solo primaria a 1 = (1-1) = 0 puntos (totalmente gratis).
  */
 export function disciplinePickCost(d: WizardDisciplinePick): number {
   if (d.paths && d.paths.length > 0) {
-    return d.paths.reduce((acc, p) => acc + p.level, 0);
+    return d.paths.reduce((acc, p) => {
+      // Cada senda paga su nivel, salvo la primaria que paga `level - 1`
+      // (el primer círculo es regalo). Mínimo 0.
+      const cost = p.isPrimary ? Math.max(0, p.level - 1) : p.level;
+      return acc + cost;
+    }, 0);
   }
   return d.level;
 }
@@ -408,23 +417,54 @@ export function canAdvanceAbilities(state: WizardState): boolean {
   });
 }
 
+/**
+ * Reglas V20 para disciplinas ramificadas (Taumaturgia, Nigromancia):
+ *
+ * **Comunes**:
+ * - Cada senda entre 1 y 3 niveles (tope de creación, igual que las
+ *   disciplinas monolíticas).
+ * - Exactamente una senda marcada como primaria.
+ * - **Las secundarias deben ser estrictamente menores que la primaria**
+ *   hasta que la primaria llegue a 5 (no aplicable en creación, máx 3).
+ *
+ * **Específicas de Nigromancia**:
+ * - La senda primaria debe ser la **Senda del Sepulcro** (la fija el
+ *   wizard al añadir la disciplina; el jugador no puede cambiarla).
+ * - Para añadir una **segunda senda** (Osario o Cenizas) la primaria
+ *   debe estar al menos a nivel 3 — regla canon del manual.
+ * - Para añadir una **tercera senda** la primaria debe estar a 5,
+ *   imposible en creación (tope 3). Por tanto en creación una
+ *   Nigromancia puede tener máximo **2 sendas**.
+ *
+ * Las validaciones se delegan a `validateDisciplinePicks` que recibe el
+ * catálogo (para conocer las keys de las sendas) y devuelve issues
+ * legibles. `canAdvanceDisciplines` se queda con el pool y delega.
+ */
 export function canAdvanceDisciplines(state: WizardState): boolean {
   const { remaining } = disciplinePoolStatus(state);
   if (remaining !== 0) return false;
   for (const d of state.disciplines) {
     if (d.paths && d.paths.length > 0) {
-      // Reglas V20 para sendas:
-      // - Cada senda 1..5; en creación tope 3 (igual que las monolíticas).
-      // - Exactamente una primaria.
-      // - Secundarias ≤ primaria.
       for (const p of d.paths) {
         if (p.level < 1 || p.level > 3) return false;
       }
       const primaries = d.paths.filter((p) => p.isPrimary);
       if (primaries.length !== 1) return false;
       const primaryLevel = primaries[0].level;
+      // En creación no permitimos que la primaria sea menor o igual que
+      // ninguna secundaria. Esta regla canon V20 garantiza que la
+      // primaria siempre sea estrictamente mayor (al menos un círculo).
       for (const p of d.paths) {
-        if (!p.isPrimary && p.level > primaryLevel) return false;
+        if (!p.isPrimary && p.level >= primaryLevel) return false;
+      }
+      // Si la disciplina es Nigromancia y tiene más de 1 senda, la
+      // primaria debe estar al menos a 3 para admitir una secundaria.
+      // No tenemos acceso aquí al catálogo (necesario para verificar que
+      // la primaria es Sepulcro), así que la validación cruzada con el
+      // catálogo vive en el step UI y en `validateDisciplinePicks`.
+      const secondaries = d.paths.filter((p) => !p.isPrimary);
+      if (secondaries.length > 0 && primaryLevel < 3) {
+        return false;
       }
     } else if (d.level < 1 || d.level > 3) {
       return false;
@@ -584,6 +624,31 @@ function disciplinesIssues(state: WizardState): string[] {
   const overCap = state.disciplines.filter((d) => d.level > 3);
   if (overCap.length > 0) {
     issues.push("Ninguna disciplina puede superar 3 en creación.");
+  }
+  // Reglas específicas de sendas (Taumaturgia, Nigromancia).
+  for (const d of state.disciplines) {
+    if (!d.paths || d.paths.length === 0) continue;
+    const primaries = d.paths.filter((p) => p.isPrimary);
+    if (primaries.length === 0) {
+      issues.push("Cada disciplina con sendas necesita una senda primaria.");
+      continue;
+    }
+    if (primaries.length > 1) {
+      issues.push("Solo puede haber una senda primaria por disciplina.");
+    }
+    const primaryLevel = primaries[0].level;
+    const secs = d.paths.filter((p) => !p.isPrimary);
+    const breakingRule = secs.find((p) => p.level >= primaryLevel);
+    if (breakingRule) {
+      issues.push(
+        "Las sendas secundarias deben quedar al menos un círculo por debajo de la primaria.",
+      );
+    }
+    if (secs.length > 0 && primaryLevel < 3) {
+      issues.push(
+        "Para añadir una segunda senda, la senda primaria debe estar al menos a 3.",
+      );
+    }
   }
   return issues;
 }

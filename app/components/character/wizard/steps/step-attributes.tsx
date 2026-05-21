@@ -6,9 +6,9 @@ import {
 import type { OpenCatalogInfo } from "../character-wizard";
 import { WizardInfoButton } from "../wizard-info";
 import {
+  DotRatingRow,
   PointPool,
   PriorityPicker,
-  StepperRow,
   WizardCard,
 } from "../wizard-primitives";
 import {
@@ -80,11 +80,6 @@ export function StepAttributes({
     const previous = next.priority[cat];
     next.priority[cat] = prio;
     if (otherCat) next.priority[otherCat] = previous;
-    // Si al reasignar prioridades algún pool se queda con valores por debajo
-    // de 1, no hay nada que ajustar (todos arrancan en 1). En cambio, si el
-    // pool se reduce y deja al jugador con sobrecargo, lo dejamos visible en
-    // el indicador (no recortamos puntos automáticamente — el jugador decide
-    // qué bajar).
     onChange(next);
   }
 
@@ -118,18 +113,19 @@ export function StepAttributes({
           />
         </span>
       }
-      aside={
-        <div className="space-y-2">
-          {(Object.keys(CATEGORY_LABELS) as AttributeCategory[]).map((cat) => (
-            <PointPool
-              key={cat}
-              label={CATEGORY_LABELS[cat]}
-              {...attributeCategoryPool(state, cat)}
-            />
-          ))}
-        </div>
-      }
     >
+      {/* Contadores de puntos por categoría: fila horizontal sobre las
+          tres columnas para liberar el ancho del aside. */}
+      <div className="grid gap-2 sm:grid-cols-3">
+        {(Object.keys(CATEGORY_LABELS) as AttributeCategory[]).map((cat) => (
+          <PointPool
+            key={cat}
+            label={CATEGORY_LABELS[cat]}
+            {...attributeCategoryPool(state, cat)}
+          />
+        ))}
+      </div>
+
       <PriorityPicker<AttributeCategory>
         categories={(Object.keys(CATEGORY_LABELS) as AttributeCategory[]).map(
           (k) => ({
@@ -143,7 +139,7 @@ export function StepAttributes({
         onChange={setPriority}
       />
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {(Object.keys(CATEGORY_LABELS) as AttributeCategory[]).map((cat) => {
           const pool = attributeCategoryPool(state, cat);
           const ready = !!attributes.priority[cat];
@@ -167,12 +163,11 @@ export function StepAttributes({
                     (a) => a.key === key || a.name === label,
                   );
                   const value = attributes.values[key];
-                  // Limita el techo dinámico de cada atributo al pool disponible:
-                  // así no se pueden marcar puntos negativos (gastar más de lo asignado
-                  // por prioridad). Tope absoluto de 5 según el V20.
+                  // Techo dinámico: nunca supera 5 ni excede el pool de la
+                  // categoría. Así el jugador no puede "pasarse" del reparto.
                   const dynamicMax = Math.min(5, value + Math.max(0, pool.remaining));
                   return (
-                    <StepperRow
+                    <DotRatingRow
                       key={key}
                       label={label}
                       info={

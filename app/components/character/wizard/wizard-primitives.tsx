@@ -8,6 +8,7 @@
 
 import { Minus, Plus } from "lucide-react";
 import type { ReactNode } from "react";
+import { DotRating } from "~/components/character/dot-rating";
 import { Button } from "~/components/ui/button";
 import { cn } from "~/lib/utils";
 
@@ -151,6 +152,73 @@ export function StepperRow({
   );
 }
 
+/**
+ * Variante de fila para los pasos de Atributos y Habilidades del wizard.
+ *
+ * A diferencia de `StepperRow`, no muestra botones +/- ni el número del
+ * valor: usa el componente `DotRating` (clic directo sobre los puntos)
+ * igual que la hoja de personaje. Es más compacta y consistente con la
+ * forma de subir/bajar valores que el jugador ya conoce de la hoja.
+ *
+ * - `max` es el techo dinámico real (refleja el pool restante y reglas
+ *   de creación).
+ * - `dotsTotal` es la cantidad de huecos visuales (típicamente 5 para
+ *   atributos y 3 para habilidades), para que las filas se vean alineadas
+ *   aunque el techo varíe entre filas.
+ */
+interface DotRatingRowProps {
+  label: ReactNode;
+  value: number;
+  min?: number;
+  max?: number;
+  /** Cantidad de huecos visuales (default = max). */
+  dotsTotal?: number;
+  onChange: (next: number) => void;
+  disabled?: boolean;
+  /** Indica que el valor proviene parcialmente de freebies (resalta). */
+  highlight?: boolean;
+  /** Botón "i" u otro slot interactivo, a la izquierda del label. */
+  info?: ReactNode;
+}
+
+export function DotRatingRow({
+  label,
+  value,
+  min = 0,
+  max = 5,
+  dotsTotal,
+  onChange,
+  disabled,
+  highlight,
+  info,
+}: DotRatingRowProps) {
+  const slots = dotsTotal ?? max;
+  return (
+    <div
+      className={cn(
+        "flex items-center justify-between gap-2 rounded-md border border-border/60 bg-background/40 px-2 py-1.5 text-sm",
+        highlight && "border-blood/40 bg-blood/5",
+        disabled && "opacity-60",
+      )}
+    >
+      <div className="flex min-w-0 flex-1 items-center gap-2">
+        {info ? <span className="shrink-0">{info}</span> : null}
+        <span className="truncate font-serif text-foreground">{label}</span>
+      </div>
+      <DotRating
+        value={value}
+        min={min}
+        max={max}
+        slots={slots}
+        onChange={onChange}
+        readOnly={disabled}
+        ariaLabel={typeof label === "string" ? label : undefined}
+        size="sm"
+      />
+    </div>
+  );
+}
+
 interface WizardCardProps {
   title: string;
   subtitle?: ReactNode;
@@ -181,7 +249,16 @@ export function WizardCard({
           </p>
         ) : null}
       </header>
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_18rem]">
+      {/* Si hay aside, dos columnas (contenido + 18rem aside). Si no, el
+          contenido ocupa el 100% del ancho del card para que steps como
+          Atributos y Habilidades — que mueven sus contadores arriba — no
+          dejen un hueco lateral vacío. */}
+      <div
+        className={cn(
+          "grid gap-4",
+          aside && "xl:grid-cols-[minmax(0,1fr)_18rem]",
+        )}
+      >
         <div className="min-w-0 space-y-4">{children}</div>
         {aside ? (
           <aside className="space-y-3 xl:w-72">{aside}</aside>

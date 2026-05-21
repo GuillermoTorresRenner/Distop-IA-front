@@ -108,9 +108,19 @@ export function StepFreebies({
     onChange({ ...state.freebies, ...patch });
   }
 
+  // Tope canónico V20 al sumar base + freebies. El back rechaza con 400
+  // cualquier ability/atributo con valor > 5, así que validamos aquí
+  // antes de permitir el bump.
+  const RATING_CAP = 5;
+  const HUMANITY_CAP = 10;
+  const WILLPOWER_CAP = 10;
+
   function bumpAttribute(key: AttributeKey, delta: number) {
     const current = state.freebies.attributes[key] ?? 0;
     const next = Math.max(0, current + delta);
+    // Cap por rasgo: base + extra no puede pasar de 5.
+    const base = state.attributes.values[key] ?? 1;
+    if (base + next > RATING_CAP) return;
     const newSpend =
       pool.spent +
       (next - current) * FREEBIE_COST.attribute;
@@ -124,6 +134,9 @@ export function StepFreebies({
   function bumpAbility(name: string, delta: number) {
     const current = state.freebies.abilities[name] ?? 0;
     const next = Math.max(0, current + delta);
+    // Cap por rasgo: base + extra ≤ 5. El back rechaza > 5.
+    const base = state.abilities.values[name] ?? 0;
+    if (base + next > RATING_CAP) return;
     const newSpend =
       pool.spent +
       (next - current) * FREEBIE_COST.ability;
@@ -137,6 +150,11 @@ export function StepFreebies({
   function bumpDiscipline(id: string, delta: number) {
     const current = state.freebies.disciplines[id] ?? 0;
     const next = Math.max(0, current + delta);
+    // Cap por disciplina: base + extra ≤ 5. El base aquí es el nivel del
+    // wizard (max de sendas si es ramificada, level plano si monolítica).
+    const dPick = state.disciplines.find((d) => d.disciplineId === id);
+    const base = dPick?.level ?? 0;
+    if (base + next > RATING_CAP) return;
     const newSpend =
       pool.spent +
       (next - current) * FREEBIE_COST.discipline;
@@ -150,6 +168,9 @@ export function StepFreebies({
   function bumpBackground(key: string, delta: number) {
     const current = state.freebies.backgrounds[key] ?? 0;
     const next = Math.max(0, current + delta);
+    // Cap por trasfondo: base + extra ≤ 5.
+    const base = state.backgrounds.find((b) => b.key === key)?.level ?? 0;
+    if (base + next > RATING_CAP) return;
     const newSpend =
       pool.spent +
       (next - current) * FREEBIE_COST.background;
@@ -163,6 +184,9 @@ export function StepFreebies({
   function bumpVirtue(key: keyof WizardVirtues, delta: number) {
     const current = state.freebies.virtues[key] ?? 0;
     const next = Math.max(0, current + delta);
+    // Cap por virtud: base + extra ≤ 5.
+    const base = state.virtues[key];
+    if (base + next > RATING_CAP) return;
     const newSpend =
       pool.spent +
       (next - current) * FREEBIE_COST.virtue;
@@ -176,6 +200,9 @@ export function StepFreebies({
   function bumpHumanity(delta: number) {
     const current = state.freebies.humanity;
     const next = Math.max(0, current + delta);
+    // Cap Humanidad: base (Conciencia + Autocontrol) + extra ≤ 10.
+    const base = state.virtues.conscience + state.virtues.selfControl;
+    if (base + next > HUMANITY_CAP) return;
     const newSpend = pool.spent + (next - current) * FREEBIE_COST.humanity;
     if (newSpend > pool.total) return;
     update({ humanity: next });
@@ -184,6 +211,9 @@ export function StepFreebies({
   function bumpWillpower(delta: number) {
     const current = state.freebies.willpower;
     const next = Math.max(0, current + delta);
+    // Cap Voluntad: base (Coraje) + extra ≤ 10.
+    const base = state.virtues.courage;
+    if (base + next > WILLPOWER_CAP) return;
     const newSpend = pool.spent + (next - current) * FREEBIE_COST.willpower;
     if (newSpend > pool.total) return;
     update({ willpower: next });

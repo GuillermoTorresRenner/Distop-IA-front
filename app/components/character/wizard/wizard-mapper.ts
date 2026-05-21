@@ -98,10 +98,10 @@ function computeFinalAttributes(state: WizardState) {
   const result: Record<string, number> = { ...state.attributes.values };
   for (const key of Object.keys(state.freebies.attributes)) {
     const add = state.freebies.attributes[key as keyof typeof state.freebies.attributes] ?? 0;
-    result[key] = (result[key] ?? 1) + add;
+    // Cap defensivo: el back rechaza > 5 con 400. La UI ya limita esto en
+    // los bumps de freebies, pero por si acaso forzamos un clamp aquí.
+    result[key] = Math.min(5, (result[key] ?? 1) + add);
   }
-  // Devolvemos un objeto tipado con todas las keys posibles, todas garantizadas
-  // por wizard-state (cada atributo arranca en 1).
   return result as {
     strength: number;
     dexterity: number;
@@ -126,7 +126,9 @@ function buildAbilities(state: WizardState): CharacterAbility[] {
     for (const name of ABILITY_NAMES_BY_CATEGORY[cat]) {
       const base = state.abilities.values[name] ?? 0;
       const extra = state.freebies.abilities[name] ?? 0;
-      const value = base + extra;
+      // Cap defensivo en 5 — el back rechaza > 5. La UI lo controla en
+      // los bumps de freebies, pero aquí también clampamos por seguridad.
+      const value = Math.min(5, base + extra);
       if (value > 0) {
         result.push({ category: key, name, value });
       }

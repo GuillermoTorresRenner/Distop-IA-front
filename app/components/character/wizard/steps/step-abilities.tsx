@@ -2,9 +2,9 @@ import type { AbilityInfo } from "~/lib/api/catalog/catalog.types";
 import type { OpenCatalogInfo } from "../character-wizard";
 import { WizardInfoButton } from "../wizard-info";
 import {
+  DotRatingRow,
   PointPool,
   PriorityPicker,
-  StepperRow,
   WizardCard,
 } from "../wizard-primitives";
 import {
@@ -108,18 +108,19 @@ export function StepAbilities({
           />
         </span>
       }
-      aside={
-        <div className="space-y-2">
-          {(Object.keys(CATEGORY_LABELS) as AbilityCategory[]).map((cat) => (
-            <PointPool
-              key={cat}
-              label={CATEGORY_LABELS[cat]}
-              {...abilityCategoryPool(state, cat)}
-            />
-          ))}
-        </div>
-      }
     >
+      {/* Contadores de puntos por categoría: fila horizontal sobre las
+          tres columnas para liberar el ancho del aside. */}
+      <div className="grid gap-2 sm:grid-cols-3">
+        {(Object.keys(CATEGORY_LABELS) as AbilityCategory[]).map((cat) => (
+          <PointPool
+            key={cat}
+            label={CATEGORY_LABELS[cat]}
+            {...abilityCategoryPool(state, cat)}
+          />
+        ))}
+      </div>
+
       <PriorityPicker<AbilityCategory>
         categories={(Object.keys(CATEGORY_LABELS) as AbilityCategory[]).map(
           (k) => ({
@@ -133,7 +134,7 @@ export function StepAbilities({
         onChange={setPriority}
       />
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {(Object.keys(CATEGORY_LABELS) as AbilityCategory[]).map((cat) => {
           const pool = abilityCategoryPool(state, cat);
           const ready = !!abilities.priority[cat];
@@ -161,7 +162,7 @@ export function StepAbilities({
                     value + Math.max(0, pool.remaining),
                   );
                   return (
-                    <StepperRow
+                    <DotRatingRow
                       key={name}
                       label={name}
                       info={
