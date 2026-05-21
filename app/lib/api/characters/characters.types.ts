@@ -140,6 +140,7 @@ export interface Character {
   experience: number;
 
   notes: string | null;
+  equipmentNotes: string | null;
 
   abilities: CharacterAbility[];
   backgrounds: CharacterBackground[];
@@ -195,6 +196,7 @@ export interface CharacterInput {
   experience?: number;
 
   notes?: string;
+  equipmentNotes?: string;
 
   abilities?: CharacterAbility[];
   backgrounds?: CharacterBackground[];

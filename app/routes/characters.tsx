@@ -309,7 +309,7 @@ function EmptyAll() {
     <article className="rounded-lg border border-dashed border-border/60 bg-card/40 p-10 text-center">
       <Skull className="mx-auto mb-3 size-10 text-blood" />
       <p className="font-heading text-lg uppercase tracking-widest text-muted-foreground">
-        Aún no has forjado un vástago
+        Aún no has Creado ningún vástago
       </p>
       <p className="mt-2 text-muted-foreground">
         Crea tu primer personaje para sumarlo a una crónica.

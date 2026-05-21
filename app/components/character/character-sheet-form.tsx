@@ -992,6 +992,9 @@ export function CharacterSheetForm({
                 onInfoArmor={(id, fallback) =>
                   infoModal.open("armor", id, fallback)
                 }
+                onUpdateEquipmentNotes={(next) =>
+                  patch({ equipmentNotes: next })
+                }
               />
             ) : null}
 
@@ -1002,13 +1005,15 @@ export function CharacterSheetForm({
                   Espacio libre para apuntes de historia, contactos, frases del
                   Narrador, etc. Solo tú las verás. Soporta markdown.
                 </p>
-                <MarkdownEditor
-                  value={value.notes ?? ""}
-                  onChange={(next) => patch({ notes: next })}
-                  disabled={readOnly}
-                  maxLength={8000}
-                  placeholder="Hila aquí los secretos del vástago... (soporta markdown)"
-                />
+                <div className="h-128 overflow-hidden rounded-md border border-border bg-background/40">
+                  <MarkdownEditor
+                    value={value.notes ?? ""}
+                    onChange={(next) => patch({ notes: next })}
+                    disabled={readOnly}
+                    maxLength={8000}
+                    placeholder="Hila aquí los secretos del vástago... (soporta markdown)"
+                  />
+                </div>
               </div>
             ) : null}
           </>
@@ -1799,6 +1804,8 @@ interface EquipmentTabProps {
   onInfoWeapon?: (id: string, fallbackTitle?: string) => void;
   /** Abre el InfoModal para una armadura del catálogo. */
   onInfoArmor?: (id: string, fallbackTitle?: string) => void;
+  /** Persiste cambios en el campo libre de pertenencias narrativas. */
+  onUpdateEquipmentNotes: (next: string) => void;
 }
 
 function EquipmentTab({
@@ -1817,6 +1824,7 @@ function EquipmentTab({
   onCreateArmor,
   onInfoWeapon,
   onInfoArmor,
+  onUpdateEquipmentNotes,
 }: EquipmentTabProps) {
   const meleeWeapons = useMemo(
     () => weapons.filter((w) => w.kind === "MELEE"),
@@ -1898,6 +1906,22 @@ function EquipmentTab({
         onCreateArmor={onCreateArmor}
         onInfoArmor={onInfoArmor}
       />
+
+      <div className="space-y-3">
+        <SectionHeading>Pertenencias narrativas</SectionHeading>
+        <p className="font-serif text-xs italic text-muted-foreground">
+          Equipo, vestimenta, objetos significativos, vehículos, refugio.
+          Texto libre con markdown — complementa la tabla de armas y armaduras.
+        </p>
+        <div className="h-96 overflow-hidden rounded-md border border-border bg-background/40">
+          <MarkdownEditor
+            value={value.equipmentNotes ?? ""}
+            onChange={onUpdateEquipmentNotes}
+            disabled={readOnly}
+            maxLength={8000}
+          />
+        </div>
+      </div>
     </div>
   );
 }

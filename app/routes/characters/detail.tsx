@@ -125,6 +125,7 @@ function toInput(c: Character): CharacterInput {
       order: a.order,
     })),
     notes: c.notes ?? undefined,
+    equipmentNotes: c.equipmentNotes ?? undefined,
   };
 }
 

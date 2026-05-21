@@ -320,5 +320,7 @@ export function emptyCharacterInput(): CharacterInput {
     backgrounds: [],
     disciplines: [],
     meritsFlaws: [],
+    notes: "",
+    equipmentNotes: "",
   };
 }
