@@ -224,8 +224,8 @@ export function StepFreebies({
       title="Paso seis · Puntos gratuitos"
       subtitle={`Gasta los ${pool.total} puntos finales.`}
       description={
-        <span className="inline-flex items-center gap-2">
-          <span>
+        <span className="flex items-start gap-2">
+          <span className="min-w-0 flex-1">
             Estos puntos sirven para afinar al personaje y comprar lo que los
             pasos anteriores no alcanzaron. Si quieres bajar más tu generación,
             puedes gastar puntos aquí en el trasfondo «Generación».
@@ -537,7 +537,7 @@ function FreebieRow({
   return (
     <div
       className={cn(
-        "flex items-center justify-between gap-2 rounded-md border border-transparent px-2 py-1 text-sm hover:border-border/60",
+        "flex flex-wrap items-center justify-between gap-x-2 gap-y-1 rounded-md border border-transparent px-2 py-1 text-sm hover:border-border/60",
         extra > 0 && "border-blood/30 bg-blood/5",
       )}
     >
@@ -545,12 +545,12 @@ function FreebieRow({
         {info ? <span className="shrink-0">{info}</span> : null}
         <span className="truncate font-serif text-foreground">{label}</span>
         {hint ? (
-          <span className="truncate text-[0.65rem] text-muted-foreground">
+          <span className="hidden truncate text-[0.65rem] text-muted-foreground sm:inline">
             {hint}
           </span>
         ) : null}
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex shrink-0 items-center gap-1 sm:gap-2">
         <span className="text-[0.7rem] text-muted-foreground">
           base <span className="font-display text-foreground">{base}</span>
         </span>
@@ -577,7 +577,7 @@ function FreebieRow({
         >
           <Plus className="size-3.5" />
         </Button>
-        <span className="w-12 text-right text-[0.7rem] text-muted-foreground">
+        <span className="hidden w-12 text-right text-[0.7rem] text-muted-foreground sm:inline">
           {extra > 0 ? `-${extra * cost} pt` : `${cost}/pt`}
         </span>
       </div>

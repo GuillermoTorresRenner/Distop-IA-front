@@ -1,5 +1,12 @@
 import { Trash2 } from "lucide-react";
-import type { Clan, Discipline } from "~/lib/api/catalog/catalog.types";
+import type { ReactNode } from "react";
+import type {
+  Clan,
+  Discipline,
+  DisciplinePower,
+} from "~/lib/api/catalog/catalog.types";
+import { DotRating } from "~/components/character/dot-rating";
+import { Tooltip } from "~/components/common/tooltip";
 import { Button } from "~/components/ui/button";
 import { SELECT_DARK_CLASS } from "~/lib/select-styles";
 import { cn } from "~/lib/utils";
@@ -12,6 +19,7 @@ import {
   type WizardState,
 } from "../wizard-state";
 import {
+  DotRatingRow,
   PointPool,
   StepperRow,
   WizardCard,
@@ -78,24 +86,19 @@ export function StepDisciplines({
   function addDiscipline(disciplineId: string) {
     if (!disciplineId) return;
     if (state.disciplines.some((d) => d.disciplineId === disciplineId)) return;
+    if (pool.remaining <= 0) return;
     const def = disciplines.find((x) => x.id === disciplineId);
     if (def?.hasPaths) {
-      // Ramificada (Taumaturgia, Nigromancia): el manual V20 dice que
-      // al aprender la disciplina el personaje recibe automáticamente
-      // **un círculo en su senda primaria**. Para Nigromancia, esa
-      // primaria es siempre la Senda del Sepulcro (regla canon).
-      // Para Taumaturgia el jugador puede elegir cualquier senda como
-      // primaria — por defecto sembramos la primera del catálogo (suele
-      // ser la Senda de la Sangre, primaria habitual de los Tremere).
-      //
-      // El nivel inicial de la primaria es 1 y NO consume puntos del
-      // pool (es el "regalo" canon V20). Solo cuando el jugador suba
-      // la primaria por encima de 1, ese exceso paga puntos.
+      // Ramificada (Taumaturgia, Nigromancia): se siembra la senda
+      // primaria a nivel 1 (consume 1 punto del pool, no es gratis).
+      // En Nigromancia la primaria es siempre la Senda del Sepulcro;
+      // en Taumaturgia se elige por defecto la primera del catálogo
+      // (Senda de la Sangre suele ser la primaria habitual). El
+      // jugador puede cambiar la primaria en Taumaturgia si quiere.
       const sepulcroPath = (def.paths ?? []).find(
         (p) => p.key === "senda_sepulcro",
       );
-      const primaryPath =
-        sepulcroPath ?? def.paths?.[0] ?? null;
+      const primaryPath = sepulcroPath ?? def.paths?.[0] ?? null;
       if (!primaryPath) {
         // No hay catálogo de sendas todavía — sin primaria, sin pick.
         onChange([
@@ -114,7 +117,6 @@ export function StepDisciplines({
       ]);
       return;
     }
-    if (pool.remaining <= 0) return;
     onChange([...state.disciplines, { disciplineId, level: 1 }]);
   }
 
@@ -127,8 +129,8 @@ export function StepDisciplines({
       title="Paso 4a · Disciplinas"
       subtitle={`Reparte ${DISCIPLINE_POINTS} puntos en las disciplinas de tu clan.`}
       description={
-        <span className="inline-flex items-center gap-2">
-          <span>
+        <span className="flex items-start gap-2">
+          <span className="min-w-0 flex-1">
             Cualquier nivel comprado aquí no puede superar <strong>3</strong> en la creación.
             {clanDisciplineHint ? (
               <>
@@ -149,8 +151,12 @@ export function StepDisciplines({
           />
         </span>
       }
-      aside={<PointPool label="Disciplinas" {...pool} />}
     >
+      {/* Contador del pool encima de la lista para liberar el ancho
+          completo del card (consistente con los pasos de Atributos y
+          Habilidades). */}
+      <PointPool label="Disciplinas" {...pool} />
+
       <div className="space-y-2">
         {state.disciplines.length === 0 ? (
           <p className="rounded-md border border-dashed border-border/60 bg-background/40 px-3 py-4 text-center text-xs text-muted-foreground">
@@ -179,38 +185,85 @@ export function StepDisciplines({
               3,
               pick.level + Math.max(0, pool.remaining),
             );
+            // Lista de poderes desbloqueados en disciplina monolítica.
+            const monoUnlocked = (def?.powers ?? [])
+              .filter((pw) => pw.level <= pick.level)
+              .sort((a, b) => a.level - b.level);
             return (
-              <div key={pick.disciplineId} className="flex items-center gap-2">
-                <StepperRow
-                  label={def?.name ?? "Disciplina"}
-                  hint={def?.tooltip ?? null}
-                  info={
-                    def ? (
-                      <WizardInfoButton
-                        tooltip={def.tooltip ?? `Detalle de ${def.name}`}
-                        kind="discipline"
-                        identifier={def.name}
-                        fallbackTitle={def.name}
-                        onOpenCatalog={openCatalog}
-                        ariaLabel={`Información de la disciplina ${def.name}`}
-                      />
-                    ) : null
-                  }
-                  value={pick.level}
-                  min={1}
-                  max={dynamicMax}
-                  dotsTotal={3}
-                  onChange={(v) => setLevel(pick.disciplineId, v)}
-                />
-                <Button
-                  type="button"
-                  size="icon-sm"
-                  variant="ghost"
-                  onClick={() => remove(pick.disciplineId)}
-                  aria-label="Quitar"
-                >
-                  <Trash2 className="size-3.5" />
-                </Button>
+              <div
+                key={pick.disciplineId}
+                className="space-y-1 rounded-md border border-border/40 bg-background/30 px-2 py-1.5"
+              >
+                <div className="flex items-center gap-2">
+                  <div className="min-w-0 flex-1">
+                    <DotRatingRow
+                      label={def?.name ?? "Disciplina"}
+                      info={
+                        def ? (
+                          <WizardInfoButton
+                            tooltip={def.tooltip ?? `Detalle de ${def.name}`}
+                            kind="discipline"
+                            identifier={def.name}
+                            fallbackTitle={def.name}
+                            onOpenCatalog={openCatalog}
+                            ariaLabel={`Información de la disciplina ${def.name}`}
+                          />
+                        ) : null
+                      }
+                      value={pick.level}
+                      min={1}
+                      max={dynamicMax}
+                      dotsTotal={3}
+                      onChange={(v) => setLevel(pick.disciplineId, v)}
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    size="icon-sm"
+                    variant="ghost"
+                    onClick={() => remove(pick.disciplineId)}
+                    aria-label="Quitar"
+                    className="text-destructive hover:bg-destructive/10"
+                  >
+                    <Trash2 className="size-3.5" />
+                  </Button>
+                </div>
+                {monoUnlocked.length > 0 ? (
+                  <ul className="space-y-0.5 pl-2">
+                    {monoUnlocked.map((pw) => (
+                      <li
+                        key={pw.id}
+                        className="font-serif text-[0.7rem] text-foreground/80"
+                      >
+                        <Tooltip
+                          title={`Nivel ${pw.level} — ${pw.name}`}
+                          content={powerTooltipContent(pw)}
+                          side="top"
+                        >
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              if (def) {
+                                openCatalog(
+                                  "discipline-power",
+                                  `${def.name}|${pw.level}`,
+                                  pw.name,
+                                );
+                              }
+                            }}
+                            className="underline decoration-dotted decoration-blood/30 underline-offset-2 hover:text-blood"
+                          >
+                            <span className="font-semibold text-blood">
+                              ·{pw.level}·
+                            </span>{" "}
+                            {pw.name}
+                          </button>
+                        </Tooltip>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
               </div>
             );
           })
@@ -243,6 +296,40 @@ function clamp(v: number, min: number, max: number) {
 }
 
 /**
+ * Construye el contenido marginal del Tooltip que aparece al pasar el
+ * ratón por encima del nombre de un poder de senda o monolítico. Muestra:
+ *   - El tooltip corto del catálogo (resumen mecánico).
+ *   - Una línea con los chips mecánicos (coste, atributo + habilidad,
+ *     dificultad) si están definidos.
+ *
+ * Es deliberadamente más corto que el modal: la idea es leer rápido sin
+ * abrir el InfoModal.
+ */
+function powerTooltipContent(power: DisciplinePower): ReactNode {
+  const cost = power.bloodCost ?? 0;
+  const chips: string[] = [];
+  chips.push(cost === 0 ? "Sin coste" : `${cost} sangre`);
+  if (power.rollAttribute || power.rollAbility) {
+    const parts = [power.rollAttribute, power.rollAbility].filter(Boolean);
+    chips.push(parts.join(" + "));
+  }
+  if (typeof power.rollDifficulty === "number") {
+    chips.push(`Dif. ${power.rollDifficulty}`);
+  }
+  const short = power.tooltip ?? power.summary ?? null;
+  return (
+    <span className="block space-y-1">
+      {short ? (
+        <span className="block text-[11px] text-foreground/90">{short}</span>
+      ) : null}
+      <span className="block text-[10px] uppercase tracking-widest text-muted-foreground">
+        {chips.join(" · ")}
+      </span>
+    </span>
+  );
+}
+
+/**
  * Subpanel para una disciplina ramificada (Taumaturgia o Nigromancia).
  *
  * Reglas V20 aplicadas (canon):
@@ -250,14 +337,13 @@ function clamp(v: number, min: number, max: number) {
  * **Comunes a las dos**:
  *  - Tope 3 por senda en creación.
  *  - Exactamente una senda marcada como primaria.
- *  - La primaria arranca con **1 círculo gratis** (regalo al aprender la
- *    Disciplina); por eso al añadir la disciplina ya viene una senda
- *    inicial con nivel 1 sin haber descontado pool.
+ *  - Al añadir la disciplina al pick se siembra la senda primaria a
+ *    nivel 1 — eso **consume 1 punto del pool** de disciplinas (cada
+ *    punto asignado a la disciplina sube un círculo de la primaria).
  *  - Las secundarias deben quedar **al menos un círculo por debajo** de
  *    la primaria. El techo dinámico = `primaria - 1`.
  *  - Para poder añadir una segunda senda, la primaria debe estar al
- *    menos a **nivel 3** (regla de Nigromancia, aplicada también a
- *    Taumaturgia como sano spacing por encontrarse fuera del manual).
+ *    menos a **nivel 3**.
  *  - La tercera senda exige primaria a 5 — imposible en creación, así
  *    que el wizard solo permite **máximo 2 sendas** en disciplinas
  *    ramificadas.
@@ -359,8 +445,8 @@ function DisciplineWithPathsRow({
 
   return (
     <div className="space-y-2 rounded-md border border-blood/30 bg-blood/5 p-2">
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
           <span className="font-heading text-sm text-foreground">
             {def.name}
           </span>
@@ -374,8 +460,8 @@ function DisciplineWithPathsRow({
           />
           <span className="font-heading text-[0.6rem] uppercase tracking-widest text-blood">
             {isNigromancia
-              ? "Sepulcro primaria · 1ª gratis"
-              : "ramifica en sendas · primaria 1ª gratis"}
+              ? "Sepulcro primaria"
+              : "ramifica en sendas"}
           </span>
         </div>
         <Button
@@ -425,57 +511,98 @@ function DisciplineWithPathsRow({
             ceiling,
             level + Math.max(0, poolRemaining),
           );
-          // El stepper de una senda no añadida pero no permitida queda
-          // con max=0 (deshabilitado). Estado visual: gris.
           const disabledHint =
             !owned && (ownedCount >= 2 || !canAddSecondary);
+          // Lista de poderes desbloqueados hasta el nivel actual.
+          const unlockedPowers = (p.powers ?? [])
+            .filter((pw) => pw.level <= level)
+            .sort((a, b) => a.level - b.level);
           return (
             <div
               key={p.id}
               className={cn(
-                "flex items-center gap-2 rounded-md bg-background/50 px-2 py-1",
+                "space-y-1 rounded-md bg-background/50 px-2 py-1.5",
                 disabledHint && "opacity-60",
               )}
             >
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.preventDefault();
-                  openCatalog(
-                    "discipline-path",
-                    `${def.name}|${p.key}`,
-                    p.name,
-                  );
-                }}
-                className="flex-1 text-left font-serif text-xs text-foreground underline decoration-dotted decoration-blood/30 underline-offset-2 hover:text-blood"
-              >
-                {p.name}
-                {isOwnedPrimary ? (
-                  <span className="ml-2 font-heading text-[0.55rem] uppercase tracking-widest text-blood">
-                    Primaria
-                  </span>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    openCatalog(
+                      "discipline-path",
+                      `${def.name}|${p.key}`,
+                      p.name,
+                    );
+                  }}
+                  className="min-w-0 flex-1 text-left font-serif text-xs text-foreground underline decoration-dotted decoration-blood/30 underline-offset-2 hover:text-blood"
+                >
+                  {p.name}
+                  {isOwnedPrimary ? (
+                    <span className="ml-2 font-heading text-[0.55rem] uppercase tracking-widest text-blood">
+                      Primaria
+                    </span>
+                  ) : null}
+                </button>
+                {level > 0 && !isNigromancia ? (
+                  <label className="flex shrink-0 items-center gap-1 text-[0.6rem] text-muted-foreground">
+                    <input
+                      type="radio"
+                      name={`primary-${pick.disciplineId}`}
+                      checked={isOwnedPrimary}
+                      onChange={() => setPrimary(p.id)}
+                      className="accent-blood"
+                    />
+                    <span className="uppercase tracking-widest">Primaria</span>
+                  </label>
                 ) : null}
-              </button>
-              {level > 0 && !isNigromancia ? (
-                <label className="flex items-center gap-1 text-[0.6rem] text-muted-foreground">
-                  <input
-                    type="radio"
-                    name={`primary-${pick.disciplineId}`}
-                    checked={isOwnedPrimary}
-                    onChange={() => setPrimary(p.id)}
-                    className="accent-blood"
+                <div className="shrink-0">
+                  <DotRating
+                    value={level}
+                    min={isOwnedPrimary ? 1 : 0}
+                    max={dynamicMax}
+                    slots={3}
+                    onChange={(v) => setPathLevel(p.id, v)}
+                    ariaLabel={p.name}
+                    size="sm"
                   />
-                  <span className="uppercase tracking-widest">Primaria</span>
-                </label>
+                </div>
+              </div>
+              {unlockedPowers.length > 0 ? (
+                <ul className="space-y-0.5 pl-2">
+                  {unlockedPowers.map((pw) => (
+                    <li
+                      key={pw.id}
+                      className="font-serif text-[0.7rem] text-foreground/80"
+                    >
+                      <Tooltip
+                        title={`${p.name} · Nivel ${pw.level} — ${pw.name}`}
+                        content={powerTooltipContent(pw)}
+                        side="top"
+                      >
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            openCatalog(
+                              "discipline-power",
+                              `${def.name}|${p.key}|${pw.level}`,
+                              pw.name,
+                            );
+                          }}
+                          className="underline decoration-dotted decoration-blood/30 underline-offset-2 hover:text-blood"
+                        >
+                          <span className="font-semibold text-blood">
+                            ·{pw.level}·
+                          </span>{" "}
+                          {pw.name}
+                        </button>
+                      </Tooltip>
+                    </li>
+                  ))}
+                </ul>
               ) : null}
-              <StepperRow
-                label=""
-                value={level}
-                min={isOwnedPrimary ? 1 : 0}
-                max={dynamicMax}
-                dotsTotal={3}
-                onChange={(v) => setPathLevel(p.id, v)}
-              />
             </div>
           );
         })}

@@ -1,8 +1,8 @@
 import type { Virtue } from "~/lib/api/catalog/catalog.types";
 import { WizardInfoButton } from "../wizard-info";
 import {
+  DotRatingRow,
   PointPool,
-  StepperRow,
   WizardCard,
 } from "../wizard-primitives";
 import {
@@ -83,8 +83,8 @@ export function StepVirtues({
       title="Paso 4c · Virtudes"
       subtitle={`Reparte ${VIRTUE_POINTS} puntos extra sobre el círculo gratuito de cada virtud.`}
       description={
-        <span className="inline-flex items-center gap-2">
-          <span>
+        <span className="flex items-start gap-2">
+          <span className="min-w-0 flex-1">
             Las virtudes definen quién serás antes del próximo despertar. <strong>Conciencia</strong> y{" "}
             <strong>Autocontrol</strong> sumadas se convierten en tu <em>Humanidad</em>; el <strong>Coraje</strong>{" "}
             se convierte en tu <em>Fuerza de Voluntad</em> permanente.
@@ -130,10 +130,9 @@ export function StepVirtues({
             value + Math.max(0, pool.remaining),
           );
           return (
-            <StepperRow
+            <DotRatingRow
               key={key}
               label={VIRTUE_LABELS[key]}
-              hint={VIRTUE_DESCRIPTIONS[key]}
               info={
                 <WizardInfoButton
                   tooltip={v?.tooltip ?? `Detalle de ${VIRTUE_LABELS[key]}`}

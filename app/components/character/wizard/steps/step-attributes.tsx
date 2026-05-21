@@ -96,8 +96,8 @@ export function StepAttributes({
       title="Paso dos · Atributos"
       subtitle="Ordena 7 / 5 / 3 entre Físicos, Sociales y Mentales."
       description={
-        <span className="inline-flex items-center gap-2">
-          <span>
+        <span className="flex items-start gap-2">
+          <span className="min-w-0 flex-1">
             Cada atributo arranca con un círculo gratuito. Reparte la categoría primaria con <strong>7</strong> puntos
             extra, la secundaria con <strong>5</strong> y la terciaria con <strong>3</strong>. Si quieres ir más allá
             de ese reparto, te quedan los <em>puntos gratuitos</em> del paso final.

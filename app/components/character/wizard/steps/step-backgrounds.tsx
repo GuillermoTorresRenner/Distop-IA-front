@@ -13,8 +13,8 @@ import {
   type WizardState,
 } from "../wizard-state";
 import {
+  DotRatingRow,
   PointPool,
-  StepperRow,
   WizardCard,
 } from "../wizard-primitives";
 
@@ -81,8 +81,8 @@ export function StepBackgrounds({
       title="Paso 4b · Trasfondos"
       subtitle={`Reparte ${BACKGROUND_POINTS} puntos entre tus trasfondos.`}
       description={
-        <span className="inline-flex items-center gap-2">
-          <span>
+        <span className="flex items-start gap-2">
+          <span className="min-w-0 flex-1">
             Tus aliados, recursos y vínculos cuentan tanto como tus colmillos.
             Si quieres bajar tu generación desde la 13.ª, añade el trasfondo
             <strong> Generación</strong>: cada punto baja un escalón. Si te
@@ -142,33 +142,35 @@ export function StepBackgrounds({
             );
             return (
               <div key={pick.key} className="flex items-center gap-2">
-                <StepperRow
-                  label={def?.name ?? pick.key}
-                  hint={def?.tooltip ?? null}
-                  info={
-                    def ? (
-                      <WizardInfoButton
-                        tooltip={def.tooltip ?? `Detalle de ${def.name}`}
-                        kind="background"
-                        identifier={def.key}
-                        fallbackTitle={def.name}
-                        onOpenCatalog={openCatalog}
-                        ariaLabel={`Información del trasfondo ${def.name}`}
-                      />
-                    ) : null
-                  }
-                  value={pick.level}
-                  min={1}
-                  max={dynamicMax}
-                  dotsTotal={5}
-                  onChange={(v) => setLevel(pick.key, v)}
-                />
+                <div className="min-w-0 flex-1">
+                  <DotRatingRow
+                    label={def?.name ?? pick.key}
+                    info={
+                      def ? (
+                        <WizardInfoButton
+                          tooltip={def.tooltip ?? `Detalle de ${def.name}`}
+                          kind="background"
+                          identifier={def.key}
+                          fallbackTitle={def.name}
+                          onOpenCatalog={openCatalog}
+                          ariaLabel={`Información del trasfondo ${def.name}`}
+                        />
+                      ) : null
+                    }
+                    value={pick.level}
+                    min={1}
+                    max={dynamicMax}
+                    dotsTotal={5}
+                    onChange={(v) => setLevel(pick.key, v)}
+                  />
+                </div>
                 <Button
                   type="button"
                   size="icon-sm"
                   variant="ghost"
                   onClick={() => remove(pick.key)}
                   aria-label="Quitar"
+                  className="text-destructive hover:bg-destructive/10"
                 >
                   <Trash2 className="size-3.5" />
                 </Button>

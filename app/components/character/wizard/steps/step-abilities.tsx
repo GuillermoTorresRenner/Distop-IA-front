@@ -92,8 +92,8 @@ export function StepAbilities({
       title="Paso tres · Habilidades"
       subtitle="Ordena 13 / 9 / 5 entre Talentos, Técnicas y Conocimientos."
       description={
-        <span className="inline-flex items-center gap-2">
-          <span>
+        <span className="flex items-start gap-2">
+          <span className="min-w-0 flex-1">
             Ninguna habilidad puede superar <strong>3 puntos</strong> durante la creación; los grados más altos
             se compran con puntos gratuitos al final. Las habilidades arrancan en 0.
           </span>

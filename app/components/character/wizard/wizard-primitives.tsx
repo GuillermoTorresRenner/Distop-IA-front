@@ -235,33 +235,35 @@ export function WizardCard({
   aside,
 }: WizardCardProps) {
   return (
-    <article className="space-y-4 rounded-lg border border-border/60 bg-card/70 p-5 shadow-lg shadow-black/20">
+    <article className="space-y-4 rounded-lg border border-border/60 bg-card/70 p-3 shadow-lg shadow-black/20 sm:p-5">
       <header className="space-y-2">
-        <h2 className="font-heading text-2xl uppercase tracking-widest text-foreground">
+        <h2 className="font-heading text-lg uppercase tracking-widest text-foreground sm:text-2xl">
           {title}
         </h2>
         {subtitle ? (
-          <p className="font-display text-sm text-blood/80">{subtitle}</p>
-        ) : null}
-        {description ? (
-          <p className="font-serif text-sm leading-relaxed text-foreground/80">
-            {description}
+          <p className="font-display text-xs text-blood/80 sm:text-sm">
+            {subtitle}
           </p>
         ) : null}
+        {description ? (
+          <div className="font-serif text-xs leading-relaxed text-foreground/80 sm:text-sm">
+            {description}
+          </div>
+        ) : null}
       </header>
-      {/* Si hay aside, dos columnas (contenido + 18rem aside). Si no, el
-          contenido ocupa el 100% del ancho del card para que steps como
-          Atributos y Habilidades — que mueven sus contadores arriba — no
-          dejen un hueco lateral vacío. */}
+      {/* Si hay aside, dos columnas (contenido + 18rem aside) en xl. En
+          mobile/tablet el aside aparece arriba del contenido (order-first
+          en sm, restaurado en xl) para que los contadores y resúmenes
+          queden siempre visibles antes de la lista editable. */}
       <div
         className={cn(
           "grid gap-4",
           aside && "xl:grid-cols-[minmax(0,1fr)_18rem]",
         )}
       >
-        <div className="min-w-0 space-y-4">{children}</div>
+        <div className="min-w-0 space-y-4 xl:order-1">{children}</div>
         {aside ? (
-          <aside className="space-y-3 xl:w-72">{aside}</aside>
+          <aside className="space-y-3 xl:order-2 xl:w-72">{aside}</aside>
         ) : null}
       </div>
     </article>
@@ -294,7 +296,7 @@ export function PriorityPicker<T extends string>({
             key={cat.key}
             className="flex flex-col gap-2 rounded-md border border-border/60 bg-background/40 px-3 py-2 sm:flex-row sm:items-center sm:justify-between"
           >
-            <div>
+            <div className="min-w-0">
               <div className="font-heading text-sm uppercase tracking-wider text-foreground">
                 {cat.label}
               </div>
@@ -304,7 +306,7 @@ export function PriorityPicker<T extends string>({
                 </div>
               ) : null}
             </div>
-            <div className="flex gap-1">
+            <div className="flex w-full gap-1 sm:w-auto sm:shrink-0">
               {priorities.map((p) => {
                 const taken = (Object.entries(value) as [T, typeof current][]).some(
                   ([k, v]) => k !== cat.key && v === p,
@@ -316,7 +318,7 @@ export function PriorityPicker<T extends string>({
                     type="button"
                     onClick={() => onChange(cat.key, p)}
                     className={cn(
-                      "min-w-12 rounded-md border px-3 py-1.5 text-xs font-medium transition",
+                      "flex-1 rounded-md border px-3 py-1.5 text-xs font-medium transition sm:min-w-12 sm:flex-none",
                       selected
                         ? "border-blood bg-blood/20 text-blood"
                         : taken

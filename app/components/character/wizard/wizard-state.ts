@@ -241,23 +241,17 @@ export function abilityCategoryPool(
 }
 
 /**
- * Calcula el coste de una pick de disciplina en puntos del pool. Para
- * disciplinas monolíticas, el coste es el `level` plano. Para las que
- * tienen sendas (Taumaturgia, Nigromancia), **cada nivel de cada senda
- * cuenta**, pero la senda primaria recibe **1 nivel gratis** según el
- * manual V20 (el círculo automático que se obtiene al aprender la
- * Disciplina). Ejemplo:
- *   - Primaria a 2 + secundaria a 1 = (2-1) + 1 = 2 puntos del pool.
- *   - Solo primaria a 1 = (1-1) = 0 puntos (totalmente gratis).
+ * Calcula el coste de una pick de disciplina en puntos del pool.
+ *
+ * - Monolíticas: el coste es el `level` plano.
+ * - Ramificadas (Taumaturgia, Nigromancia): **cada nivel de cada senda
+ *   cuenta como un punto del pool**. Subir la primaria de 0 a 1 cuesta
+ *   1 punto (no es regalo). El primer punto se aplica automáticamente
+ *   al primer nivel de la senda primaria.
  */
 export function disciplinePickCost(d: WizardDisciplinePick): number {
   if (d.paths && d.paths.length > 0) {
-    return d.paths.reduce((acc, p) => {
-      // Cada senda paga su nivel, salvo la primaria que paga `level - 1`
-      // (el primer círculo es regalo). Mínimo 0.
-      const cost = p.isPrimary ? Math.max(0, p.level - 1) : p.level;
-      return acc + cost;
-    }, 0);
+    return d.paths.reduce((acc, p) => acc + p.level, 0);
   }
   return d.level;
 }

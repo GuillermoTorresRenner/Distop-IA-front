@@ -205,11 +205,11 @@ export function CharacterWizard({
       {/* Padding lateral unificado con el resto del app: `px-3` en mobile
           y `sm:px-[5vw]` para dejar 90vw útiles, igual que `layouts/private.tsx`. */}
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 bg-card/40 px-3 py-3 sm:px-[5vw]">
-        <div>
-          <p className="font-heading text-[0.65rem] uppercase tracking-[0.3em] text-blood">
+        <div className="min-w-0">
+          <p className="font-heading text-[0.6rem] uppercase tracking-[0.3em] text-blood sm:text-[0.65rem]">
             Creación · V20
           </p>
-          <h1 className="font-display text-xl text-foreground">
+          <h1 className="font-display text-base text-foreground sm:text-xl">
             Paso {step + 1} de {WIZARD_STEP_COUNT} · {stepMeta.title}
           </h1>
         </div>
@@ -217,7 +217,7 @@ export function CharacterWizard({
           type="button"
           variant="ghost"
           onClick={handleExit}
-          className="text-muted-foreground hover:text-foreground"
+          className="shrink-0 text-muted-foreground hover:text-foreground"
         >
           <X className="size-4" /> Salir
         </Button>
