@@ -192,7 +192,8 @@ Tokens Tailwind centralizados en `app/app.css`:
 - ✅ Store zustand de usuario (espejo de cookie HTTP-only).
 - ✅ Navbar estilo nivel20: banda superior roja + banda inferior con tabs.
 - ✅ Crónicas: CRUD, invitaciones a usuarios nuevos/existentes, gestión de miembros.
-- ✅ Catálogos compartidos: clanes, disciplinas, arquetipos, méritos/defectos, armas, armaduras.
+- ✅ Catálogos compartidos: clanes (14), disciplinas (12, incluyendo Taumaturgia y Nigromancia con sus sendas y rituales), atributos (9 con tooltips), habilidades (31 con tooltips y especialidades), arquetipos, méritos/defectos, armas, armaduras, virtudes y trasfondos.
+- ✅ Sistema de tooltips + InfoModal: cada rasgo/habilidad/disciplina/clan muestra tooltip al hover (paleta sangrienta) y `InfoModal` al pulsar el botón `i`. El texto largo del modal viene del backend (vault Markdown) y el tooltip corto del campo `tooltip` del catálogo, con fallback hardcoded por seguridad.
 - ⏳ Personajes: hoja completa con pestañas (Rasgos, Ventajas, Equipo, Notas).
 - ⏳ Toggle dark/light (paleta lista, falta UI).
 - ⏳ Social (amistades), Bitácora, Mesa Virtual (stubs en progreso).
