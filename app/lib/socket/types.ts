@@ -31,6 +31,15 @@ export interface ChatSpeaker {
   kind: "self" | "character" | "system";
   name: string;
   characterId: string | null;
+  /**
+   * URL relativa del retrato a mostrar junto al mensaje:
+   *  - `self`: avatar del usuario (de `users/avatars/`).
+   *  - `character`: retrato del personaje (de `characters/avatars/`).
+   *  - `system`: siempre `null` (mensaje del sistema, sin retrato).
+   * El backend ya hace el enrichment, así que el cliente puede pasarla
+   * directo por `resolveImageUrl()` y ponerla en un `<img>`.
+   */
+  avatar?: string | null;
 }
 
 /**
@@ -73,6 +82,11 @@ export interface DiceRollCharacter {
   name: string;
   /** kind del personaje al momento de la tirada — útil para mostrar etiquetas. */
   kind?: "PC" | "NPC" | "ANTAGONIST";
+  /**
+   * URL relativa del retrato (servida via NPM `/images` o vite proxy en dev).
+   * `null` si no se subió uno. El backend ya hace el enrichment.
+   */
+  avatar?: string | null;
 }
 
 /** Efecto de la Voluntad gastada en una tirada V20. */

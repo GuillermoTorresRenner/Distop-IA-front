@@ -15,6 +15,7 @@ import remarkGfm from "remark-gfm";
 import { useEffect, useMemo, useRef } from "react";
 import { Tooltip } from "~/components/common/tooltip";
 import { Button } from "~/components/ui/button";
+import { resolveImageUrl } from "~/lib/image-url";
 import { cn } from "~/lib/utils";
 import type { DiceRoll } from "~/lib/socket/types";
 import {
@@ -177,6 +178,7 @@ function RollCard({ roll, highlight }: { roll: DiceRoll; highlight: boolean }) {
       )}
     >
       <header className="flex items-start justify-between gap-2 text-xs">
+        <RollCharacterAvatar character={roll.character} />
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5 truncate">
             <span className="font-heading uppercase tracking-wider text-blood">
@@ -370,6 +372,7 @@ function InitiativeRollCard({
       )}
     >
       <header className="flex items-start justify-between gap-2 text-xs">
+        <RollCharacterAvatar character={roll.character} variant="initiative" />
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5 truncate">
             <span className="font-heading uppercase tracking-wider text-amber-300">
@@ -611,6 +614,50 @@ function Die({
       }
     >
       {value}
+    </span>
+  );
+}
+
+/**
+ * Mini-retrato del personaje al frente del card de tirada (38×38).
+ * Si no hay personaje o no tiene avatar, no se renderiza para no ocupar
+ * espacio innecesario en cards de tiradas sin PJ (eg. tiradas libres).
+ */
+function RollCharacterAvatar({
+  character,
+  variant = "default",
+}: {
+  character: DiceRoll["character"];
+  variant?: "default" | "initiative";
+}) {
+  if (!character) return null;
+  const url = resolveImageUrl(character.avatar ?? null);
+  const borderClass =
+    variant === "initiative" ? "border-amber-500/50" : "border-blood/40";
+  if (!url) {
+    // Fallback: cuadrito vacío con la inicial. Mantiene la alineación del
+    // card sin obligar a que cada PJ tenga retrato.
+    return (
+      <span
+        className={cn(
+          "flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-md border bg-background/40 text-[0.7rem] font-heading uppercase text-muted-foreground",
+          borderClass,
+        )}
+        aria-hidden="true"
+      >
+        {character.name.charAt(0)}
+      </span>
+    );
+  }
+  return (
+    <span
+      className={cn(
+        "size-9 shrink-0 overflow-hidden rounded-md border",
+        borderClass,
+      )}
+      aria-hidden="true"
+    >
+      <img src={url} alt="" className="size-full object-cover" />
     </span>
   );
 }

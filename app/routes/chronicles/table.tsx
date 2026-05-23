@@ -55,6 +55,7 @@ import {
   listChronicleRolls,
 } from "~/lib/api/dice/dice.api";
 import { useConfirm } from "~/hooks/use-confirm";
+import { resolveImageUrl } from "~/lib/image-url";
 import type { SheetAnnounce } from "~/lib/socket/types";
 import { useUserStore } from "~/stores/user.store";
 import { SELECT_DARK_CLASS } from "~/lib/select-styles";
@@ -351,6 +352,55 @@ export default function ChronicleTableRoute() {
   // de la hoja no atrape el dedo y haga inaccesible el chat. En lg+ ambas
   // columnas se muestran a la vez con el splitter horizontal.
   const [mobileTab, setMobileTab] = useState<"sheet" | "chat">("sheet");
+
+  // ── Indicador de chat no leído ──────────────────────────
+  //
+  // Cuenta mensajes de chat que llegaron desde la última vez que el usuario
+  // tuvo visible el panel del chat. "Visible" significa:
+  //   - desktop: `rightTab === "chat"` (lg+)
+  //   - mobile: `mobileTab === "chat"` AND `rightTab === "chat"`
+  // Cuando entra al chat → reset a 0.
+  // El badge se pinta sobre los iconos del tab "Chat" (mobile + desktop).
+  // El sonido ya lo dispara el hook `useTable` al recibir `chat:message`
+  // para todos los conectados, así que aquí solo manejamos el feedback
+  // visual.
+  const [unreadChat, setUnreadChat] = useState(0);
+  const lastSeenChatLenRef = useRef(0);
+  const chatVisibleRef = useRef(false);
+  const chatCount = useMemo(
+    () => feed.reduce((acc, it) => (it._t === "chat" ? acc + 1 : acc), 0),
+    [feed],
+  );
+  useEffect(() => {
+    // Si el chat está visible, mantenemos el contador en cero (y la baseline
+    // sincronizada con el feed actual).
+    if (chatVisibleRef.current) {
+      lastSeenChatLenRef.current = chatCount;
+      if (unreadChat !== 0) setUnreadChat(0);
+      return;
+    }
+    const delta = chatCount - lastSeenChatLenRef.current;
+    if (delta > 0) setUnreadChat((u) => u + delta);
+    lastSeenChatLenRef.current = chatCount;
+  }, [chatCount, unreadChat]);
+  // Sincroniza la visibilidad real del chat con la ref de arriba. Si el
+  // usuario pasa al chat, resetea el badge inmediatamente.
+  useEffect(() => {
+    const visible = rightTab === "chat" && mobileTab === "chat";
+    chatVisibleRef.current = visible;
+    if (visible) {
+      lastSeenChatLenRef.current = chatCount;
+      setUnreadChat(0);
+    }
+    // En lg+ el chat es visible cuando rightTab==='chat', aunque mobileTab
+    // siga en 'sheet' (split view). Detectarlo a nivel CSS desde JS es
+    // engorroso; preferimos resetear el badge también cuando el usuario
+    // hace click en el tab `chat` del panel derecho, que ya cubre lg+.
+    if (rightTab === "chat") {
+      lastSeenChatLenRef.current = chatCount;
+      setUnreadChat(0);
+    }
+  }, [rightTab, mobileTab, chatCount]);
   // En mobile el DiceRoller se colapsa tras un botón para ganar alto de chat.
   const [mobileDiceOpen, setMobileDiceOpen] = useState(false);
   const [whiteboardOpen, setWhiteboardOpen] = useState(false);
@@ -541,6 +591,7 @@ export default function ChronicleTableRoute() {
           onClick={() => setMobileTab("chat")}
           icon={<MessageSquare className="size-4" />}
           label={`Chat${rolls.length ? ` · ${rolls.length}` : ""}`}
+          badge={mobileTab === "chat" ? 0 : unreadChat}
         />
       </nav>
 
@@ -612,6 +663,7 @@ export default function ChronicleTableRoute() {
               onClick={() => setRightTab("chat")}
               icon={<MessageSquare className="size-3.5" />}
               label="Chat"
+              badge={rightTab === "chat" ? 0 : unreadChat}
             />
             <TabButton
               active={rightTab === "dice"}
@@ -817,11 +869,14 @@ function TabButton({
   onClick,
   icon,
   label,
+  badge,
 }: {
   active: boolean;
   onClick: () => void;
   icon: React.ReactNode;
   label: string;
+  /** Si > 0, pinta un dot animado (con halo + count) sobre el icono. */
+  badge?: number;
 }) {
   return (
     <button
@@ -834,7 +889,10 @@ function TabButton({
           : "text-muted-foreground hover:bg-blood/10"
       )}
     >
-      {icon}
+      <span className="relative inline-flex">
+        {icon}
+        {badge && badge > 0 ? <UnreadDot count={badge} /> : null}
+      </span>
       {label}
     </button>
   );
@@ -845,11 +903,14 @@ function MobileTabButton({
   onClick,
   icon,
   label,
+  badge,
 }: {
   active: boolean;
   onClick: () => void;
   icon: React.ReactNode;
   label: string;
+  /** Si > 0, pinta un dot animado (con halo + count) sobre el icono. */
+  badge?: number;
 }) {
   return (
     <button
@@ -863,9 +924,31 @@ function MobileTabButton({
           : "text-muted-foreground hover:bg-blood/10"
       )}
     >
-      {icon}
+      <span className="relative inline-flex">
+        {icon}
+        {badge && badge > 0 ? <UnreadDot count={badge} /> : null}
+      </span>
       {label}
     </button>
+  );
+}
+
+/**
+ * Marcador visual de mensajes/items no leídos: dot ámbar con un halo
+ * `animate-ping` y el conteo encima. Diseño consistente con el badge de
+ * invitaciones del navbar (paleta `amber-400` sobre fondo oscuro).
+ */
+function UnreadDot({ count }: { count: number }) {
+  return (
+    <span
+      className="absolute -right-1.5 -top-1.5 inline-flex size-3.5 items-center justify-center"
+      aria-label={`${count} mensaje${count === 1 ? "" : "s"} sin leer`}
+    >
+      <span className="absolute inline-flex size-full animate-ping rounded-full bg-amber-400/70" />
+      <span className="relative inline-flex min-w-[0.85rem] items-center justify-center rounded-full bg-amber-400 px-1 text-[9px] font-bold leading-3 text-black">
+        {count > 99 ? "99+" : count}
+      </span>
+    </span>
   );
 }
 
@@ -1347,39 +1430,66 @@ function ChatMessageRow({
     target = isMine ? `Susurro a ${label}` : `Susurro de ${label}`;
   }
 
+  // Avatar a mostrar: del personaje si habla como PJ; si no, del usuario.
+  // El backend ya enriquece la URL (`/images/...`), aquí solo la resolvemos
+  // contra el origen del back en dev (en prod queda relativa, NPM rutea).
+  const avatarUrl = resolveImageUrl(item.speaker?.avatar ?? null);
+  const initial = (speakerName || "?").charAt(0).toUpperCase();
+
   return (
     <div
       className={cn(
-        "text-sm",
+        "flex items-start gap-2 text-sm",
         isPrivate &&
           "rounded-md border border-amber-500/30 bg-amber-500/5 px-2 py-1.5"
       )}
     >
-      <div className="flex items-baseline gap-2">
-        <span
-          className={cn(
-            "font-heading text-xs uppercase tracking-wider",
-            speakingAsCharacter ? "text-blood" : "text-foreground/90",
-          )}
-          title={speakingAsCharacter ? `Habla como personaje · usuario: ${fallbackName}` : undefined}
-        >
-          {speakerName}
-        </span>
-        {speakingAsCharacter ? (
-          <span className="rounded-sm bg-blood/15 px-1.5 py-0.5 font-heading text-[9px] uppercase tracking-wider text-blood">
-            PJ
+      <span
+        aria-hidden="true"
+        className={cn(
+          "mt-0.5 flex size-7 shrink-0 items-center justify-center overflow-hidden rounded-full border bg-background text-[0.65rem] font-heading uppercase",
+          speakingAsCharacter
+            ? "border-blood/40 text-blood"
+            : "border-border text-muted-foreground",
+        )}
+      >
+        {avatarUrl ? (
+          <img src={avatarUrl} alt="" className="size-full object-cover" />
+        ) : (
+          initial
+        )}
+      </span>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-baseline gap-2">
+          <span
+            className={cn(
+              "font-heading text-xs uppercase tracking-wider",
+              speakingAsCharacter ? "text-blood" : "text-foreground/90",
+            )}
+            title={
+              speakingAsCharacter
+                ? `Habla como personaje · usuario: ${fallbackName}`
+                : undefined
+            }
+          >
+            {speakerName}
           </span>
-        ) : null}
-        {target ? (
-          <span className="rounded-sm bg-amber-500/15 px-1.5 py-0.5 font-heading text-[9px] uppercase tracking-wider text-amber-300">
-            {target}
+          {speakingAsCharacter ? (
+            <span className="rounded-sm bg-blood/15 px-1.5 py-0.5 font-heading text-[9px] uppercase tracking-wider text-blood">
+              PJ
+            </span>
+          ) : null}
+          {target ? (
+            <span className="rounded-sm bg-amber-500/15 px-1.5 py-0.5 font-heading text-[9px] uppercase tracking-wider text-amber-300">
+              {target}
+            </span>
+          ) : null}
+          <span className="text-[10px] italic text-muted-foreground">
+            {new Date(item.at).toLocaleTimeString()}
           </span>
-        ) : null}
-        <span className="text-[10px] italic text-muted-foreground">
-          {new Date(item.at).toLocaleTimeString()}
-        </span>
+        </div>
+        <p className="whitespace-pre-wrap break-words">{item.text}</p>
       </div>
-      <p className="whitespace-pre-wrap break-words">{item.text}</p>
     </div>
   );
 }
