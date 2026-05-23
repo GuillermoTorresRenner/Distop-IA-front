@@ -69,6 +69,15 @@ export interface WizardConcept {
   natureId: string | null;
   demeanorId: string | null;
   generation: number;
+  /**
+   * Retrato del personaje seleccionado en el paso 1. Solo vive en memoria
+   * mientras el wizard está abierto: el archivo se sube en
+   * `handleWizardComplete` despues de crear el personaje (porque el endpoint
+   * requiere `characterId`). Si el jugador no elige imagen, queda `null`.
+   */
+  avatarFile?: File | null;
+  /** objectURL para preview local. Se libera al cambiar/quitar o cerrar. */
+  avatarPreviewUrl?: string | null;
 }
 
 export interface WizardAttributes {
@@ -162,6 +171,8 @@ export function emptyWizardState(): WizardState {
       natureId: null,
       demeanorId: null,
       generation: 13,
+      avatarFile: null,
+      avatarPreviewUrl: null,
     },
     attributes: {
       priority: { physical: null, social: null, mental: null },

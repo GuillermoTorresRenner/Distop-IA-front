@@ -26,6 +26,7 @@ import { UserAutocomplete } from "~/components/common/user-autocomplete";
 import { Button } from "~/components/ui/button";
 import type { UserSummary } from "~/lib/api/users/users.types";
 import { useConfirm } from "~/hooks/use-confirm";
+import { resolveImageUrl } from "~/lib/image-url";
 import { SELECT_DARK_CLASS } from "~/lib/select-styles";
 import {
   linkCharacterToChronicle,
@@ -348,7 +349,7 @@ export default function ChronicleDetailRoute() {
       {chronicle.image && !isNarrator ? (
         <div className="overflow-hidden rounded-lg border border-border/60">
           <img
-            src={chronicle.image}
+            src={resolveImageUrl(chronicle.image) ?? undefined}
             alt={`Cubierta de ${chronicle.name}`}
             className="aspect-video w-full object-cover"
           />
@@ -371,7 +372,7 @@ export default function ChronicleDetailRoute() {
                     <span className="flex size-9 items-center justify-center overflow-hidden rounded-full bg-blood/20 text-sm font-semibold uppercase text-blood">
                       {member.user.avatar ? (
                         <img
-                          src={member.user.avatar}
+                          src={resolveImageUrl(member.user.avatar) ?? undefined}
                           alt=""
                           className="size-full object-cover"
                         />
@@ -548,6 +549,25 @@ export default function ChronicleDetailRoute() {
                       key={c.id}
                       className="flex items-center justify-between gap-3 rounded-md border border-border/40 bg-background/40 px-3 py-2"
                     >
+                      <Link
+                        to={isMine ? `/characters/${c.id}` : "#"}
+                        aria-label={c.name}
+                        className={`relative size-10 shrink-0 overflow-hidden rounded-full border border-border/60 bg-background ${
+                          isMine ? "" : "pointer-events-none"
+                        }`}
+                      >
+                        {c.avatar ? (
+                          <img
+                            src={resolveImageUrl(c.avatar) ?? undefined}
+                            alt=""
+                            className="size-full object-cover"
+                          />
+                        ) : (
+                          <span className="flex size-full items-center justify-center text-muted-foreground">
+                            <Skull className="size-4" />
+                          </span>
+                        )}
+                      </Link>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
                           <Link
@@ -707,7 +727,7 @@ export default function ChronicleDetailRoute() {
                 Sube una imagen representativa para la crónica (JPEG, PNG, WebP o GIF, máx. 8 MB).
               </p>
               <ImageUploader
-                currentUrl={chronicle.image}
+                currentUrl={resolveImageUrl(chronicle.image)}
                 onUpload={handleUploadImage}
                 onRemove={handleRemoveImage}
                 shape="rectangle"

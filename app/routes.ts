@@ -24,5 +24,6 @@ export default [
     route("journal", "routes/journal.tsx"),
     route("table", "routes/table.tsx"),
     route("roadmap", "routes/roadmap.tsx"),
+    route("admin", "routes/admin.tsx"),
   ]),
 ] satisfies RouteConfig;

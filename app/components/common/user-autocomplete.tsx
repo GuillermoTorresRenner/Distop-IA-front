@@ -2,6 +2,7 @@ import { Loader2, Search, X } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { Input } from "~/components/ui/input";
 import type { UserSummary } from "~/lib/api/users/users.types";
+import { resolveImageUrl } from "~/lib/image-url";
 import { cn } from "~/lib/utils";
 
 interface UserAutocompleteProps {
@@ -202,7 +203,11 @@ export function UserAutocomplete({
                 >
                   <span className="flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-blood/20 text-xs font-semibold uppercase text-blood">
                     {u.avatar ? (
-                      <img src={u.avatar} alt="" className="size-full object-cover" />
+                      <img
+                        src={resolveImageUrl(u.avatar) ?? undefined}
+                        alt=""
+                        className="size-full object-cover"
+                      />
                     ) : (
                       (u.nickname || u.email || "?").charAt(0)
                     )}

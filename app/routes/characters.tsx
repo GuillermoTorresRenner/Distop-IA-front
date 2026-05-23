@@ -8,6 +8,7 @@ import { FormAlert } from "~/components/common/form-alert";
 import { PageHeader } from "~/components/common/page-header";
 import { Button } from "~/components/ui/button";
 import { useConfirm } from "~/hooks/use-confirm";
+import { resolveImageUrl } from "~/lib/image-url";
 import {
   cloneCharacter,
   deleteCharacter,
@@ -238,7 +239,24 @@ function CharacterCard({
   return (
     <li className="rounded-lg border border-border/60 bg-card/70 p-4">
       <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
+        <Link
+          to={`/characters/${c.id}`}
+          aria-label={`Abrir ${c.name}`}
+          className="relative size-14 shrink-0 overflow-hidden rounded-full border border-border/70 bg-background"
+        >
+          {c.avatar ? (
+            <img
+              src={resolveImageUrl(c.avatar) ?? undefined}
+              alt=""
+              className="size-full object-cover"
+            />
+          ) : (
+            <span className="flex size-full items-center justify-center text-muted-foreground">
+              <Skull className="size-6" />
+            </span>
+          )}
+        </Link>
+        <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <Link
               to={`/characters/${c.id}`}

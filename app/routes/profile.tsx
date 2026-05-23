@@ -6,6 +6,7 @@ import { FormField } from "~/components/common/form-field";
 import { ImageUploader } from "~/components/common/image-uploader";
 import { PageHeader } from "~/components/common/page-header";
 import { Button } from "~/components/ui/button";
+import { resolveImageUrl } from "~/lib/image-url";
 import {
   deleteUserAvatar,
   updateUser,
@@ -104,7 +105,7 @@ export default function ProfileRoute() {
           Tu avatar aparecerá junto a tu sesión y al lado de tu nombre en las crónicas en las que participes (JPEG, PNG, WebP o GIF, máx. 5 MB).
         </p>
         <ImageUploader
-          currentUrl={user.avatar}
+          currentUrl={resolveImageUrl(user.avatar)}
           onUpload={handleUpload}
           onRemove={handleRemove}
           shape="circle"

@@ -3,6 +3,7 @@ export interface User {
   email: string;
   nickname: string;
   isActive: boolean;
+  isAdmin: boolean;
   avatar: string | null;
   createdAt: string;
   updatedAt: string;

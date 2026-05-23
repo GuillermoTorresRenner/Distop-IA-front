@@ -51,6 +51,34 @@ export async function cloneCharacter(id: string): Promise<Character> {
   return data;
 }
 
+/**
+ * Sube un retrato del personaje. El backend acepta jpg/png/webp/gif hasta
+ * 5 MB y lo convierte a WebP 1024×1024. Permitido para el dueño o un
+ * narrador de alguna crónica donde el personaje está asociado.
+ */
+export async function uploadCharacterAvatar(
+  characterId: string,
+  file: File,
+): Promise<Character> {
+  const form = new FormData();
+  form.append("file", file);
+  const { data } = await apiClient.post<Character>(
+    `/characters/${characterId}/avatar`,
+    form,
+    { headers: { "Content-Type": "multipart/form-data" } },
+  );
+  return data;
+}
+
+export async function deleteCharacterAvatar(
+  characterId: string,
+): Promise<Character> {
+  const { data } = await apiClient.delete<Character>(
+    `/characters/${characterId}/avatar`,
+  );
+  return data;
+}
+
 export interface ChronicleMemberRef {
   id: string;
   email: string;

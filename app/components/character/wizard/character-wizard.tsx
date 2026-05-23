@@ -47,6 +47,17 @@ import {
   type WizardState,
 } from "./wizard-state";
 
+/** Extras producidos por el wizard que no caben en `CharacterInput`. */
+export interface WizardCompleteExtras {
+  /**
+   * Retrato elegido en el paso de Concepto. El padre debe subirlo con
+   * `uploadCharacterAvatar(createdId, avatarFile)` **después** de crear el
+   * personaje, ya que el endpoint exige `characterId`. `null` si el jugador
+   * no eligió imagen.
+   */
+  avatarFile: File | null;
+}
+
 interface CharacterWizardProps {
   open: boolean;
   /**
@@ -56,8 +67,14 @@ interface CharacterWizardProps {
    * Mientras el guardado está en curso, pasar `saving=true`; si falla,
    * pasar `saveError` con el mensaje para que el wizard lo muestre dentro
    * del modal final sin cerrarse.
+   *
+   * `extras` contiene cosas que no son parte del `CharacterInput` (hoy solo
+   * el `avatarFile` opcional, que el padre debe subir tras crear el PJ).
    */
-  onComplete: (input: Partial<CharacterInput>) => void;
+  onComplete: (
+    input: Partial<CharacterInput>,
+    extras: WizardCompleteExtras,
+  ) => void;
   /** Callback al cancelar el wizard (saldrá de la creación). */
   onCancel: () => void;
   /** Si el padre está guardando, el modal final muestra spinner. */
@@ -185,7 +202,7 @@ export function CharacterWizard({
 
   function handleConfirmComplete() {
     const mapped = wizardStateToCharacterInput(state, { backgrounds });
-    onComplete(mapped);
+    onComplete(mapped, { avatarFile: state.concept.avatarFile ?? null });
   }
 
   async function handleExit() {

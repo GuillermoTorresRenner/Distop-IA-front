@@ -15,6 +15,7 @@ import { Button } from "~/components/ui/button";
 import { useConfirm } from "~/hooks/use-confirm";
 import { useUnsavedChangesGuard } from "~/hooks/use-unsaved-changes-guard";
 import { isCharacterInputDirty } from "~/lib/character-sheet";
+import { resolveImageUrl } from "~/lib/image-url";
 import {
   listAbilitiesInfo,
   listArchetypes,
@@ -43,8 +44,10 @@ import type {
 } from "~/lib/api/catalog/catalog.types";
 import {
   deleteCharacter,
+  deleteCharacterAvatar,
   getCharacter,
   updateCharacter,
+  uploadCharacterAvatar,
 } from "~/lib/api/characters/characters.api";
 import type {
   Character,
@@ -348,6 +351,15 @@ export default function CharacterDetailRoute() {
           }
           onCreateWeapon={() => setWeaponDialogOpen(true)}
           onCreateArmor={() => setArmorDialogOpen(true)}
+          avatarUrl={resolveImageUrl(character.avatar)}
+          onUploadAvatar={async (file) => {
+            const updated = await uploadCharacterAvatar(character.id, file);
+            setCharacter(updated);
+          }}
+          onRemoveAvatar={async () => {
+            const updated = await deleteCharacterAvatar(character.id);
+            setCharacter(updated);
+          }}
         />
         <div className="flex items-center gap-3 border-t border-border/60 pt-4">
           <Button

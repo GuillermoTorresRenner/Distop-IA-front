@@ -1,9 +1,10 @@
-import { ChevronDown, LogOut, User as UserIcon } from "lucide-react";
+import { ChevronDown, LogOut, ShieldCheck, User as UserIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { Button } from "~/components/ui/button";
 import { logout } from "~/lib/api/auth/auth.api";
 import type { User } from "~/lib/api/users/users.types";
+import { resolveImageUrl } from "~/lib/image-url";
 import { cn } from "~/lib/utils";
 import { useUserStore } from "~/stores/user.store";
 
@@ -14,7 +15,7 @@ interface UserMenuProps {
 function avatarUrl(user: User): string | null {
   if (!user.avatar) return null;
   if (user.avatar.startsWith("http")) return user.avatar;
-  return user.avatar;
+  return resolveImageUrl(user.avatar);
 }
 
 export function UserMenu({ user }: UserMenuProps) {
@@ -94,6 +95,19 @@ export function UserMenu({ user }: UserMenuProps) {
             <UserIcon className="size-4" />
             Mi santuario
           </button>
+          {user.isAdmin ? (
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                navigate("/admin");
+              }}
+              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-amber-400 hover:bg-muted"
+            >
+              <ShieldCheck className="size-4" />
+              Panel de Administración
+            </button>
+          ) : null}
           <button
             type="button"
             onClick={handleLogout}

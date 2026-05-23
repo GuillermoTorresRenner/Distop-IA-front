@@ -122,6 +122,12 @@ export interface Character {
   chronicleName: string | null;
   generation: number | null;
   haven: string | null;
+  /**
+   * Retrato del personaje. URL relativa al dominio del front (servida via
+   * NPM → Custom Location `/images` → backend). `null` si no se subió uno.
+   * El campo en BD guarda solo el filename; el backend lo enriquece a URL.
+   */
+  avatar: string | null;
   clanId: string | null;
   clan: Clan | null;
   natureId: string | null;

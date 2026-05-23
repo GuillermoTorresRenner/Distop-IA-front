@@ -4,6 +4,7 @@ import { DotRating } from "~/components/character/dot-rating";
 import { HealthToggle, type DamageState } from "~/components/character/health-toggle";
 import { SpecialtyDialog } from "~/components/character/specialty-dialog";
 import { FormField } from "~/components/common/form-field";
+import { ImageUploader } from "~/components/common/image-uploader";
 import { useInfoModal } from "~/components/common/info-modal";
 import { MarkdownEditor } from "~/components/common/markdown-editor";
 import { Tooltip } from "~/components/common/tooltip";
@@ -83,6 +84,15 @@ interface Props {
    * campo "Jugador" de Identidad (read-only). Si no llega, queda vacío.
    */
   playerName?: string | null;
+  /**
+   * URL del retrato actual del personaje (relativa, servida por NPM).
+   * Si está presente junto con `onUploadAvatar`, se renderiza el uploader
+   * en la sección Identidad. En la pantalla de creación se omite hasta
+   * que el personaje exista en BD.
+   */
+  avatarUrl?: string | null;
+  onUploadAvatar?: (file: File) => Promise<void>;
+  onRemoveAvatar?: () => Promise<void>;
 }
 
 export function CharacterSheetForm({
@@ -103,6 +113,9 @@ export function CharacterSheetForm({
   onCreateArmor,
   readOnly,
   playerName,
+  avatarUrl,
+  onUploadAvatar,
+  onRemoveAvatar,
 }: Props) {
   const backgroundCatalog = backgrounds ?? [];
   const attributesCatalog = attributes ?? [];
@@ -318,6 +331,28 @@ export function CharacterSheetForm({
     <div className="space-y-8">
       {/* Identidad */}
       <SectionHeading>Identidad</SectionHeading>
+      {onUploadAvatar ? (
+        <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center">
+          <div className="shrink-0">
+            <ImageUploader
+              currentUrl={avatarUrl ?? null}
+              onUpload={onUploadAvatar}
+              onRemove={onRemoveAvatar}
+              shape="circle"
+              maxSizeMb={5}
+              uploadLabel="Subir retrato"
+              changeLabel="Cambiar retrato"
+              removeLabel="Quitar retrato"
+              emptyHint="Sin retrato"
+              disabled={readOnly}
+            />
+          </div>
+          <p className="font-serif text-xs italic text-muted-foreground">
+            Sube un retrato del personaje. JPEG, PNG, WebP o GIF, hasta 5 MB. Se
+            convierte a WebP 1024×1024.
+          </p>
+        </div>
+      ) : null}
       <div className="grid gap-4 md:grid-cols-3">
         <Tooltip content={IDENTITY_TOOLTIPS.name} title="Nombre">
           <FormField

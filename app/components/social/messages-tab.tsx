@@ -11,6 +11,7 @@ import type {
   DirectMessage,
 } from "~/lib/api/messages/messages.types";
 import type { UserSummary } from "~/lib/api/users/users.types";
+import { resolveImageUrl } from "~/lib/image-url";
 import { cn } from "~/lib/utils";
 
 interface MessagesTabProps {
@@ -27,7 +28,11 @@ function Avatar({ url, label, size = "size-9" }: { url: string | null; label: st
       )}
     >
       {url ? (
-        <img src={url} alt="" className="size-full object-cover" />
+        <img
+          src={resolveImageUrl(url) ?? undefined}
+          alt=""
+          className="size-full object-cover"
+        />
       ) : (
         (label || "?").charAt(0)
       )}

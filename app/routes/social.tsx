@@ -18,6 +18,7 @@ import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { useConfirm } from "~/hooks/use-confirm";
 import { useMessages } from "~/hooks/use-messages";
+import { resolveImageUrl } from "~/lib/image-url";
 import {
   acceptFriendship,
   declineFriendship,
@@ -42,7 +43,11 @@ function Avatar({ url, label }: { url: string | null; label: string }) {
   return (
     <span className="flex size-9 items-center justify-center overflow-hidden rounded-full bg-blood/20 text-sm font-semibold uppercase text-blood">
       {url ? (
-        <img src={url} alt="" className="size-full object-cover" />
+        <img
+          src={resolveImageUrl(url) ?? undefined}
+          alt=""
+          className="size-full object-cover"
+        />
       ) : (
         (label || "?").charAt(0)
       )}

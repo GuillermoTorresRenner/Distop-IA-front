@@ -40,6 +40,7 @@ import type {
 import {
   createCharacter,
   createChronicleCharacter,
+  uploadCharacterAvatar,
 } from "~/lib/api/characters/characters.api";
 import { getChronicle } from "~/lib/api/chronicles/chronicles.api";
 import type {
@@ -212,7 +213,10 @@ export default function NewCharacterRoute() {
     return <p className="text-muted-foreground">Cargando catálogos...</p>;
   }
 
-  async function handleWizardComplete(mapped: Partial<CharacterInput>) {
+  async function handleWizardComplete(
+    mapped: Partial<CharacterInput>,
+    extras: { avatarFile: File | null },
+  ) {
     // Combinamos el resultado del wizard con el estado actual del form para
     // construir el payload final, y guardamos directamente sin pasar por la
     // hoja. El modal final del wizard se queda abierto mientras dura el
@@ -228,6 +232,20 @@ export default function NewCharacterRoute() {
       const created = chronicleId
         ? await createChronicleCharacter(chronicleId, payload)
         : await createCharacter(payload);
+
+      // Si el wizard incluyó un retrato, lo subimos ahora — el endpoint
+      // requiere `characterId`, así que esto va después del create. Un fallo
+      // aquí no debe abortar la creación: el personaje ya existe; mostramos
+      // un warning y seguimos a la hoja.
+      if (extras.avatarFile) {
+        try {
+          await uploadCharacterAvatar(created.id, extras.avatarFile);
+        } catch (uploadErr) {
+          // eslint-disable-next-line no-console
+          console.warn("No se pudo subir el retrato del personaje", uploadErr);
+        }
+      }
+
       // Actualiza el form (por si el usuario vuelve atrás en la historia) y
       // resetea el pristine para que el guard no salte.
       setValue(next);

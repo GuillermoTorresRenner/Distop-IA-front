@@ -1,5 +1,6 @@
 import type { Archetype, Clan } from "~/lib/api/catalog/catalog.types";
 import { SELECT_DARK_CLASS } from "~/lib/select-styles";
+import { ImageUploader } from "~/components/common/image-uploader";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { Textarea } from "~/components/ui/textarea";
@@ -85,6 +86,39 @@ export function StepConcept({
       }
     >
       <div className="grid gap-4 md:grid-cols-2">
+        <div className="space-y-1.5 md:col-span-2">
+          <Label>Retrato (opcional)</Label>
+          <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center">
+            <ImageUploader
+              currentUrl={value.avatarPreviewUrl ?? null}
+              onUpload={async (file) => {
+                // Liberamos el objectURL anterior si existía.
+                if (value.avatarPreviewUrl) {
+                  URL.revokeObjectURL(value.avatarPreviewUrl);
+                }
+                const url = URL.createObjectURL(file);
+                patch({ avatarFile: file, avatarPreviewUrl: url });
+              }}
+              onRemove={async () => {
+                if (value.avatarPreviewUrl) {
+                  URL.revokeObjectURL(value.avatarPreviewUrl);
+                }
+                patch({ avatarFile: null, avatarPreviewUrl: null });
+              }}
+              shape="circle"
+              maxSizeMb={5}
+              uploadLabel="Subir retrato"
+              changeLabel="Cambiar retrato"
+              removeLabel="Quitar retrato"
+              emptyHint="Sin retrato"
+            />
+            <p className="font-serif text-xs italic text-muted-foreground">
+              JPEG, PNG, WebP o GIF, hasta 5&nbsp;MB. Se guardará cuando termines
+              el asistente; se convierte a WebP 1024×1024 en el servidor.
+            </p>
+          </div>
+        </div>
+
         <div className="space-y-1.5 md:col-span-2">
           <Label htmlFor="wizard-name">Nombre</Label>
           <Input
