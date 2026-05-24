@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-05-16",
+  "updatedAt": "2026-05-23",
   "intro": "Distop-IA está en desarrollo activo. Estas son las integraciones y mejoras que están en cola. Los aportes de la comunidad aceleran cada hito.",
   "groups": [
     {
@@ -62,9 +62,14 @@
       "items": [
         {
           "title": "Iniciativa y orden de combate",
-          "status": "in-progress",
-          "description": "Tracker de turnos disponible en beta dentro de la mesa virtual: el narrador agrega PCs, PNJs, antagonistas o entradas libres, anota iniciativa a mano y avanza turnos con un click. Los jugadores ven el orden de PCs sin valores numéricos. Pendiente: tirada automática de Iniciativa (Des + Astucia + 1d10) y pulido de mobile.",
-          "tags": ["Beta"]
+          "status": "done",
+          "description": "Tracker de turnos integrado en la mesa virtual: el narrador agrega PCs, PNJs, antagonistas o entradas libres, reordena con drag & drop y avanza turnos con un click. Tirada de Iniciativa V20 automática server-side (1d10 + Destreza + Astucia + modificador) que inscribe al personaje en el orden. Los jugadores ven solo PCs sin iniciativas; los PNJs y antagonistas son invisibles para ellos."
+        },
+        {
+          "title": "Copias de antagonistas en combate",
+          "status": "done",
+          "description": "El narrador clona un PNJ o antagonista de la mesa en N copias (mooks) que entran al tracker con stats embebidos: Destreza, Astucia y salud por casilla V20 (Magullado → Incapacitado). Tirada de iniciativa individual por copia y casilleros de daño clickeables. Sin generar hojas completas, ideal para combates contra varios maleantes.",
+          "tags": ["V20"]
         },
         {
           "title": "Mapas con tokens y niebla de guerra",

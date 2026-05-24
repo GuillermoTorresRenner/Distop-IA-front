@@ -32,6 +32,7 @@ import {
   linkCharacterToChronicle,
   listAssociableCharacters,
   listChronicleCharacters,
+  listCustodiedPcs,
   transferCharacterOwnership,
   unlinkCharacterFromChronicle,
   type AssociableCharacter,
@@ -83,6 +84,9 @@ export default function ChronicleDetailRoute() {
 
   const [characters, setCharacters] = useState<ChronicleCharacterEntry[]>([]);
   const [associable, setAssociable] = useState<AssociableCharacter[]>([]);
+  // PCs creados por el narrador para futuros jugadores, todavía sin transferir.
+  // Solo se carga si el caller es narrador.
+  const [custodiedPcs, setCustodiedPcs] = useState<AssociableCharacter[]>([]);
   const [linkTargetId, setLinkTargetId] = useState("");
   const [charsError, setCharsError] = useState<string | null>(null);
   const [linking, setLinking] = useState(false);
@@ -108,6 +112,17 @@ export default function ChronicleDetailRoute() {
       setChronicle(data);
       setCharacters(chars);
       setAssociable(options);
+      // PCs en custodia: solo si el caller es narrador (el endpoint devuelve
+      // 403 para jugadores). Lo aislamos para no romper la recarga global.
+      if (data.narratorId === user?.id) {
+        try {
+          setCustodiedPcs(await listCustodiedPcs(id));
+        } catch {
+          setCustodiedPcs([]);
+        }
+      } else {
+        setCustodiedPcs([]);
+      }
     } catch (err) {
       setError(extractAuthError(err, "No se pudo cargar la crónica"));
     }
@@ -121,14 +136,21 @@ export default function ChronicleDetailRoute() {
       listChronicleCharacters(id),
       listAssociableCharacters(id),
     ])
-      .then(([data, chars, options]) => {
+      .then(async ([data, chars, options]) => {
         setChronicle(data);
         setCharacters(chars);
         setAssociable(options);
+        if (data.narratorId === user?.id) {
+          try {
+            setCustodiedPcs(await listCustodiedPcs(id));
+          } catch {
+            setCustodiedPcs([]);
+          }
+        }
       })
       .catch((err) => setError(extractAuthError(err, "No se pudo cargar la crónica")))
       .finally(() => setLoading(false));
-  }, [id]);
+  }, [id, user?.id]);
 
   const inviteSearchFn = useCallback(
     (q: string) => (id ? searchInvitableUsers(id, q) : Promise.resolve([])),
@@ -425,29 +447,46 @@ export default function ChronicleDetailRoute() {
                 <Skull className="size-4" /> Personajes de la mesa ({characters.length})
               </h2>
               <div className="flex flex-wrap items-center gap-2">
-                <Link
-                  to={`/characters/new?chronicleId=${chronicle.id}`}
-                  title="Crear y asociar un personaje propio a esta crónica"
-                >
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    className="border border-blood/40 text-blood hover:bg-blood/10"
+                {!isNarrator ? (
+                  <Link
+                    to={`/characters/new?chronicleId=${chronicle.id}`}
+                    title="Crear y asociar un personaje propio a esta crónica"
                   >
-                    <Plus className="size-4" /> Crear el mío
-                  </Button>
-                </Link>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className="border border-blood/40 text-blood hover:bg-blood/10"
+                    >
+                      <Plus className="size-4" /> Crear el mío
+                    </Button>
+                  </Link>
+                ) : null}
                 {isNarrator ? (
-                  <Button
-                    type="button"
-                    size="sm"
-                    onClick={() => setNpcDialogOpen(true)}
-                    className="bg-blood text-blood-foreground hover:bg-blood/90"
-                    title="Crear PNJ o antagonista desde plantilla"
-                  >
-                    <Skull className="size-4" /> Crear PNJ / Antagonista
-                  </Button>
+                  <>
+                    <Link
+                      to={`/characters/new?chronicleId=${chronicle.id}&kind=PC`}
+                      title="Crear un PC para luego transferirlo a un jugador"
+                    >
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        className="border border-blood/40 text-blood hover:bg-blood/10"
+                      >
+                        <Plus className="size-4" /> Crear PC para jugador
+                      </Button>
+                    </Link>
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => setNpcDialogOpen(true)}
+                      className="bg-blood text-blood-foreground hover:bg-blood/90"
+                      title="Crear PNJ o antagonista desde plantilla"
+                    >
+                      <Skull className="size-4" /> Crear PNJ / Antagonista
+                    </Button>
+                  </>
                 ) : null}
               </div>
             </header>
@@ -459,7 +498,7 @@ export default function ChronicleDetailRoute() {
                 <div className="flex-1 min-w-50 space-y-1">
                   <label className="font-heading text-[0.65rem] uppercase tracking-widest text-muted-foreground">
                     {isNarrator
-                      ? "Asociar personaje de la mesa"
+                      ? "Asociar PNJ / Antagonista"
                       : "Asociar uno de mis personajes"}
                   </label>
                   <select
@@ -468,34 +507,12 @@ export default function ChronicleDetailRoute() {
                     className={SELECT_DARK_CLASS}
                   >
                     <option value="">Selecciona un personaje...</option>
-                    {isNarrator
-                      ? Object.entries(
-                          associable.reduce<Record<string, AssociableCharacter[]>>(
-                            (acc, c) => {
-                              const key = c.user.nickname ?? c.user.email;
-                              (acc[key] ??= []).push(c);
-                              return acc;
-                            },
-                            {},
-                          ),
-                        )
-                          .sort(([a], [b]) => a.localeCompare(b))
-                          .map(([owner, list]) => (
-                            <optgroup key={owner} label={owner}>
-                              {list.map((c) => (
-                                <option key={c.id} value={c.id}>
-                                  {c.name}
-                                  {c.clan?.name ? ` · ${c.clan.name}` : ""}
-                                </option>
-                              ))}
-                            </optgroup>
-                          ))
-                      : associable.map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.name}
-                            {c.clan?.name ? ` · ${c.clan.name}` : ""}
-                          </option>
-                        ))}
+                    {associable.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                        {c.clan?.name ? ` · ${c.clan.name}` : ""}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <Button
@@ -511,6 +528,54 @@ export default function ChronicleDetailRoute() {
                   )}
                   Asociar
                 </Button>
+              </div>
+            ) : null}
+
+            {isNarrator && custodiedPcs.length > 0 ? (
+              <div className="mb-4 rounded-md border border-amber-500/40 bg-amber-500/5 p-3">
+                <header className="mb-2 flex items-center gap-2">
+                  <UserCog className="size-4 text-amber-300" />
+                  <h3 className="font-heading text-xs uppercase tracking-[0.3em] text-amber-300">
+                    PCs en custodia ({custodiedPcs.length})
+                  </h3>
+                </header>
+                <p className="mb-3 font-serif text-xs italic text-muted-foreground">
+                  Personajes que creaste para futuros jugadores. Aún no se asocian
+                  al tracker: transfiérelos al jugador correspondiente para que
+                  pase a ser su dueño y aparezca en la mesa.
+                </p>
+                <ul className="space-y-1.5">
+                  {custodiedPcs.map((c) => (
+                    <li
+                      key={c.id}
+                      className="flex flex-wrap items-center justify-between gap-2 rounded border border-border/40 bg-card/40 px-3 py-2"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate font-medium text-foreground">
+                          {c.name}
+                        </p>
+                        <p className="truncate font-serif text-xs italic text-muted-foreground">
+                          {c.clan?.name ?? "Sin clan"}
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={() =>
+                          setTransferTarget({
+                            characterId: c.id,
+                            characterName: c.name,
+                            currentOwnerId: c.userId,
+                          })
+                        }
+                        className="border border-amber-500/40 text-amber-200 hover:bg-amber-500/10"
+                      >
+                        <Send className="size-3.5" /> Transferir a jugador
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
               </div>
             ) : null}
 

@@ -1,9 +1,11 @@
 import {
+  Dices,
   GripVertical,
   Play,
   Plus,
   RefreshCcw,
   Trash2,
+  Users,
   X,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -13,19 +15,24 @@ import {
   addCombatParticipant,
   advanceCombat,
   clearCombat,
+  cloneAntagonist,
   removeCombatParticipant,
   reorderCombat,
   resetCombat,
+  rollMookInitiative,
   updateCombatParticipant,
+  updateMookHealth,
 } from "~/lib/api/combat/combat.api";
 import type {
   CombatParticipant,
   CombatState,
+  MookHealth,
 } from "~/lib/api/combat/combat.types";
 import type { Character } from "~/lib/api/characters/characters.types";
 import { useConfirm } from "~/hooks/use-confirm";
 import { SELECT_DARK_CLASS } from "~/lib/select-styles";
 import { cn } from "~/lib/utils";
+import { MookHealthTracker } from "./mook-health-tracker";
 
 /**
  * Panel del tab "Turnos". Vista distinta para narrador y jugador:
@@ -181,6 +188,7 @@ function NarratorCombatView({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showAdd, setShowAdd] = useState(false);
+  const [showClone, setShowClone] = useState(false);
 
   // IDs ya en el tracker, para filtrar el selector de Character.
   const inTracker = useMemo(() => {
@@ -194,6 +202,16 @@ function NarratorCombatView({
   const associableAvailable = useMemo(
     () => associableCharacters.filter((c) => !inTracker.has(c.id)),
     [associableCharacters, inTracker]
+  );
+
+  // Para clonar: cualquier NPC/Antagonista asociado a la mesa, esté o no
+  // ya en el tracker (puedo querer 4 maleantes Y al jefe).
+  const cloneable = useMemo(
+    () =>
+      associableCharacters.filter(
+        (c) => c.kind === "NPC" || c.kind === "ANTAGONIST"
+      ),
+    [associableCharacters]
   );
 
   async function withBusy<T>(fn: () => Promise<T>): Promise<T | null> {
@@ -282,6 +300,30 @@ function NarratorCombatView({
     if (next) onStateChange?.(next);
   }
 
+  async function handleClone(input: {
+    sourceCharacterId: string;
+    count: number;
+    baseName?: string;
+  }) {
+    const next = await withBusy(() => cloneAntagonist(chronicleId, input));
+    if (next) {
+      onStateChange?.(next);
+      setShowClone(false);
+    }
+  }
+
+  async function handleMookHealthChange(id: string, health: MookHealth) {
+    const next = await withBusy(() =>
+      updateMookHealth(chronicleId, id, health)
+    );
+    if (next) onStateChange?.(next);
+  }
+
+  async function handleMookRollInitiative(id: string) {
+    const res = await withBusy(() => rollMookInitiative(chronicleId, id));
+    if (res) onStateChange?.(res.state);
+  }
+
   const isEmpty = participants.length === 0;
   const totalShown = totalParticipants ?? participants.length;
 
@@ -357,6 +399,8 @@ function NarratorCombatView({
             onRemove={handleRemove}
             onReorder={handleReorder}
             onInitiative={handleInitiativeChange}
+            onMookHealthChange={handleMookHealthChange}
+            onMookRollInitiative={handleMookRollInitiative}
           />
         )}
       </div>
@@ -369,17 +413,36 @@ function NarratorCombatView({
             onAdd={handleAdd}
             busy={busy}
           />
+        ) : showClone ? (
+          <CloneAntagonistForm
+            cloneable={cloneable}
+            onCancel={() => setShowClone(false)}
+            onClone={handleClone}
+            busy={busy}
+          />
         ) : (
-          <Button
-            type="button"
-            onClick={() => setShowAdd(true)}
-            disabled={busy}
-            variant="outline"
-            className="w-full border-blood/40 text-blood hover:bg-blood/10"
-          >
-            <Plus className="size-4" />
-            Agregar al orden
-          </Button>
+          <div className="space-y-1.5">
+            <Button
+              type="button"
+              onClick={() => setShowAdd(true)}
+              disabled={busy}
+              variant="outline"
+              className="w-full border-blood/40 text-blood hover:bg-blood/10"
+            >
+              <Plus className="size-4" />
+              Agregar al orden
+            </Button>
+            <Button
+              type="button"
+              onClick={() => setShowClone(true)}
+              disabled={busy || cloneable.length === 0}
+              variant="outline"
+              className="w-full border-amber-500/40 text-amber-300 hover:bg-amber-500/10"
+            >
+              <Users className="size-4" />
+              Clonar antagonista
+            </Button>
+          </div>
         )}
       </footer>
     </div>
@@ -397,6 +460,8 @@ function NarratorList({
   onRemove,
   onReorder,
   onInitiative,
+  onMookHealthChange,
+  onMookRollInitiative,
 }: {
   participants: CombatParticipant[];
   cursor: number;
@@ -404,6 +469,8 @@ function NarratorList({
   onRemove: (id: string) => void;
   onReorder: (orderedIds: string[]) => void;
   onInitiative: (id: string, value: number | null) => void;
+  onMookHealthChange: (id: string, health: MookHealth) => void;
+  onMookRollInitiative: (id: string) => void;
 }) {
   // Optimistic local order para que el drag se sienta inmediato.
   const [localOrder, setLocalOrder] = useState<string[]>(
@@ -468,6 +535,7 @@ function NarratorList({
         if (!p) return null;
         const isActive = id === activeId;
         const isDragOver = dragOver === id;
+        const isMook = p.kind === "MOOK" && !!p.health;
         return (
           <li
             key={id}
@@ -478,7 +546,7 @@ function NarratorList({
             onDragEnd={handleDragEnd}
             onDragLeave={() => setDragOver(null)}
             className={cn(
-              "flex items-center gap-2 rounded-md border px-2 py-2 transition-colors",
+              "rounded-md border px-2 py-2 transition-colors",
               isActive
                 ? "border-blood bg-blood/20"
                 : "border-border/40 bg-card/40 hover:border-border",
@@ -486,34 +554,68 @@ function NarratorList({
               disabled ? "cursor-not-allowed opacity-60" : "cursor-grab"
             )}
           >
-            <GripVertical className="size-4 shrink-0 text-muted-foreground" />
-            <ParticipantBadge kind={p.kind} />
-            <span
-              className={cn(
-                "min-w-0 flex-1 truncate text-sm",
-                isActive ? "font-medium text-blood" : "text-foreground"
-              )}
-            >
-              {p.name}
-            </span>
-            <InitiativeInput
-              value={p.initiative ?? null}
-              disabled={disabled}
-              onCommit={(v) => onInitiative(p.id, v)}
-            />
-            <Tooltip content="Quitar del orden" side="left">
-              <Button
-                type="button"
-                size="icon"
-                variant="ghost"
-                onClick={() => onRemove(p.id)}
-                disabled={disabled}
-                aria-label={`Quitar a ${p.name}`}
-                className="size-7"
+            <div className="flex items-center gap-2">
+              <GripVertical className="size-4 shrink-0 text-muted-foreground" />
+              <ParticipantBadge kind={p.kind} />
+              <span
+                className={cn(
+                  "min-w-0 flex-1 truncate text-sm",
+                  isActive ? "font-medium text-blood" : "text-foreground"
+                )}
               >
-                <X className="size-3.5" />
-              </Button>
-            </Tooltip>
+                {p.name}
+                {isMook && p.sourceCharacterName ? (
+                  <span className="ml-1 text-[10px] italic text-muted-foreground">
+                    (copia de {p.sourceCharacterName})
+                  </span>
+                ) : null}
+              </span>
+              {isMook ? (
+                <Tooltip content="Tirar iniciativa (1d10 + Destreza + Astucia)">
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    onClick={() => onMookRollInitiative(p.id)}
+                    disabled={disabled}
+                    aria-label={`Tirar iniciativa para ${p.name}`}
+                    className="size-7 text-amber-300 hover:text-amber-200"
+                  >
+                    <Dices className="size-3.5" />
+                  </Button>
+                </Tooltip>
+              ) : null}
+              <InitiativeInput
+                value={p.initiative ?? null}
+                disabled={disabled}
+                onCommit={(v) => onInitiative(p.id, v)}
+              />
+              <Tooltip content="Quitar del orden" side="left">
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => onRemove(p.id)}
+                  disabled={disabled}
+                  aria-label={`Quitar a ${p.name}`}
+                  className="size-7"
+                >
+                  <X className="size-3.5" />
+                </Button>
+              </Tooltip>
+            </div>
+            {isMook && p.health ? (
+              <div className="mt-1.5 flex items-center gap-2 pl-6">
+                <span className="font-heading text-[9px] uppercase tracking-wider text-muted-foreground">
+                  Salud
+                </span>
+                <MookHealthTracker
+                  health={p.health}
+                  disabled={disabled}
+                  onChange={(next) => onMookHealthChange(p.id, next)}
+                />
+              </div>
+            ) : null}
           </li>
         );
       })}
@@ -533,13 +635,17 @@ function ParticipantBadge({
         ? "PNJ"
         : kind === "ANTAGONIST"
           ? "ANT"
-          : "PNJ";
+          : kind === "MOOK"
+            ? "x"
+            : "PNJ";
   const cls =
     kind === "PC"
       ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
       : kind === "ANTAGONIST"
         ? "border-blood/40 bg-blood/15 text-blood"
-        : "border-amber-500/40 bg-amber-500/10 text-amber-300";
+        : kind === "MOOK"
+          ? "border-amber-500/60 bg-amber-500/20 text-amber-200"
+          : "border-amber-500/40 bg-amber-500/10 text-amber-300";
   return (
     <span
       className={cn(
@@ -745,4 +851,130 @@ function labelForKind(c: Character): string {
   const tag =
     c.kind === "NPC" ? " · PNJ" : c.kind === "ANTAGONIST" ? " · Antagonista" : "";
   return `${c.name}${tag}`;
+}
+
+// ──────────────────────────────────────────────────────────
+// Formulario para clonar antagonista (mooks)
+// ──────────────────────────────────────────────────────────
+
+function CloneAntagonistForm({
+  cloneable,
+  onCancel,
+  onClone,
+  busy,
+}: {
+  cloneable: Character[];
+  onCancel: () => void;
+  onClone: (input: {
+    sourceCharacterId: string;
+    count: number;
+    baseName?: string;
+  }) => Promise<void>;
+  busy: boolean;
+}) {
+  const [sourceCharacterId, setSourceCharacterId] = useState<string>(
+    cloneable[0]?.id ?? ""
+  );
+  const [count, setCount] = useState<string>("4");
+  const [baseName, setBaseName] = useState<string>("");
+
+  // Cuando cambia la plantilla, sugerimos su nombre como base.
+  const selectedChar = useMemo(
+    () => cloneable.find((c) => c.id === sourceCharacterId),
+    [cloneable, sourceCharacterId]
+  );
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!sourceCharacterId) return;
+    const n = parseInt(count.trim(), 10);
+    if (!Number.isFinite(n) || n < 1) return;
+    const safeCount = Math.max(1, Math.min(20, n));
+    const trimmedBase = baseName.trim();
+    await onClone({
+      sourceCharacterId,
+      count: safeCount,
+      baseName: trimmedBase || undefined,
+    });
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-2">
+      <div className="flex items-center justify-between gap-2">
+        <span className="font-heading text-xs uppercase tracking-wider text-amber-300">
+          Clonar antagonista
+        </span>
+        <Tooltip content="Cancelar" side="left">
+          <Button
+            type="button"
+            size="icon"
+            variant="ghost"
+            onClick={onCancel}
+            disabled={busy}
+            aria-label="Cancelar"
+            className="size-7"
+          >
+            <X className="size-4" />
+          </Button>
+        </Tooltip>
+      </div>
+
+      <select
+        value={sourceCharacterId}
+        onChange={(e) => setSourceCharacterId(e.target.value)}
+        disabled={busy || cloneable.length === 0}
+        className={cn(SELECT_DARK_CLASS, "h-8 w-full text-xs")}
+        aria-label="Plantilla"
+      >
+        {cloneable.length === 0 ? (
+          <option value="">No hay PNJs o antagonistas asociados</option>
+        ) : (
+          cloneable.map((c) => (
+            <option key={c.id} value={c.id}>
+              {labelForKind(c)}
+            </option>
+          ))
+        )}
+      </select>
+
+      <div className="flex items-center gap-2">
+        <input
+          type="number"
+          min={1}
+          max={20}
+          value={count}
+          onChange={(e) => setCount(e.target.value)}
+          disabled={busy}
+          aria-label="Cantidad de copias"
+          className="h-8 w-16 rounded border border-input bg-input/30 px-2 text-center text-xs focus:outline-none focus:ring-1 focus:ring-blood"
+        />
+        <input
+          type="text"
+          value={baseName}
+          onChange={(e) => setBaseName(e.target.value)}
+          placeholder={
+            selectedChar ? `Nombre base (default: ${selectedChar.name})` : "Nombre base"
+          }
+          disabled={busy}
+          maxLength={100}
+          className="h-8 flex-1 rounded border border-input bg-input/30 px-2 text-xs placeholder:italic placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-blood"
+        />
+      </div>
+
+      <p className="text-[10px] italic text-muted-foreground">
+        Crea N copias con Destreza, Astucia y salud por casilla del antagonista
+        plantilla. Las copias no tienen ficha completa: solo se trackea
+        iniciativa y daño.
+      </p>
+
+      <Button
+        type="submit"
+        disabled={busy || !sourceCharacterId || cloneable.length === 0}
+        className="w-full bg-amber-500/80 text-background hover:bg-amber-500"
+      >
+        <Users className="size-4" />
+        Crear copias
+      </Button>
+    </form>
+  );
 }

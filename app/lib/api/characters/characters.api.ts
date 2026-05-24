@@ -113,6 +113,19 @@ export async function listAssociableCharacters(
   return data;
 }
 
+/**
+ * PCs en custodia del narrador: personajes que creó para futuros jugadores
+ * y aún tiene que transferir. Solo el narrador puede consumirlo.
+ */
+export async function listCustodiedPcs(
+  chronicleId: string,
+): Promise<AssociableCharacter[]> {
+  const { data } = await apiClient.get<AssociableCharacter[]>(
+    `/chronicles/${chronicleId}/custodied-pcs`,
+  );
+  return data;
+}
+
 export async function createChronicleCharacter(
   chronicleId: string,
   input: CharacterInput & { targetUserId?: string },
