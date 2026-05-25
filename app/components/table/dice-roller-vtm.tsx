@@ -413,8 +413,7 @@ export function DiceRollerVtM({
             type="button"
             onClick={handleRollInitiative}
             disabled={busy}
-            variant="outline"
-            className="w-full border-amber-500/50 text-amber-200 hover:bg-amber-500/10"
+            className="w-full bg-blood text-blood-foreground hover:bg-blood/90"
           >
             <Swords className="size-4" />
             {busy

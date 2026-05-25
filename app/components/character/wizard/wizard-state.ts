@@ -383,10 +383,20 @@ export function canAdvance(state: WizardState, step: number): boolean {
   }
 }
 
+/** Límites de texto del concepto — deben coincidir con el DTO del backend. */
+export const CONCEPT_NAME_MIN = 2;
+export const CONCEPT_NAME_MAX = 120;
+export const CONCEPT_PHRASE_MIN = 5;
+export const CONCEPT_PHRASE_MAX = 200;
+
 export function canAdvanceConcept(state: WizardState): boolean {
   const c = state.concept;
-  if (!c.name.trim()) return false;
-  if (!c.concept.trim()) return false;
+  const name = c.name.trim();
+  const concept = c.concept.trim();
+  if (name.length < CONCEPT_NAME_MIN) return false;
+  if (name.length > CONCEPT_NAME_MAX) return false;
+  if (concept.length < CONCEPT_PHRASE_MIN) return false;
+  if (concept.length > CONCEPT_PHRASE_MAX) return false;
   if (!c.clanId) return false;
   if (!c.natureId) return false;
   if (!c.demeanorId) return false;
@@ -535,8 +545,22 @@ export function validationIssues(state: WizardState, step: number): string[] {
 function conceptIssues(state: WizardState): string[] {
   const issues: string[] = [];
   const c = state.concept;
-  if (!c.name.trim()) issues.push("Falta el nombre del personaje.");
-  if (!c.concept.trim()) issues.push("Falta una frase de concepto.");
+  const name = c.name.trim();
+  const concept = c.concept.trim();
+  if (!name) {
+    issues.push("Falta el nombre del personaje.");
+  } else if (name.length < CONCEPT_NAME_MIN) {
+    issues.push(`El nombre debe tener al menos ${CONCEPT_NAME_MIN} caracteres.`);
+  } else if (name.length > CONCEPT_NAME_MAX) {
+    issues.push(`El nombre no puede superar ${CONCEPT_NAME_MAX} caracteres.`);
+  }
+  if (!concept) {
+    issues.push("Falta una frase de concepto.");
+  } else if (concept.length < CONCEPT_PHRASE_MIN) {
+    issues.push(`El concepto debe tener al menos ${CONCEPT_PHRASE_MIN} caracteres.`);
+  } else if (concept.length > CONCEPT_PHRASE_MAX) {
+    issues.push(`El concepto no puede superar ${CONCEPT_PHRASE_MAX} caracteres.`);
+  }
   if (!c.clanId) issues.push("Selecciona un clan.");
   if (!c.natureId) issues.push("Selecciona una Naturaleza.");
   if (!c.demeanorId) issues.push("Selecciona una Conducta.");

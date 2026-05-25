@@ -8,7 +8,13 @@ import { cn } from "~/lib/utils";
 import type { OpenCatalogInfo } from "../character-wizard";
 import { WizardInfoButton } from "../wizard-info";
 import { WizardCard } from "../wizard-primitives";
-import type { WizardConcept } from "../wizard-state";
+import {
+  type WizardConcept,
+  CONCEPT_NAME_MIN,
+  CONCEPT_NAME_MAX,
+  CONCEPT_PHRASE_MIN,
+  CONCEPT_PHRASE_MAX,
+} from "../wizard-state";
 
 interface StepConceptProps {
   value: WizardConcept;
@@ -127,24 +133,30 @@ export function StepConcept({
         </div>
 
         <div className="space-y-1.5 md:col-span-2">
-          <Label htmlFor="wizard-name">Nombre</Label>
+          <div className="flex items-baseline justify-between gap-2">
+            <Label htmlFor="wizard-name">Nombre</Label>
+            <CharCount current={value.name.trim().length} min={CONCEPT_NAME_MIN} max={CONCEPT_NAME_MAX} />
+          </div>
           <Input
             id="wizard-name"
             value={value.name}
             onChange={(e) => patch({ name: e.target.value })}
             placeholder="Ej.: Lucien Marchand"
-            maxLength={120}
+            maxLength={CONCEPT_NAME_MAX}
           />
         </div>
 
         <div className="space-y-1.5 md:col-span-2">
-          <Label htmlFor="wizard-concept">Concepto</Label>
+          <div className="flex items-baseline justify-between gap-2">
+            <Label htmlFor="wizard-concept">Concepto</Label>
+            <CharCount current={value.concept.trim().length} min={CONCEPT_PHRASE_MIN} max={CONCEPT_PHRASE_MAX} />
+          </div>
           <Textarea
             id="wizard-concept"
             value={value.concept}
             onChange={(e) => patch({ concept: e.target.value })}
             placeholder="Ej.: Periodista de investigación caído en desgracia y abrazado por venganza."
-            maxLength={400}
+            maxLength={CONCEPT_PHRASE_MAX}
             rows={2}
           />
           <p className="text-[0.7rem] text-muted-foreground">
@@ -309,5 +321,37 @@ export function StepConcept({
         </div>
       </div>
     </WizardCard>
+  );
+}
+
+/** Contador de caracteres con color semáforo según mínimo/máximo. */
+function CharCount({
+  current,
+  min,
+  max,
+}: {
+  current: number;
+  min: number;
+  max: number;
+}) {
+  const tooShort = current > 0 && current < min;
+  const tooLong = current > max;
+  const nearLimit = !tooLong && current >= max * 0.85;
+  return (
+    <span
+      className={cn(
+        "tabular-nums text-[0.65rem]",
+        tooLong
+          ? "font-semibold text-destructive"
+          : tooShort
+            ? "text-amber-400"
+            : nearLimit
+              ? "text-amber-300"
+              : "text-muted-foreground",
+      )}
+      aria-live="polite"
+    >
+      {current}/{max}
+    </span>
   );
 }
