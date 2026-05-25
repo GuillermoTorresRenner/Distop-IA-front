@@ -280,11 +280,15 @@ export function StepDisciplines({
           <option value="" disabled>
             Añadir disciplina…
           </option>
-          {remainingDisciplines.map((d) => (
-            <option key={d.id} value={d.id}>
-              {d.name}
-            </option>
-          ))}
+          {[...remainingDisciplines]
+            .sort((a, b) =>
+              a.name.localeCompare(b.name, "es", { sensitivity: "base" }),
+            )
+            .map((d) => (
+              <option key={d.id} value={d.id}>
+                {d.name}
+              </option>
+            ))}
         </select>
       </div>
     </WizardCard>

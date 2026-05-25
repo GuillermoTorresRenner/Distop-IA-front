@@ -1134,12 +1134,16 @@ function BackgroundRow({
             aria-label="Trasfondo"
           >
             <option value="">— Selecciona un trasfondo —</option>
-            {catalog.map((b) => (
-              <option key={b.id} value={b.name}>
-                {b.name}
-                {b.category ? ` · ${b.category}` : ""}
-              </option>
-            ))}
+            {[...catalog]
+              .sort((a, b) =>
+                a.name.localeCompare(b.name, "es", { sensitivity: "base" }),
+              )
+              .map((b) => (
+                <option key={b.id} value={b.name}>
+                  {b.name}
+                  {b.category ? ` · ${b.category}` : ""}
+                </option>
+              ))}
             <option value="__custom__">+ Personalizado…</option>
           </select>
           {inCatalog && onInfo ? (
@@ -1647,12 +1651,16 @@ function DisciplineRow({
             }}
             className={cn(SELECT_DARK_CLASS, "h-8")}
           >
-            {disciplines.map((opt) => (
-              <option key={opt.id} value={opt.id}>
-                {opt.name}
-                {opt.hasPaths ? " · sendas" : ""}
-              </option>
-            ))}
+            {[...disciplines]
+              .sort((a, b) =>
+                a.name.localeCompare(b.name, "es", { sensitivity: "base" }),
+              )
+              .map((opt) => (
+                <option key={opt.id} value={opt.id}>
+                  {opt.name}
+                  {opt.hasPaths ? " · sendas" : ""}
+                </option>
+              ))}
           </select>
         </Tooltip>
         {hasPaths ? (
@@ -2319,12 +2327,18 @@ function WeaponSection({
               <option value="">Selecciona un arma...</option>
               {grouped.map(({ category, items }) => (
                 <optgroup key={category.id} label={category.name}>
-                  {items.map((w) => (
-                    <option key={w.id} value={w.id}>
-                      {w.name}
-                      {w.system ? "" : " (custom)"}
-                    </option>
-                  ))}
+                  {[...items]
+                    .sort((a, b) =>
+                      a.name.localeCompare(b.name, "es", {
+                        sensitivity: "base",
+                      }),
+                    )
+                    .map((w) => (
+                      <option key={w.id} value={w.id}>
+                        {w.name}
+                        {w.system ? "" : " (custom)"}
+                      </option>
+                    ))}
                 </optgroup>
               ))}
             </select>
@@ -2491,12 +2505,17 @@ function ArmorSection({
               className={SELECT_DARK_CLASS}
             >
               <option value="">Selecciona una armadura...</option>
-              {armorsAvailable.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.name}
-                  {a.system ? "" : " (custom)"} · Abs +{a.rating} / Pen −{a.penalty}
-                </option>
-              ))}
+              {[...armorsAvailable]
+                .sort((a, b) =>
+                  a.name.localeCompare(b.name, "es", { sensitivity: "base" }),
+                )
+                .map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.name}
+                    {a.system ? "" : " (custom)"} · Abs +{a.rating} / Pen −
+                    {a.penalty}
+                  </option>
+                ))}
             </select>
           </div>
         </div>

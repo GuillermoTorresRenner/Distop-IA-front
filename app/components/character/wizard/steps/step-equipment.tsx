@@ -338,12 +338,16 @@ function WeaponSelect({
       <option value="">Selecciona un arma...</option>
       {grouped.map(({ category, items }) => (
         <optgroup key={category.id} label={category.name}>
-          {items.map((w) => (
-            <option key={w.id} value={w.id}>
-              {w.name}
-              {w.system ? "" : " (custom)"}
-            </option>
-          ))}
+          {[...items]
+            .sort((a, b) =>
+              a.name.localeCompare(b.name, "es", { sensitivity: "base" }),
+            )
+            .map((w) => (
+              <option key={w.id} value={w.id}>
+                {w.name}
+                {w.system ? "" : " (custom)"}
+              </option>
+            ))}
         </optgroup>
       ))}
     </select>
@@ -368,12 +372,16 @@ function ArmorSelect({ armors, onPick }: ArmorSelectProps) {
       className={SELECT_DARK_CLASS}
     >
       <option value="">Selecciona una armadura...</option>
-      {armors.map((a) => (
-        <option key={a.id} value={a.id}>
-          {a.name}
-          {a.system ? "" : " (custom)"}
-        </option>
-      ))}
+      {[...armors]
+        .sort((a, b) =>
+          a.name.localeCompare(b.name, "es", { sensitivity: "base" }),
+        )
+        .map((a) => (
+          <option key={a.id} value={a.id}>
+            {a.name}
+            {a.system ? "" : " (custom)"}
+          </option>
+        ))}
     </select>
   );
 }

@@ -190,11 +190,15 @@ export function StepBackgrounds({
           <option value="" disabled>
             Añadir trasfondo…
           </option>
-          {remaining.map((b) => (
-            <option key={b.key} value={b.key}>
-              {b.name}
-            </option>
-          ))}
+          {[...remaining]
+            .sort((a, b) =>
+              a.name.localeCompare(b.name, "es", { sensitivity: "base" }),
+            )
+            .map((b) => (
+              <option key={b.key} value={b.key}>
+                {b.name}
+              </option>
+            ))}
         </select>
       </div>
     </WizardCard>

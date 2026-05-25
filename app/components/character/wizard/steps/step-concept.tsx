@@ -73,6 +73,13 @@ export function StepConcept({
   const selectedNature = archetypes.find((a) => a.id === value.natureId) ?? null;
   const selectedDemeanor = archetypes.find((a) => a.id === value.demeanorId) ?? null;
 
+  const sortByName = <T extends { name: string }>(arr: T[]): T[] =>
+    [...arr].sort((a, b) =>
+      a.name.localeCompare(b.name, "es", { sensitivity: "base" }),
+    );
+  const clansSorted = sortByName(clans);
+  const archetypesSorted = sortByName(archetypes);
+
   return (
     <WizardCard
       title="Paso uno · Concepto"
@@ -168,7 +175,7 @@ export function StepConcept({
             <option value="" disabled>
               Selecciona un clan…
             </option>
-            {clans.map((c) => (
+            {clansSorted.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.name}
                 {c.sect ? ` · ${c.sect}` : ""}
@@ -248,7 +255,7 @@ export function StepConcept({
             <option value="" disabled>
               Selecciona un arquetipo…
             </option>
-            {archetypes.map((a) => (
+            {archetypesSorted.map((a) => (
               <option key={a.id} value={a.id}>
                 {a.name}
               </option>
@@ -292,7 +299,7 @@ export function StepConcept({
             <option value="" disabled>
               Selecciona un arquetipo…
             </option>
-            {archetypes.map((a) => (
+            {archetypesSorted.map((a) => (
               <option key={a.id} value={a.id}>
                 {a.name}
               </option>
