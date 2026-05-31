@@ -1,4 +1,4 @@
-import { Crosshair, Shield, Sword, X } from "lucide-react";
+import { Crosshair, Shield, Sword, Swords, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Tooltip } from "~/components/common/tooltip";
 import { Button } from "~/components/ui/button";
@@ -8,7 +8,7 @@ import type {
   WeaponCategory,
 } from "~/lib/api/catalog/catalog.types";
 
-type ModalKind = "melee" | "ranged" | "armor";
+type ModalKind = "maneuvers" | "melee" | "ranged" | "armor";
 
 interface Props {
   weapons: Weapon[];
@@ -52,6 +52,18 @@ export function CatalogReferenceButtons({
 
   return (
     <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
+      <Tooltip content="Tabla de maniobras de combate CC y a distancia (V20)">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => setOpen("maneuvers")}
+          className="border-blood/40 text-blood hover:bg-blood/10"
+        >
+          <Swords className="size-4" />
+          Maniobras
+        </Button>
+      </Tooltip>
       <Tooltip content="Catálogo de armas cuerpo a cuerpo (V20)">
         <Button
           type="button"
@@ -119,11 +131,13 @@ function CatalogModal({
   weaponCategories: WeaponCategory[];
 }) {
   const title =
-    kind === "melee"
-      ? "Armas cuerpo a cuerpo"
-      : kind === "ranged"
-        ? "Armas de fuego"
-        : "Armaduras";
+    kind === "maneuvers"
+      ? "Maniobras de combate"
+      : kind === "melee"
+        ? "Armas cuerpo a cuerpo"
+        : kind === "ranged"
+          ? "Armas de fuego"
+          : "Armaduras";
 
   return (
     <div
@@ -159,7 +173,9 @@ function CatalogModal({
         </header>
 
         <div className="max-h-[75vh] overflow-y-auto px-5 py-5">
-          {kind === "melee" ? (
+          {kind === "maneuvers" ? (
+            <ManeuversCatalog />
+          ) : kind === "melee" ? (
             <WeaponCatalog
               weapons={meleeWeapons}
               categories={weaponCategories.filter((c) => c.kind === "MELEE")}
@@ -323,6 +339,99 @@ function ArmorCatalog({ armors }: { armors: Armor[] }) {
         <strong>penalización</strong> se resta de las reservas de coordinación
         y agilidad. No protege contra fuego ni luz del sol.
       </p>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Maniobras de combate (datos fijos V20, cap. 6)
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface Maneuver {
+  name: string;
+  traits: string;
+  accuracy: string;
+  difficulty: string;
+  damage: string;
+  /** true = negrita en el manual (maniobra con restricciones especiales) */
+  bold?: boolean;
+}
+
+const MELEE_MANEUVERS: Maneuver[] = [
+  { name: "Agarrón",       traits: "Fue + Pelea",            accuracy: "Normal",   difficulty: "Normal", damage: "Fue (S)" },
+  { name: "Arma",          traits: "Des + Armas C.C.",       accuracy: "Normal",   difficulty: "Normal", damage: "Arma" },
+  { name: "Barrido",       traits: "Des + Pelea/Armas C.C.", accuracy: "Normal",   difficulty: "+1",     damage: "Fue (D)",  bold: true },
+  { name: "Bloqueo",       traits: "Des + Pelea",            accuracy: "Especial", difficulty: "Normal", damage: "(R)",      bold: true },
+  { name: "Desarmar",      traits: "Des + Armas C.C.",       accuracy: "Normal",   difficulty: "+1",     damage: "Especial" },
+  { name: "Esquivar",      traits: "Des + Esquivar",         accuracy: "Especial", difficulty: "Normal", damage: "(R)" },
+  { name: "Garra",         traits: "Des + Pelea",            accuracy: "Normal",   difficulty: "Normal", damage: "Fue +1 (A)" },
+  { name: "Mordisco",      traits: "Des + Pelea",            accuracy: "+1",       difficulty: "Normal", damage: "Fue +1 (A)", bold: true },
+  { name: "Parada",        traits: "Des + Armas C.C.",       accuracy: "Especial", difficulty: "Normal", damage: "(R)" },
+  { name: "Patada",        traits: "Des + Pelea",            accuracy: "Normal",   difficulty: "+1",     damage: "Fue +1" },
+  { name: "Placaje",       traits: "Fue + Pelea",            accuracy: "Normal",   difficulty: "+1",     damage: "Fue +1 (D)", bold: true },
+  { name: "Presa",         traits: "Fue + Pelea",            accuracy: "Normal",   difficulty: "Normal", damage: "(S)" },
+  { name: "Puñetazo",      traits: "Des + Pelea",            accuracy: "Normal",   difficulty: "Normal", damage: "Fue" },
+];
+
+const RANGED_MANEUVERS: Maneuver[] = [
+  { name: "Disparos múltiples", traits: "Des + Armas de Fuego", accuracy: "Especial", difficulty: "Normal",       damage: "Arma" },
+  { name: "Dos armas",          traits: "Des + Armas de Fuego", accuracy: "Especial", difficulty: "+1/mano mala", damage: "Arma" },
+  { name: "Fuego automático",   traits: "Des + Armas de Fuego", accuracy: "+10",      difficulty: "+2",           damage: "Arma", bold: true },
+  { name: "Ráfaga",             traits: "Des + Armas de Fuego", accuracy: "+10",      difficulty: "+2",           damage: "Arma", bold: true },
+  { name: "Ráfaga de 3 balas",  traits: "Des + Armas de Fuego", accuracy: "+2",       difficulty: "+1",           damage: "Arma" },
+];
+
+const MANEUVER_NOTES = [
+  "(A): la maniobra inflige daño agravado.",
+  "(D): la maniobra provoca un derribo.",
+  "(R): la maniobra reduce los éxitos del ataque del oponente.",
+  "(S): la maniobra se extiende a turnos sucesivos.",
+];
+
+function ManeuversTable({ title, maneuvers }: { title: string; maneuvers: Maneuver[] }) {
+  return (
+    <section className="space-y-2">
+      <h3 className="font-heading text-base uppercase tracking-wider text-blood">
+        {title}
+      </h3>
+      <div className="overflow-x-auto rounded-md border border-border/50">
+        <table className="w-full text-sm">
+          <thead className="bg-background/40 font-heading text-[0.65rem] uppercase tracking-[0.25em] text-muted-foreground">
+            <tr>
+              <th className="px-3 py-2 text-left">Maniobra</th>
+              <th className="px-3 py-2 text-left">Rasgos</th>
+              <th className="px-3 py-2 text-left">Precisión</th>
+              <th className="px-3 py-2 text-left">Dificultad</th>
+              <th className="px-3 py-2 text-left">Daño</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border/40 font-serif">
+            {maneuvers.map((m) => (
+              <tr key={m.name} className={m.bold ? "font-semibold" : ""}>
+                <td className="px-3 py-1.5 text-foreground">{m.name}</td>
+                <td className="px-3 py-1.5 text-muted-foreground">{m.traits}</td>
+                <td className="px-3 py-1.5">{m.accuracy}</td>
+                <td className="px-3 py-1.5">{m.difficulty}</td>
+                <td className="px-3 py-1.5">{m.damage}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+function ManeuversCatalog() {
+  return (
+    <div className="space-y-8">
+      <ManeuversTable title="Combate cuerpo a cuerpo" maneuvers={MELEE_MANEUVERS} />
+      <ManeuversTable title="Combate a distancia"     maneuvers={RANGED_MANEUVERS} />
+      <ul className="space-y-1 font-serif text-xs text-muted-foreground">
+        {MANEUVER_NOTES.map((n) => (
+          <li key={n}>{n}</li>
+        ))}
+      </ul>
     </div>
   );
 }

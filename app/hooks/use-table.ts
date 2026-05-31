@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { CombatState } from "~/lib/api/combat/combat.types";
+import { deleteChatMessage } from "~/lib/api/table/table-chat.api";
+import { deleteChronicleRoll } from "~/lib/api/dice/dice.api";
 import { playDiceRoll, playMessage } from "~/lib/audio/sounds.client";
 import {
   disposeTableSocket,
@@ -173,6 +175,24 @@ export function useTable(chronicleId: string | null) {
       playDiceRoll(roll.rolls?.length ?? 5);
     };
 
+    const onChatDeleted = (payload: { messageId: string }) => {
+      setState((s) => ({
+        ...s,
+        feed: s.feed.filter(
+          (item) => !(item._t === "chat" && item.id === payload.messageId)
+        ),
+      }));
+    };
+
+    const onRollDeleted = (payload: { rollId: string }) => {
+      setState((s) => ({
+        ...s,
+        rolls: s.rolls.filter((r) => r.id !== payload.rollId),
+        latestRollId:
+          s.latestRollId === payload.rollId ? null : s.latestRollId,
+      }));
+    };
+
     const onRollsCleared = () => {
       setState((s) => ({ ...s, rolls: [], latestRollId: null }));
     };
@@ -221,8 +241,10 @@ export function useTable(chronicleId: string | null) {
     socket.on("presence:join", onPresenceJoin);
     socket.on("presence:leave", onPresenceLeave);
     socket.on("chat:message", onChatMessage);
+    socket.on("chat:deleted", onChatDeleted);
     socket.on("sheet:announce", onSheetAnnounce);
     socket.on("roll:result", onRollResult);
+    socket.on("roll:deleted", onRollDeleted);
     socket.on("rolls:cleared", onRollsCleared);
     socket.on("board:shared", onBoardShared);
     socket.on("board:updated", onBoardUpdated);
@@ -238,8 +260,10 @@ export function useTable(chronicleId: string | null) {
       socket.off("presence:join", onPresenceJoin);
       socket.off("presence:leave", onPresenceLeave);
       socket.off("chat:message", onChatMessage);
+      socket.off("chat:deleted", onChatDeleted);
       socket.off("sheet:announce", onSheetAnnounce);
       socket.off("roll:result", onRollResult);
+      socket.off("roll:deleted", onRollDeleted);
       socket.off("rolls:cleared", onRollsCleared);
       socket.off("board:shared", onBoardShared);
       socket.off("board:updated", onBoardUpdated);
@@ -395,6 +419,37 @@ export function useTable(chronicleId: string | null) {
     setState((s) => ({ ...s, rolls }));
   }, []);
 
+  /** Para hidratar el feed de chat desde el endpoint REST al montar. */
+  const setInitialFeed = useCallback((messages: ChatMessage[]) => {
+    setState((s) => ({
+      ...s,
+      feed: messages.map((m) => ({ _t: "chat" as const, ...m })),
+    }));
+  }, []);
+
+  /**
+   * Borra un mensaje del chat vía REST. El back emite `chat:deleted` por WS
+   * y el listener local lo elimina del feed, así que no manipulamos estado
+   * directamente aquí.
+   */
+  const deleteFeedMessage = useCallback(
+    async (chronicleId: string, messageId: string) => {
+      await deleteChatMessage(chronicleId, messageId);
+    },
+    []
+  );
+
+  /**
+   * Borra una tirada individual vía REST (solo narrador).
+   * El back emite `roll:deleted` por WS.
+   */
+  const deleteRoll = useCallback(
+    async (chronicleId: string, rollId: string) => {
+      await deleteChronicleRoll(chronicleId, rollId);
+    },
+    []
+  );
+
   /** Para hidratar el tracker de turnos desde REST al montar. */
   const setCombat = useCallback((state: CombatState | null) => {
     setState((s) => ({ ...s, combat: state }));
@@ -435,6 +490,9 @@ export function useTable(chronicleId: string | null) {
     shareBoard,
     pushBoardUpdate,
     setInitialRolls,
+    setInitialFeed,
+    deleteFeedMessage,
+    deleteRoll,
     setCombat,
     dismissLatestRoll,
     dispose,

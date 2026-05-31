@@ -24,3 +24,17 @@ export async function clearChronicleRolls(
   );
   return data;
 }
+
+/**
+ * Borra una tirada individual. Solo permitido al narrador.
+ * El back emite `roll:deleted` por WS a toda la sala.
+ */
+export async function deleteChronicleRoll(
+  chronicleId: string,
+  rollId: string
+): Promise<{ ok: boolean; rollId: string }> {
+  const { data } = await apiClient.delete<{ ok: boolean; rollId: string }>(
+    `/chronicles/${chronicleId}/rolls/${rollId}`
+  );
+  return data;
+}

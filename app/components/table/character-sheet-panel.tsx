@@ -1,8 +1,10 @@
 import {
   Check,
   Droplet,
+  Flame,
   Heart,
   Loader2,
+  ShieldCheck,
   Sparkles,
   Star,
   Wand2,
@@ -836,6 +838,28 @@ function StateSection({
         onChange={(v) => setField("experience", v, 0, 999)}
       />
 
+      <div className="rounded-md border border-border/40 bg-card/30 px-2 py-1.5 space-y-1">
+        <p className="text-[10px] font-heading uppercase tracking-wider text-muted-foreground mb-1">Virtudes</p>
+        <VirtueReadRow
+          icon={<ShieldCheck className="size-3.5 text-sky-400" />}
+          label="Conciencia"
+          tooltip="Mide el sentido moral y ético del personaje. Junto a Autocontrol determina su Humanidad."
+          value={draft.conscience}
+        />
+        <VirtueReadRow
+          icon={<Zap className="size-3.5 text-violet-400" />}
+          label="Autocontrol"
+          tooltip="Regula los impulsos de la Bestia. Junto a Conciencia determina la Humanidad."
+          value={draft.selfControl}
+        />
+        <VirtueReadRow
+          icon={<Flame className="size-3.5 text-orange-400" />}
+          label="Coraje"
+          tooltip="La capacidad de enfrentarse al miedo y el peligro. Determina la Voluntad permanente."
+          value={draft.courage}
+        />
+      </div>
+
       <div>
         <div className="mb-1 flex items-center gap-1.5">
           <Heart className="size-3.5 text-blood" />
@@ -941,6 +965,45 @@ function StateField({
     </div>
   );
 
+  if (!tooltip) return row;
+  return (
+    <Tooltip title={label} content={tooltip} side="left" className="w-full">
+      {row}
+    </Tooltip>
+  );
+}
+
+function VirtueReadRow({
+  icon,
+  label,
+  tooltip,
+  value,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  tooltip?: string;
+  value: number;
+}) {
+  const dots = Array.from({ length: 5 }, (_, i) => (
+    <span
+      key={i}
+      className={cn(
+        "inline-block size-2.5 rounded-full border",
+        i < value
+          ? "border-foreground/60 bg-foreground/70"
+          : "border-border/50 bg-transparent"
+      )}
+    />
+  ));
+  const row = (
+    <div className="flex items-center justify-between gap-2">
+      <span className="flex items-center gap-1.5 text-sm">
+        {icon}
+        <span className="text-sm">{label}</span>
+      </span>
+      <span className="flex items-center gap-1">{dots}</span>
+    </div>
+  );
   if (!tooltip) return row;
   return (
     <Tooltip title={label} content={tooltip} side="left" className="w-full">

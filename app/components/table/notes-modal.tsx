@@ -1,10 +1,12 @@
 import {
   BookOpen,
+  Globe2,
   Loader2,
   Lock,
   NotebookPen,
   Plus,
   Trash2,
+  User,
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -18,6 +20,7 @@ import {
   deleteChronicleEntry,
   listCharacterJournal,
   listChronicleJournal,
+  shareCharacterEntry,
   updateCharacterEntry,
   updateChronicleEntry,
   uploadJournalImage,
@@ -58,7 +61,7 @@ export function NotesModal({
   currentCharacterId,
   onClose,
 }: NotesModalProps) {
-  // El narrador entra a "Campaña" por defecto; el jugador siempre ve "Privadas".
+  // El narrador entra a "Bitácora" por defecto; el jugador entra a "Privadas".
   const [scope, setScope] = useState<NoteScope>(
     isNarrator ? "chronicle" : "character"
   );
@@ -88,24 +91,26 @@ export function NotesModal({
             </h3>
           </div>
 
-          {isNarrator ? (
-            <div className="flex items-center gap-1 rounded-md border border-border bg-input/30 p-0.5">
-              <ScopeButton
-                active={scope === "chronicle"}
-                onClick={() => setScope("chronicle")}
-                icon={<BookOpen className="size-3.5" />}
-                label="Campaña"
-                tooltip="Notas visibles para toda la mesa. Solo el narrador puede crearlas o editarlas."
-              />
-              <ScopeButton
-                active={scope === "character"}
-                onClick={() => setScope("character")}
-                icon={<Lock className="size-3.5" />}
-                label="Privadas"
-                tooltip="Notas privadas, solo tú las ves."
-              />
-            </div>
-          ) : null}
+          <div className="flex items-center gap-1 rounded-md border border-border bg-input/30 p-0.5">
+            <ScopeButton
+              active={scope === "chronicle"}
+              onClick={() => setScope("chronicle")}
+              icon={<BookOpen className="size-3.5" />}
+              label="Bitácora"
+              tooltip={
+                isNarrator
+                  ? "Notas de campaña. Aquí también aparecen las notas que los jugadores decidan compartir."
+                  : "Bitácora de la crónica. Incluye notas del narrador y las notas que hayas compartido."
+              }
+            />
+            <ScopeButton
+              active={scope === "character"}
+              onClick={() => setScope("character")}
+              icon={<Lock className="size-3.5" />}
+              label="Privadas"
+              tooltip="Tus notas privadas. Puedes marcarlas como compartidas para que aparezcan en la bitácora."
+            />
+          </div>
 
           <Button type="button" size="icon" variant="ghost" onClick={onClose}>
             <X className="size-4" />
@@ -116,6 +121,7 @@ export function NotesModal({
           chronicleId={chronicleId}
           scope={scope}
           canEdit={scope === "character" || isNarrator}
+          isNarrator={isNarrator}
           currentCharacterId={currentCharacterId}
         />
       </div>
@@ -165,11 +171,13 @@ function NotesScopeView({
   chronicleId,
   scope,
   canEdit,
+  isNarrator,
   currentCharacterId,
 }: {
   chronicleId: string;
   scope: NoteScope;
   canEdit: boolean;
+  isNarrator: boolean;
   /** PJ activo del jugador en la mesa. Solo aplica al scope "character". */
   currentCharacterId: string | null;
 }) {
@@ -254,6 +262,12 @@ function NotesScopeView({
     return updated;
   }
 
+  async function handleShare(id: string, isShared: boolean): Promise<JournalEntry> {
+    const updated = await shareCharacterEntry(chronicleId, id, isShared);
+    setEntries((prev) => prev.map((e) => (e.id === id ? updated : e)));
+    return updated;
+  }
+
   async function handleDelete(id: string) {
     if (scope === "chronicle") {
       await deleteChronicleEntry(chronicleId, id);
@@ -312,10 +326,27 @@ function NotesScopeView({
                       : "hover:bg-blood/10"
                   )}
                 >
-                  <p className="truncate text-sm font-heading uppercase tracking-wider">
-                    {e.title || "Sin título"}
-                  </p>
+                  <div className="flex items-center gap-1.5">
+                    <p className="flex-1 truncate text-sm font-heading uppercase tracking-wider">
+                      {e.title || "Sin título"}
+                    </p>
+                    {/* Badge de compartida en scope "character" */}
+                    {scope === "character" && e.isShared ? (
+                      <Tooltip title="Compartida" content="Esta nota es visible en la bitácora de la crónica." side="right">
+                        <Globe2 className="size-3 shrink-0 text-emerald-400" />
+                      </Tooltip>
+                    ) : null}
+                    {/* Badge de autoría en scope "chronicle" cuando es de jugador */}
+                    {scope === "chronicle" && e.entryKind === "CHARACTER" ? (
+                      <Tooltip title="Nota de jugador" content={`Compartida por ${e.author.nickname ?? e.author.email}`} side="right">
+                        <User className="size-3 shrink-0 text-sky-400" />
+                      </Tooltip>
+                    ) : null}
+                  </div>
                   <p className="truncate text-[10px] italic text-muted-foreground">
+                    {scope === "chronicle" && e.entryKind === "CHARACTER"
+                      ? `${e.author.nickname ?? e.author.email} · `
+                      : ""}
                     {new Date(e.updatedAt).toLocaleString()}
                   </p>
                 </button>
@@ -342,9 +373,20 @@ function NotesScopeView({
             mode="edit"
             chronicleId={chronicleId}
             entry={selected}
-            canEdit={canEdit}
+            canEdit={canEdit && !(scope === "chronicle" && selected.entryKind === "CHARACTER")}
             onSubmit={(input) => handleUpdate(selected.id, input)}
-            onDelete={() => handleDelete(selected.id)}
+            onDelete={
+              // No se permite borrar entradas de jugadores desde la vista de
+              // crónica (el autor sí puede hacerlo desde su vista "Privadas").
+              scope === "chronicle" && selected.entryKind === "CHARACTER"
+                ? undefined
+                : () => handleDelete(selected.id)
+            }
+            onShare={
+              scope === "character"
+                ? (isShared) => handleShare(selected.id, isShared)
+                : undefined
+            }
           />
         ) : (
           <div className="flex flex-1 items-center justify-center p-8 text-center">
@@ -375,6 +417,7 @@ function NoteEditor({
   onSubmit,
   onCancel,
   onDelete,
+  onShare,
 }: {
   mode: "create" | "edit";
   chronicleId: string;
@@ -383,6 +426,8 @@ function NoteEditor({
   onSubmit: (input: JournalEntryInput) => Promise<JournalEntry>;
   onCancel?: () => void;
   onDelete?: () => Promise<void>;
+  /** Solo para notas de personaje: activa/desactiva la visibilidad pública. */
+  onShare?: (isShared: boolean) => Promise<JournalEntry>;
 }) {
   const [title, setTitle] = useState(entry?.title ?? "");
   const [body, setBody] = useState(entry?.body ?? "");
@@ -391,6 +436,7 @@ function NoteEditor({
   );
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [sharing, setSharing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [savedHint, setSavedHint] = useState(false);
   const { confirm, dialog } = useConfirm();
@@ -446,6 +492,20 @@ function NoteEditor({
     }
   }
 
+  async function handleShare() {
+    if (!onShare || sharing) return;
+    const newValue = !(entry?.isShared ?? false);
+    setSharing(true);
+    setError(null);
+    try {
+      await onShare(newValue);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo cambiar la visibilidad");
+    } finally {
+      setSharing(false);
+    }
+  }
+
   return (
     <form
       onSubmit={handleSave}
@@ -480,6 +540,19 @@ function NoteEditor({
         </div>
       </div>
 
+      {/* Banner informativo cuando es nota compartida de un jugador */}
+      {!canEdit && entry?.entryKind === "CHARACTER" ? (
+        <div className="flex items-center gap-2 border-b border-sky-500/30 bg-sky-500/10 px-3 py-2 text-xs text-sky-300">
+          <User className="size-3.5 shrink-0" />
+          <span>
+            Nota compartida por{" "}
+            <strong>{entry.author.nickname ?? entry.author.email}</strong>
+            {entry.character ? ` (${entry.character.name})` : ""}
+            {" · "}solo el autor puede editarla.
+          </span>
+        </div>
+      ) : null}
+
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <MarkdownEditor
           value={body}
@@ -507,6 +580,40 @@ function NoteEditor({
           ) : null}
         </div>
         <div className="flex items-center gap-2">
+          {/* Toggle de visibilidad: solo notas de personaje existentes */}
+          {mode === "edit" && onShare ? (
+            <Tooltip
+              title={entry?.isShared ? "Dejar de compartir" : "Compartir con la bitácora"}
+              content={
+                entry?.isShared
+                  ? "Al desactivar, esta nota dejará de aparecer en la bitácora compartida de la crónica. Solo tú podrás verla."
+                  : "Al activar, esta nota será visible para todos los miembros en la bitácora de la crónica."
+              }
+              side="top"
+            >
+              <button
+                type="button"
+                onClick={handleShare}
+                disabled={sharing}
+                className={cn(
+                  "inline-flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-xs font-heading uppercase tracking-wider transition-colors",
+                  entry?.isShared
+                    ? "border-emerald-500/60 bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25"
+                    : "border-border bg-input/30 text-muted-foreground hover:border-sky-500/60 hover:bg-sky-500/10 hover:text-sky-300"
+                )}
+              >
+                {sharing ? (
+                  <Loader2 className="size-3 animate-spin" />
+                ) : entry?.isShared ? (
+                  <Globe2 className="size-3" />
+                ) : (
+                  <Lock className="size-3" />
+                )}
+                {entry?.isShared ? "Compartida" : "Compartir"}
+              </button>
+            </Tooltip>
+          ) : null}
+
           {mode === "edit" && onDelete ? (
             <Button
               type="button"
@@ -536,15 +643,17 @@ function NoteEditor({
               Cancelar
             </Button>
           ) : null}
-          <Button
-            type="submit"
-            size="sm"
-            disabled={!canEdit || saving || (!dirty && mode === "edit")}
-            className="h-8 bg-blood text-blood-foreground hover:bg-blood/90"
-          >
-            {saving ? <Loader2 className="size-3 animate-spin" /> : null}
-            {mode === "create" ? "Crear" : "Guardar"}
-          </Button>
+          {canEdit ? (
+            <Button
+              type="submit"
+              size="sm"
+              disabled={saving || (!dirty && mode === "edit")}
+              className="h-8 bg-blood text-blood-foreground hover:bg-blood/90"
+            >
+              {saving ? <Loader2 className="size-3 animate-spin" /> : null}
+              {mode === "create" ? "Crear" : "Guardar"}
+            </Button>
+          ) : null}
         </div>
       </footer>
       {dialog}

@@ -96,6 +96,22 @@ export async function deleteCharacterEntry(
 }
 
 /**
+ * Activa o desactiva la visibilidad pública de una nota de personaje.
+ * Cuando isShared=true aparece en la bitácora de la crónica para todos.
+ */
+export async function shareCharacterEntry(
+  chronicleId: string,
+  entryId: string,
+  isShared: boolean,
+): Promise<JournalEntry> {
+  const { data } = await apiClient.patch<JournalEntry>(
+    `/chronicles/${chronicleId}/character-journal/${entryId}/share`,
+    { isShared },
+  );
+  return data;
+}
+
+/**
  * Sube una imagen al back para insertarla en una nota de bitácora.
  * Devuelve la URL relativa servida via NPM `/images`.
  */

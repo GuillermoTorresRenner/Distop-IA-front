@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Tooltip } from "~/components/common/tooltip";
 import { Button } from "~/components/ui/button";
 import { resolveImageUrl } from "~/lib/image-url";
@@ -36,6 +36,8 @@ interface RollHistoryProps {
   canClear?: boolean;
   onClear?: () => void;
   clearing?: boolean;
+  /** Si está definido, muestra papelera en cada card (solo narrador). */
+  onDeleteRoll?: (rollId: string) => Promise<void>;
 }
 
 export function RollHistory({
@@ -47,6 +49,7 @@ export function RollHistory({
   canClear = false,
   onClear,
   clearing = false,
+  onDeleteRoll,
 }: RollHistoryProps) {
   const scrollerRef = useRef<HTMLDivElement | null>(null);
 
@@ -133,6 +136,7 @@ export function RollHistory({
               key={roll.id}
               roll={roll}
               highlight={roll.id === latestRollId}
+              onDelete={onDeleteRoll}
             />
           ))
         )}
@@ -143,10 +147,30 @@ export function RollHistory({
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-function RollCard({ roll, highlight }: { roll: DiceRoll; highlight: boolean }) {
+function RollCard({
+  roll,
+  highlight,
+  onDelete,
+}: {
+  roll: DiceRoll;
+  highlight: boolean;
+  onDelete?: (rollId: string) => Promise<void>;
+}) {
   if (roll.sourceKind === "INITIATIVE") {
-    return <InitiativeRollCard roll={roll} highlight={highlight} />;
+    return <InitiativeRollCard roll={roll} highlight={highlight} onDelete={onDelete} />;
   }
+  const [deleting, setDeleting] = useState(false);
+
+  async function handleDelete() {
+    if (!onDelete || deleting) return;
+    setDeleting(true);
+    try {
+      await onDelete(roll.id);
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   const authorName = roll.user?.nickname ?? roll.user?.email ?? "Anónimo";
   const at = new Date(roll.createdAt).toLocaleTimeString();
 
@@ -322,6 +346,23 @@ function RollCard({ roll, highlight }: { roll: DiceRoll; highlight: boolean }) {
               </span>
             </Tooltip>
           ) : null}
+          {onDelete ? (
+            <Tooltip title="Borrar tirada" content="Solo el narrador puede borrar tiradas. El borrado es permanente." side="top">
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={deleting}
+                aria-label="Borrar tirada"
+                className="rounded p-0.5 text-muted-foreground/40 transition-colors hover:text-blood disabled:opacity-40"
+              >
+                {deleting ? (
+                  <Loader2 className="size-3 animate-spin" />
+                ) : (
+                  <Trash2 className="size-3" />
+                )}
+              </button>
+            </Tooltip>
+          ) : null}
         </div>
         <strong className={cn("font-heading uppercase tracking-wider", resultColor)}>
           {roll.isBotch
@@ -341,10 +382,24 @@ function RollCard({ roll, highlight }: { roll: DiceRoll; highlight: boolean }) {
 function InitiativeRollCard({
   roll,
   highlight,
+  onDelete,
 }: {
   roll: DiceRoll;
   highlight: boolean;
+  onDelete?: (rollId: string) => Promise<void>;
 }) {
+  const [deleting, setDeleting] = useState(false);
+
+  async function handleDelete() {
+    if (!onDelete || deleting) return;
+    setDeleting(true);
+    try {
+      await onDelete(roll.id);
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   const authorName = roll.user?.nickname ?? roll.user?.email ?? "Anónimo";
   const at = new Date(roll.createdAt).toLocaleTimeString();
   const meta = (roll.metadata ?? null) as
@@ -442,8 +497,25 @@ function InitiativeRollCard({
         </span>
       </div>
 
-      <footer className="mt-2 text-[10px] italic text-muted-foreground">
-        Inscrito en el orden de turnos con iniciativa {total}.
+      <footer className="mt-2 flex items-center justify-between gap-2 text-[10px] italic text-muted-foreground">
+        <span>Inscrito en el orden de turnos con iniciativa {total}.</span>
+        {onDelete ? (
+          <Tooltip title="Borrar tirada" content="Solo el narrador puede borrar tiradas. El borrado es permanente." side="top">
+            <button
+              type="button"
+              onClick={handleDelete}
+              disabled={deleting}
+              aria-label="Borrar tirada de iniciativa"
+              className="not-italic rounded p-0.5 text-muted-foreground/40 transition-colors hover:text-blood disabled:opacity-40"
+            >
+              {deleting ? (
+                <Loader2 className="size-3 animate-spin" />
+              ) : (
+                <Trash2 className="size-3" />
+              )}
+            </button>
+          </Tooltip>
+        ) : null}
       </footer>
     </article>
   );

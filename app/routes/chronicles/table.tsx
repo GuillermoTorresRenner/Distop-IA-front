@@ -2,12 +2,14 @@ import {
   ArrowLeft,
   Dice5,
   GripVertical,
+  Loader2,
   MessageSquare,
   NotebookPen,
   Palette,
   RefreshCw,
   Send,
   Swords,
+  Trash2,
   User as UserIcon,
   Volume2,
   VolumeX,
@@ -54,6 +56,10 @@ import {
   clearChronicleRolls,
   listChronicleRolls,
 } from "~/lib/api/dice/dice.api";
+import {
+  listChronicleMessages,
+  toFeedMessage,
+} from "~/lib/api/table/table-chat.api";
 import { useConfirm } from "~/hooks/use-confirm";
 import { resolveImageUrl } from "~/lib/image-url";
 import type { SheetAnnounce } from "~/lib/socket/types";
@@ -98,6 +104,9 @@ export default function ChronicleTableRoute() {
     shareBoard,
     pushBoardUpdate,
     setInitialRolls,
+    setInitialFeed,
+    deleteFeedMessage,
+    deleteRoll,
     setCombat,
     dismissLatestRoll,
     reconnect,
@@ -122,6 +131,23 @@ export default function ChronicleTableRoute() {
       mounted = false;
     };
   }, [chronicleId, setInitialRolls]);
+
+  // ── Historial de chat (carga inicial REST) ──────────────
+  useEffect(() => {
+    if (!chronicleId) return;
+    let mounted = true;
+    listChronicleMessages(chronicleId, 100)
+      .then((data) => {
+        if (!mounted) return;
+        setInitialFeed(data.map(toFeedMessage));
+      })
+      .catch(() => {
+        /* El WS llenará el feed con los nuevos mensajes */
+      });
+    return () => {
+      mounted = false;
+    };
+  }, [chronicleId, setInitialFeed]);
 
   // ── Tracker de turnos (carga inicial REST) ───────────────
   // El WS hidrata después con cualquier cambio en tiempo real.
@@ -691,6 +717,11 @@ export default function ChronicleTableRoute() {
                 feed={feed}
                 disabled={status !== "joined"}
                 onSend={sendMessage}
+                onDeleteMessage={
+                  chronicleId && myRole === "NARRATOR"
+                    ? (msgId) => deleteFeedMessage(chronicleId, msgId)
+                    : undefined
+                }
                 members={members}
                 currentUserId={userId}
                 myRole={myRole}
@@ -709,6 +740,11 @@ export default function ChronicleTableRoute() {
                 onClear={handleClearRolls}
                 clearing={clearingRolls}
                 currentUserId={userId}
+                onDeleteRoll={
+                  chronicleId && myRole === "NARRATOR"
+                    ? (rollId) => deleteRoll(chronicleId, rollId)
+                    : undefined
+                }
               />
             ) : (
               <CombatPanel
@@ -1170,6 +1206,7 @@ function ChatPanel({
   feed,
   disabled,
   onSend,
+  onDeleteMessage,
   members,
   currentUserId,
   myRole,
@@ -1184,6 +1221,7 @@ function ChatPanel({
     recipient?: import("~/lib/socket/types").ChatRecipient,
     as?: import("~/lib/socket/types").ChatSpeakerInput,
   ) => Promise<boolean>;
+  onDeleteMessage?: (messageId: string) => Promise<void>;
   members: ReturnType<typeof useTable>["members"];
   currentUserId: string | null;
   myRole: ReturnType<typeof useTable>["myRole"];
@@ -1300,6 +1338,7 @@ function ChatPanel({
                 item={item}
                 currentUserId={currentUserId}
                 members={members}
+                onDelete={onDeleteMessage}
               />
             ) : (
               <SheetAnnouncementRow key={item.id ?? i} item={item} />
@@ -1395,11 +1434,24 @@ function ChatMessageRow({
   item,
   currentUserId,
   members,
+  onDelete,
 }: {
   item: Extract<FeedItem, { _t: "chat" }>;
   currentUserId: string | null;
   members: ReturnType<typeof useTable>["members"];
+  onDelete?: (messageId: string) => Promise<void>;
 }) {
+  const [deleting, setDeleting] = useState(false);
+
+  async function handleDelete() {
+    if (!onDelete || deleting) return;
+    setDeleting(true);
+    try {
+      await onDelete(item.id);
+    } finally {
+      setDeleting(false);
+    }
+  }
   const recipient = item.recipient;
   const isPrivate = recipient && recipient.kind !== "all";
   const isMine = item.userId === currentUserId;
@@ -1439,7 +1491,7 @@ function ChatMessageRow({
   return (
     <div
       className={cn(
-        "flex items-start gap-2 text-sm",
+        "group/msg flex items-start gap-2 text-sm",
         isPrivate &&
           "rounded-md border border-amber-500/30 bg-amber-500/5 px-2 py-1.5"
       )}
@@ -1490,6 +1542,21 @@ function ChatMessageRow({
         </div>
         <p className="whitespace-pre-wrap break-words">{item.text}</p>
       </div>
+      {onDelete ? (
+        <button
+          type="button"
+          onClick={handleDelete}
+          disabled={deleting}
+          aria-label="Borrar mensaje"
+          className="mt-0.5 shrink-0 rounded p-0.5 text-muted-foreground/40 opacity-0 transition-opacity hover:text-blood group-hover/msg:opacity-100 disabled:opacity-40"
+        >
+          {deleting ? (
+            <Loader2 className="size-3 animate-spin" />
+          ) : (
+            <Trash2 className="size-3" />
+          )}
+        </button>
+      ) : null}
     </div>
   );
 }

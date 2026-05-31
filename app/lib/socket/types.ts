@@ -312,7 +312,11 @@ export interface ServerToClientEvents {
   "presence:join": (payload: { member: PresenceMember }) => void;
   "presence:leave": (payload: { userId: string }) => void;
   "chat:message": (msg: ChatMessage) => void;
+  /** El narrador (o el autor) borró un mensaje del chat. */
+  "chat:deleted": (payload: { messageId: string }) => void;
   "roll:result": (roll: DiceRoll) => void;
+  /** El narrador borró una tirada individual. */
+  "roll:deleted": (payload: { rollId: string }) => void;
   "rolls:cleared": (payload: {
     chronicleId: string;
     by: { userId: string };

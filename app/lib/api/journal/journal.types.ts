@@ -21,6 +21,18 @@ export interface JournalEntry {
    * creadas antes de la migración a `characterId`.
    */
   character: JournalEntryCharacterRef | null;
+  /**
+   * Solo presente en entries de personaje (CharacterJournalEntry).
+   * true = visible en la bitácora de la crónica para todos los miembros.
+   * null = es una entry de crónica (no aplica).
+   */
+  isShared?: boolean | null;
+  /**
+   * Discriminador inyectado por el back cuando la entry aparece mezclada
+   * en la bitácora de la crónica. "CHRONICLE" = del narrador, "CHARACTER"
+   * = de un jugador compartida.
+   */
+  entryKind?: "CHRONICLE" | "CHARACTER";
 }
 
 export type JournalEntryKind = "CHRONICLE" | "CHARACTER";
