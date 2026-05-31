@@ -307,4 +307,68 @@
     background: color-mix(in oklch, var(--muted) 40%, transparent);
     font-weight: 600;
   }
+
+  /* ── Slider de volumen con estética sangrienta ── */
+  .blood-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 4px;
+    border-radius: 9999px;
+    background: color-mix(in oklch, var(--blood) 30%, var(--border));
+    outline: none;
+    cursor: pointer;
+  }
+
+  /* Track relleno (Chrome/Safari usan pseudo-elemento de WebKit) */
+  .blood-slider::-webkit-slider-runnable-track {
+    height: 4px;
+    border-radius: 9999px;
+    background: color-mix(in oklch, var(--blood) 30%, var(--border));
+  }
+
+  /* Thumb: gota de sangre usando clip-path */
+  .blood-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 18px;
+    height: 22px;
+    margin-top: -9px;
+    background: var(--blood);
+    border: none;
+    cursor: pointer;
+    /* Forma de gota: círculo abajo, punta arriba */
+    clip-path: polygon(50% 0%, 100% 60%, 85% 100%, 15% 100%, 0% 60%);
+    filter: drop-shadow(0 0 4px color-mix(in oklch, var(--blood) 70%, transparent));
+    transition: filter 0.15s ease, transform 0.15s ease;
+  }
+
+  .blood-slider::-webkit-slider-thumb:hover {
+    filter: drop-shadow(0 0 8px var(--blood));
+    transform: scale(1.15);
+  }
+
+  /* Firefox */
+  .blood-slider::-moz-range-track {
+    height: 4px;
+    border-radius: 9999px;
+    background: color-mix(in oklch, var(--blood) 30%, var(--border));
+  }
+
+  .blood-slider::-moz-range-thumb {
+    width: 18px;
+    height: 22px;
+    background: var(--blood);
+    border: none;
+    cursor: pointer;
+    clip-path: polygon(50% 0%, 100% 60%, 85% 100%, 15% 100%, 0% 60%);
+    filter: drop-shadow(0 0 4px color-mix(in oklch, var(--blood) 70%, transparent));
+  }
+
+  /* Porción izquierda del track (progreso) en Firefox */
+  .blood-slider::-moz-range-progress {
+    height: 4px;
+    border-radius: 9999px;
+    background: var(--blood);
+  }
 }

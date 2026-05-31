@@ -17,6 +17,7 @@ import type {
   ChatSpeakerInput,
   ChronicleMemberRole,
   DiceRoll,
+  MusicState,
   PresenceMember,
   RollInitiativeInput,
   RollPowerInput,
@@ -67,6 +68,8 @@ interface UseTableState {
    * el back. `null` si todavía no se cargó ni hubo broadcast.
    */
   combat: CombatState | null;
+  /** Estado del reproductor de música de la crónica. */
+  musicState: MusicState | null;
 }
 
 const MAX_FEED = 300;
@@ -89,6 +92,7 @@ export function useTable(chronicleId: string | null) {
     remoteBoard: null,
     remoteBoardVersion: 0,
     combat: null,
+    musicState: null,
   });
 
   const socketRef = useRef<TableSocket | null>(null);
@@ -216,6 +220,10 @@ export function useTable(chronicleId: string | null) {
       setState((s) => ({ ...s, combat: state }));
     };
 
+    const onMusicState = (state: MusicState) => {
+      setState((s) => ({ ...s, musicState: state }));
+    };
+
     const onBoardUpdated = (p: BoardUpdatedPayload) => {
       setState((s) => {
         if (!s.boardShared) return s;
@@ -249,6 +257,7 @@ export function useTable(chronicleId: string | null) {
     socket.on("board:shared", onBoardShared);
     socket.on("board:updated", onBoardUpdated);
     socket.on("combat:state", onCombatState);
+    socket.on("music:state", onMusicState);
 
     // Si ya estaba conectado (singleton reusado), disparamos join manualmente.
     if (socket.connected) onConnect();
@@ -268,6 +277,7 @@ export function useTable(chronicleId: string | null) {
       socket.off("board:shared", onBoardShared);
       socket.off("board:updated", onBoardUpdated);
       socket.off("combat:state", onCombatState);
+      socket.off("music:state", onMusicState);
       socket.emit("table:leave", {});
     };
   }, [chronicleId, reconnectNonce]);
@@ -455,6 +465,11 @@ export function useTable(chronicleId: string | null) {
     setState((s) => ({ ...s, combat: state }));
   }, []);
 
+  /** Para hidratar el estado de música desde REST al montar. */
+  const setInitialMusicState = useCallback((state: MusicState | null) => {
+    setState((s) => ({ ...s, musicState: state }));
+  }, []);
+
   const dismissLatestRoll = useCallback(() => {
     setState((s) =>
       s.latestRollId ? { ...s, latestRollId: null } : s
@@ -494,6 +509,7 @@ export function useTable(chronicleId: string | null) {
     deleteFeedMessage,
     deleteRoll,
     setCombat,
+    setInitialMusicState,
     dismissLatestRoll,
     dispose,
     reconnect,

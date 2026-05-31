@@ -4,6 +4,7 @@ import {
   GripVertical,
   Loader2,
   MessageSquare,
+  Music,
   NotebookPen,
   Palette,
   RefreshCw,
@@ -26,6 +27,7 @@ import {
   matchesChatFilters,
   useChatFilters,
 } from "~/components/table/feed-filters";
+import { MusicPlayer } from "~/components/table/music-player";
 import { NotesModal } from "~/components/table/notes-modal";
 import { RollHistory } from "~/components/table/roll-history";
 import { WhiteboardModal } from "~/components/table/whiteboard-modal";
@@ -56,6 +58,7 @@ import {
   clearChronicleRolls,
   listChronicleRolls,
 } from "~/lib/api/dice/dice.api";
+import { getMusicState } from "~/lib/api/music/music.api";
 import {
   listChronicleMessages,
   toFeedMessage,
@@ -108,9 +111,11 @@ export default function ChronicleTableRoute() {
     deleteFeedMessage,
     deleteRoll,
     setCombat,
+    setInitialMusicState,
     dismissLatestRoll,
     reconnect,
     combat,
+    musicState,
   } = useTable(chronicleId ?? null);
 
   // ── Historial REST ──────────────────────────────────────
@@ -165,6 +170,16 @@ export default function ChronicleTableRoute() {
       mounted = false;
     };
   }, [chronicleId, setCombat]);
+
+  // ── Estado inicial del reproductor de música ────────────
+  useEffect(() => {
+    if (!chronicleId) return;
+    let mounted = true;
+    getMusicState(chronicleId)
+      .then((state) => { if (mounted) setInitialMusicState(state); })
+      .catch(() => { /* Si falla, el WS actualizará cuando alguien ponga música */ });
+    return () => { mounted = false; };
+  }, [chronicleId, setInitialMusicState]);
 
   // ── Personajes accesibles ──────────────────────────────
   // - Jugador: solo sus PJs asociados a esta crónica.
@@ -431,6 +446,7 @@ export default function ChronicleTableRoute() {
   const [mobileDiceOpen, setMobileDiceOpen] = useState(false);
   const [whiteboardOpen, setWhiteboardOpen] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
+  const [musicOpen, setMusicOpen] = useState(false);
 
   // ── Silenciar feedback sonoro ───────────────────────────
   const { muted, toggle: toggleMute } = useAudioMute();
@@ -559,6 +575,27 @@ export default function ChronicleTableRoute() {
               )}
             </Button>
           </Tooltip>
+          <Tooltip
+            title="Música"
+            content="Reproduce música de YouTube para toda la mesa."
+            side="bottom"
+          >
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setMusicOpen((v) => !v)}
+              aria-label="Música"
+              aria-pressed={musicOpen}
+              className={cn(
+                musicState?.status === "playing" &&
+                  "border-emerald-500/60 text-emerald-400"
+              )}
+            >
+              <Music className="size-4" />
+              <span className="hidden sm:inline">Música</span>
+            </Button>
+          </Tooltip>
           <Button
             type="button"
             variant="outline"
@@ -620,6 +657,22 @@ export default function ChronicleTableRoute() {
           badge={mobileTab === "chat" ? 0 : unreadChat}
         />
       </nav>
+
+      {/* ─── Panel de música — siempre montado para que el <audio> no se destruya
+          al cerrar el panel. La visibilidad se controla con CSS, no con unmount. ─── */}
+      {chronicleId ? (
+        <div className={cn(
+          "mb-2 rounded-lg border border-border bg-card p-3",
+          musicOpen ? "block" : "hidden"
+        )}>
+          <MusicPlayer
+            chronicleId={chronicleId}
+            musicState={musicState}
+            myRole={myRole}
+            onStateChange={setInitialMusicState}
+          />
+        </div>
+      ) : null}
 
       <div
         ref={splitContainerRef}

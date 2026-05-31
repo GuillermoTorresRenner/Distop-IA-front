@@ -241,6 +241,28 @@ export interface SheetAnnounce {
   at: string;
 }
 
+// ── Música en streaming ────────────────────────────────
+export interface TrackInfo {
+  videoId: string;
+  title: string;
+  url: string;
+  duration: number | null;
+  thumbnail: string | null;
+  requestedBy: string;
+}
+
+export interface MusicState {
+  chronicleId: string;
+  status: "idle" | "playing" | "paused";
+  currentTrack: TrackInfo | null;
+  /** Índice activo en la playlist. -1 = ninguno. */
+  currentIndex: number;
+  /** Lista persistente — nunca se vacía al saltar entre tracks. */
+  playlist: TrackInfo[];
+  startedAt: number | null;
+  pausedAt: number | null;
+}
+
 // ── Eventos cliente → servidor ────────────────────────────────
 export interface ClientToServerEvents {
   "table:join": (
@@ -331,5 +353,7 @@ export interface ServerToClientEvents {
    * solo PCs.
    */
   "combat:state": (state: import("~/lib/api/combat/combat.types").CombatState) => void;
+  /** Estado del reproductor de música de la mesa. */
+  "music:state": (state: MusicState) => void;
   error: (payload: { message: string }) => void;
 }

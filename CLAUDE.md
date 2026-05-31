@@ -297,6 +297,59 @@ Esto garantiza que el body Markdown del catálogo (con saltos de línea entre p�
 
 `app/components/common/user-menu.tsx` — avatar circular con dot verde de presencia, dropdown con `Mi santuario` y `Salir`. Cierra al clickear fuera; usa `useUserStore.clear()` + `logout()` antes de navegar a `/login`.
 
+## Mesa Virtual — Música en Streaming
+
+**Componente `MusicPlayer`** (`app/components/table/music-player.tsx`):
+
+Panel colapsable integrado en la vista de mesa virtual (`/table`). Características:
+
+- **Input URL**: narrador y jugadores pueden pegar URLs de YouTube.
+- **Track actual**: thumbnail del video, título, autor, duración.
+- **Controles del narrador**: play/pause/skip/stop (botones deshabilitados para jugadores).
+- **Cola de reproducción**: lista de tracks pendientes con botón para remover (solo narrador).
+- **Audio oculto**: etiqueta `<audio>` sin UI visible que consume el stream chunked (`GET /api/chronicles/:id/music/stream`).
+- **Control de volumen local**: slider de 0-100 que solo afecta al cliente.
+- **Indicador de estado**: badge con `"Reproduciendo"`, `"En pausa"` o `"Detenido"`.
+
+**Capa API** (`app/lib/api/music/music.api.ts`):
+
+Funciones axios para comunicarse con los endpoints REST:
+
+- `getMusicState(chronicleId)` — obtener estado actual del player.
+- `playMusic(chronicleId, url)` — iniciar reproducción desde URL de YouTube.
+- `pauseMusic(chronicleId)` — pausar.
+- `resumeMusic(chronicleId)` — reanudar.
+- `skipMusic(chronicleId)` — saltar al siguiente track.
+- `stopMusic(chronicleId)` — detener y limpiar cola.
+- `queueMusic(chronicleId, url)` — agregar track a la cola.
+- `removeFromQueue(chronicleId, index)` — remover track de la cola.
+- `getMusicStreamUrl(chronicleId)` — obtiene la URL del stream de audio.
+
+**Tipos WebSocket** (`app/lib/socket/types.ts`):
+
+- `TrackInfo` — `{ title, author, duration, thumbnail }`.
+- `MusicState` — `{ chronicleId, status, currentTrack?, queue, startedAt?, pausedAt? }`.
+- Evento `music:state` agregado a `ServerToClientEvents` para sincronizar estado a toda la sala.
+
+**Hook `useTable`** (actualizado):
+
+Nuevo estado `musicState` y listener para `music:state` vía WebSocket. Función `setInitialMusicState()` carga el estado inicial vía REST al entrar a la mesa.
+
+**Ruta `/table`** (`app/routes/chronicles/table.tsx`):
+
+- Botón "Música" en el header (verde cuando hay reproducción en curso).
+- Panel colapsable con `<MusicPlayer>` debajo del header.
+- Carga estado inicial del player vía `getMusicState()` en loader.
+
+**Sincronización en tiempo real**:
+
+Todo cliente conectado a una crónica recibe el evento `music:state` cuando narrador toca play/pause/skip/stop o agregar/remover de la cola. El estado se sincroniza automáticamente sin latencia apreciable.
+
+**Restricciones de permisos**:
+
+- Narrador: acceso completo (play, pause, resume, skip, stop, queue, remove).
+- Jugadores: solo pueden sugerir tracks vía `queueMusic` (agregar a la cola). No pueden controlar reproducción.
+
 ## Mesa Virtual — Tirada de Iniciativa V20
 
 **Componente `DiceRollerVtM`** (`app/components/table/dice-roller-vtm.tsx`):
@@ -369,6 +422,7 @@ Nuevo método. A diferencia de `addParticipant`, no requiere ser narrador. Solo 
 - ✅ Templates hbs Distop-IA VtM (welcome, password-recovery, chronicle-invite-existing, chronicle-invite-new).
 - ✅ Personajes: CRUD con hoja 5 pestañas, autocálculos V20, guard cambios sin guardar, trasfondos catálogo + custom, méritos/defectos 3-niveles + custom.
 - ✅ Mesa Virtual: tirada de iniciativa V20 (d10 + Dex + Ast + modificador), inscripción tracker combate.
+- ✅ Música en streaming: reproducción de YouTube con ffmpeg→OGG, sincronización WebSocket en tiempo real, control narrador / sugerencias jugadores.
 - ⏳ Toggle dark/light (paleta lista, falta UI).
 - ⏳ Social, Bitácora (stubs visuales con `ComingSoon`).
 - ⏳ Avatar uploader (endpoint `POST /api/users/:id/avatar` ya existe en el backend).
