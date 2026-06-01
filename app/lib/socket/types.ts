@@ -243,17 +243,24 @@ export interface SheetAnnounce {
 
 // ── Música en streaming ────────────────────────────────
 export interface TrackInfo {
-  videoId: string;
+  id: string;
+  filename: string;
+  originalName: string;
   title: string;
-  url: string;
+  mimeType: string;
+  size: number;
   duration: number | null;
-  thumbnail: string | null;
-  requestedBy: string;
+  uploadedBy: string;
+  isFromLibrary?: boolean;
+  ownerUserId?: string;
 }
+
+export type LoopMode = "none" | "one" | "all";
 
 export interface MusicState {
   chronicleId: string;
   status: "idle" | "playing" | "paused";
+  loop: LoopMode;
   currentTrack: TrackInfo | null;
   /** Índice activo en la playlist. -1 = ninguno. */
   currentIndex: number;

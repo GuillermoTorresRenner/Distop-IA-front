@@ -30,6 +30,10 @@ export default defineConfig(({ mode }) => {
           target: backendOrigin,
           changeOrigin: true,
         },
+        "/audio": {
+          target: backendOrigin,
+          changeOrigin: true,
+        },
       },
     },
   };
